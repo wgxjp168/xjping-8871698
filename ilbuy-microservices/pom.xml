@@ -21,6 +21,7 @@
 
     <modules>
         <module>access-layer</module>
+        <module>ai-decision-hub</module>
     </modules>
 
     <properties>
