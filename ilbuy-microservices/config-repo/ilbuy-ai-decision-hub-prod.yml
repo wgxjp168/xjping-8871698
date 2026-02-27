@@ -1,0 +1,17 @@
+# ============================================
+# ai-decision-hub - 生产环境
+# ============================================
+
+ai:
+  recommendation:
+    use-mock-data: false
+  pricing:
+    enable-dynamic: true
+    max-discount-percent: 30
+    max-premium-percent: 10
+  decision:
+    confidence-threshold: 0.7
+
+logging:
+  level:
+    com.ilbuy.ai: INFO

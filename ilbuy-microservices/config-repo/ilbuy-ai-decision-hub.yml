@@ -1,0 +1,26 @@
+# ============================================
+# ai-decision-hub (AI智能决策中心) - 默认配置
+# ============================================
+
+server:
+  port: 8081
+
+spring:
+  application:
+    name: ilbuy-ai-decision-hub
+
+ai:
+  recommendation:
+    default-limit: 10
+    max-limit: 50
+    strategy: hybrid-collaborative-filtering
+  pricing:
+    enable-dynamic: true
+    max-discount-percent: 30
+    max-premium-percent: 15
+  decision:
+    supported-types:
+      - purchase_intent
+      - fraud_detection
+      - user_segment
+    confidence-threshold: 0.6

@@ -1,0 +1,16 @@
+# ============================================
+# ai-decision-hub - 开发环境
+# ============================================
+
+ai:
+  recommendation:
+    use-mock-data: true
+  pricing:
+    enable-dynamic: true
+    max-discount-percent: 50
+  decision:
+    confidence-threshold: 0.5
+
+logging:
+  level:
+    com.ilbuy.ai: DEBUG

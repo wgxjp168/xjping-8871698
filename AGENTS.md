@@ -15,9 +15,15 @@ ilbuy-microservices/
 ├── ai-decision-hub/         # AI智能决策中心 (Spring Boot Web) - port 8081
 │   ├── pom.xml
 │   └── src/
-└── business-logic-layer/    # 核心业务逻辑层 (Spring Boot Web) - port 8082
-    ├── pom.xml
-    └── src/
+├── business-logic-layer/    # 核心业务逻辑层 (Spring Boot Web) - port 8082
+│   ├── pom.xml
+│   └── src/
+└── config-repo/             # Spring Cloud Config 集中配置仓库（非 Java 模块）
+    ├── application.yml                    # 公共配置
+    ├── application-{dev|prod}.yml         # 公共 profile 配置
+    ├── ilbuy-access-layer[-profile].yml   # 网关配置
+    ├── ilbuy-ai-decision-hub[-profile].yml # AI决策中心配置
+    └── ilbuy-business-logic[-profile].yml  # 业务逻辑层配置
 ```
 
 ### Environment
@@ -71,6 +77,13 @@ All commands run from `/workspace/ilbuy-microservices`:
 - `/api/products/**` → `lb://product-service`
 - `/api/orders/**` → `lb://order-service`
 - `/api/ai/**` → `lb://ai-agent-service`
+
+### config-repo
+
+`config-repo/` is a plain config directory (not a Maven module). It holds externalized YAML configs for all services, split by profile (`dev`/`prod`). When a Config Server is set up, point its `native.search-locations` to this directory.
+
+Key dev-profile behavior in `ilbuy-access-layer-dev.yml`:
+- Gateway routes point to `localhost` (business-logic → 8082, ai-decision-hub → 8081)
 
 ### Notes
 

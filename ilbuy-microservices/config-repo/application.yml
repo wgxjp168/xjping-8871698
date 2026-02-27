@@ -1,0 +1,37 @@
+# ============================================
+# ILbuy 微服务平台 - 公共配置
+# 所有微服务共享此配置
+# ============================================
+
+spring:
+  jackson:
+    default-property-inclusion: non_null
+    date-format: yyyy-MM-dd HH:mm:ss
+    time-zone: Asia/Shanghai
+    serialization:
+      write-dates-as-timestamps: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: always
+  info:
+    env:
+      enabled: true
+
+info:
+  app:
+    platform: ILbuy (我来购) AI智能体微服务平台
+    version: 1.0.0-SNAPSHOT
+    java-version: ${java.version}
+
+logging:
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+  level:
+    root: INFO
+    com.ilbuy: DEBUG

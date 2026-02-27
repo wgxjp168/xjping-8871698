@@ -1,0 +1,32 @@
+# ============================================
+# access-layer - 开发环境
+# ============================================
+
+spring:
+  cloud:
+    gateway:
+      routes:
+        - id: user-service
+          uri: http://localhost:8082
+          predicates:
+            - Path=/api/users/**
+        - id: product-service
+          uri: http://localhost:8082
+          predicates:
+            - Path=/api/products/**
+        - id: order-service
+          uri: http://localhost:8082
+          predicates:
+            - Path=/api/orders/**
+        - id: cart-service
+          uri: http://localhost:8082
+          predicates:
+            - Path=/api/cart/**
+        - id: ai-agent-service
+          uri: http://localhost:8081
+          predicates:
+            - Path=/api/ai/**
+
+logging:
+  level:
+    org.springframework.cloud.gateway: DEBUG

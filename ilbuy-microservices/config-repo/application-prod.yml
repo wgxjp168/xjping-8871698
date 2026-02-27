@@ -1,0 +1,21 @@
+# ============================================
+# 公共配置 - 生产环境
+# ============================================
+
+logging:
+  level:
+    root: WARN
+    com.ilbuy: INFO
+  file:
+    name: /var/log/ilbuy/${spring.application.name}.log
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+server:
+  error:
+    include-stacktrace: never
+    include-message: never

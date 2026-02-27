@@ -1,0 +1,45 @@
+# ============================================
+# access-layer - 生产环境
+# ============================================
+
+spring:
+  cloud:
+    gateway:
+      routes:
+        - id: user-service
+          uri: lb://ilbuy-business-logic
+          predicates:
+            - Path=/api/users/**
+        - id: product-service
+          uri: lb://ilbuy-business-logic
+          predicates:
+            - Path=/api/products/**
+        - id: order-service
+          uri: lb://ilbuy-business-logic
+          predicates:
+            - Path=/api/orders/**
+        - id: cart-service
+          uri: lb://ilbuy-business-logic
+          predicates:
+            - Path=/api/cart/**
+        - id: ai-agent-service
+          uri: lb://ilbuy-ai-decision-hub
+          predicates:
+            - Path=/api/ai/**
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowedOrigins:
+              - https://www.ilbuy.com
+              - https://m.ilbuy.com
+            allowedMethods:
+              - GET
+              - POST
+              - PUT
+              - DELETE
+            allowedHeaders: "*"
+            allowCredentials: true
+
+logging:
+  level:
+    org.springframework.cloud.gateway: WARN

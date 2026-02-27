@@ -1,0 +1,20 @@
+# ============================================
+# 公共配置 - 开发环境
+# ============================================
+
+logging:
+  level:
+    root: INFO
+    com.ilbuy: DEBUG
+    org.springframework.web: DEBUG
+
+spring:
+  devtools:
+    restart:
+      enabled: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,env,beans,mappings,gateway

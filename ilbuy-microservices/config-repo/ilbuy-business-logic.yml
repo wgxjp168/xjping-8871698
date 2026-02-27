@@ -1,0 +1,39 @@
+# ============================================
+# business-logic-layer (核心业务逻辑层) - 默认配置
+# ============================================
+
+server:
+  port: 8082
+
+spring:
+  application:
+    name: ilbuy-business-logic
+
+business:
+  user:
+    default-member-level: NORMAL
+    member-levels:
+      - NORMAL
+      - VIP
+      - SVIP
+  product:
+    categories:
+      - electronics
+      - sports
+      - food
+      - clothing
+      - home
+    default-status: ON_SALE
+  order:
+    statuses:
+      - PENDING
+      - PAID
+      - SHIPPED
+      - DELIVERED
+      - COMPLETED
+      - CANCELLED
+    cancellable-statuses:
+      - PENDING
+      - PAID
+  cart:
+    max-items-per-user: 99
