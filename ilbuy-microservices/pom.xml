@@ -22,6 +22,7 @@
     <modules>
         <module>access-layer</module>
         <module>ai-decision-hub</module>
+        <module>business-logic-layer</module>
     </modules>
 
     <properties>

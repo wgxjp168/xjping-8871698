@@ -12,7 +12,10 @@ ilbuy-microservices/
 ├── access-layer/            # API网关接入层 (Spring Cloud Gateway) - port 8080
 │   ├── pom.xml
 │   └── src/
-└── ai-decision-hub/         # AI智能决策中心 (Spring Boot Web) - port 8081
+├── ai-decision-hub/         # AI智能决策中心 (Spring Boot Web) - port 8081
+│   ├── pom.xml
+│   └── src/
+└── business-logic-layer/    # 核心业务逻辑层 (Spring Boot Web) - port 8082
     ├── pom.xml
     └── src/
 ```
@@ -34,6 +37,7 @@ All commands run from `/workspace/ilbuy-microservices`:
 | Package | `mvn package -DskipTests` |
 | Run access-layer | `java -jar access-layer/target/access-layer-1.0.0-SNAPSHOT.jar` |
 | Run ai-decision-hub | `java -jar ai-decision-hub/target/ai-decision-hub-1.0.0-SNAPSHOT.jar` |
+| Run business-logic-layer | `java -jar business-logic-layer/target/business-logic-layer-1.0.0-SNAPSHOT.jar` |
 
 ### access-layer endpoints (port 8080)
 
@@ -49,6 +53,17 @@ All commands run from `/workspace/ilbuy-microservices`:
 - `GET /api/ai/recommendations/{userId}` — 按用户ID获取推荐
 - `POST /api/ai/pricing` — AI智能定价
 - `POST /api/ai/decide` — 通用AI决策 (purchase_intent / fraud_detection / user_segment)
+
+### business-logic-layer endpoints (port 8082)
+
+- `GET /api/status` — service status
+- `GET/POST /api/users` — 用户管理 CRUD
+- `GET/POST /api/products` — 商品管理 CRUD（支持 `?category=` 筛选）
+- `POST /api/orders` — 创建订单（自动扣减库存）
+- `GET /api/orders?userId=` — 查询用户订单
+- `PUT /api/orders/{id}/status` — 更新订单状态
+- `POST /api/orders/{id}/cancel` — 取消订单
+- `GET/POST/DELETE /api/cart/{userId}` — 购物车操作
 
 ### Gateway routes (configured, downstream services not yet deployed)
 
