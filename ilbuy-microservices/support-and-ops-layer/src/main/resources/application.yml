@@ -1,0 +1,34 @@
+server:
+  port: 8084
+
+spring:
+  application:
+    name: ilbuy-support-ops
+
+ilbuy:
+  services:
+    access-layer:
+      url: http://localhost:8080
+      health: /actuator/health
+    ai-decision-hub:
+      url: http://localhost:8081
+      health: /actuator/health
+    business-logic:
+      url: http://localhost:8082
+      health: /actuator/health
+    data-layer:
+      url: http://localhost:8083
+      health: /actuator/health
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
+
+logging:
+  level:
+    com.ilbuy: DEBUG

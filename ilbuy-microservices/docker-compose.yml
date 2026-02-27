@@ -1,0 +1,110 @@
+services:
+  # ============ 数据层 ============
+  data-layer:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.data-layer
+    container_name: ilbuy-data-layer
+    ports:
+      - "8083:8083"
+    environment:
+      - SPRING_PROFILES_ACTIVE=default
+    networks:
+      - ilbuy-network
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8083/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # ============ 业务逻辑层 ============
+  business-logic:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.business-logic
+    container_name: ilbuy-business-logic
+    ports:
+      - "8082:8082"
+    environment:
+      - SPRING_PROFILES_ACTIVE=default
+    networks:
+      - ilbuy-network
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8082/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # ============ AI决策中枢 ============
+  ai-decision-hub:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.ai-decision-hub
+    container_name: ilbuy-ai-decision-hub
+    ports:
+      - "8081:8081"
+    environment:
+      - SPRING_PROFILES_ACTIVE=default
+    networks:
+      - ilbuy-network
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8081/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # ============ 接入层 (API网关) ============
+  access-layer:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.access-layer
+    container_name: ilbuy-access-layer
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_PROFILES_ACTIVE=default
+    depends_on:
+      business-logic:
+        condition: service_healthy
+      ai-decision-hub:
+        condition: service_healthy
+    networks:
+      - ilbuy-network
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # ============ 支撑运维层 ============
+  support-ops:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.support-ops
+    container_name: ilbuy-support-ops
+    ports:
+      - "8084:8084"
+    environment:
+      - SPRING_PROFILES_ACTIVE=default
+    depends_on:
+      access-layer:
+        condition: service_healthy
+      data-layer:
+        condition: service_healthy
+    networks:
+      - ilbuy-network
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8084/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+networks:
+  ilbuy-network:
+    driver: bridge
+    name: ilbuy-network

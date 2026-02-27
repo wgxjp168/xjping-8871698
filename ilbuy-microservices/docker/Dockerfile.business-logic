@@ -1,0 +1,6 @@
+FROM eclipse-temurin:21-jre-alpine
+LABEL maintainer="ILbuy Team"
+WORKDIR /app
+COPY business-logic-layer/target/business-logic-layer-1.0.0-SNAPSHOT.jar app.jar
+EXPOSE 8082
+ENTRYPOINT ["java", "-jar", "app.jar"]

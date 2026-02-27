@@ -1,0 +1,6 @@
+FROM eclipse-temurin:21-jre-alpine
+LABEL maintainer="ILbuy Team"
+WORKDIR /app
+COPY support-and-ops-layer/target/support-and-ops-layer-1.0.0-SNAPSHOT.jar app.jar
+EXPOSE 8084
+ENTRYPOINT ["java", "-jar", "app.jar"]
