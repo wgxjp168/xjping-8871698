@@ -2,24 +2,51 @@
 
 ## Cursor Cloud specific instructions
 
-This repository contains a Maven-based Java project (`hello-app`).
+This repository contains **ILbuy (我来购) AI智能体微服务平台**, a microservices-based e-commerce platform.
+
+### Project structure
+
+```
+ilbuy-microservices/
+├── pom.xml                  # 父 POM (Spring Boot 3.2.5 + Spring Cloud 2023.0.1)
+└── access-layer/            # API网关接入层 (Spring Cloud Gateway)
+    ├── pom.xml
+    └── src/
+```
 
 ### Environment
 
-- **Java**: OpenJDK 21 (pre-installed at `/usr/lib/jvm/java-21-openjdk-amd64`)
-- **Maven**: 3.9.6 (installed at `/opt/apache-maven-3.9.6`, symlinked to `/usr/local/bin/mvn`)
+- **Java**: OpenJDK 21 (pre-installed)
+- **Maven**: 3.9.6 at `/opt/apache-maven-3.9.6`, symlinked to `/usr/local/bin/mvn`
 - `MAVEN_HOME` and `PATH` are configured in `~/.bashrc`
 
 ### Common commands
 
-All commands run from `/workspace/hello-app`:
+All commands run from `/workspace/ilbuy-microservices`:
 
-- **Compile**: `mvn compile`
-- **Test**: `mvn test`
-- **Package**: `mvn package`
-- **Run**: `java -cp target/hello-app-1.0-SNAPSHOT.jar com.example.App`
+| Action | Command |
+|--------|---------|
+| Compile | `mvn compile` |
+| Test | `mvn test` |
+| Package | `mvn package -DskipTests` |
+| Run access-layer | `java -jar access-layer/target/access-layer-1.0.0-SNAPSHOT.jar` |
+
+### access-layer endpoints (port 8080)
+
+- `GET /` — service info
+- `GET /health` — health check
+- `GET /actuator/health` — Spring Actuator health
+- `GET /actuator/gateway/routes` — list configured gateway routes
+
+### Gateway routes (configured, downstream services not yet deployed)
+
+- `/api/users/**` → `lb://user-service`
+- `/api/products/**` → `lb://product-service`
+- `/api/orders/**` → `lb://order-service`
+- `/api/ai/**` → `lb://ai-agent-service`
 
 ### Notes
 
-- The `pom.xml` targets Java 17 compiler release (`maven.compiler.release=17`) but runs on JDK 21, which is forward-compatible.
-- Maven dependencies are cached in `~/.m2/repository`; first build downloads all plugins/deps from Maven Central.
+- The gateway runs on Netty (reactive stack), not Tomcat. It uses `spring-cloud-starter-gateway` (WebFlux-based).
+- Discovery client shows UNKNOWN status because no service registry (Eureka/Nacos) is configured yet — this is expected for standalone dev.
+- CORS is configured to allow all origins in dev mode.
