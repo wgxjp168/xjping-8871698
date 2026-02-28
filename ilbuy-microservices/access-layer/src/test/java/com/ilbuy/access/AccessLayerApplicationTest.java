@@ -26,12 +26,14 @@ class AccessLayerApplicationTest {
     }
 
     @Test
-    void indexEndpointReturnsServiceInfo() {
+    void indexEndpointReturnsHtml() {
         webTestClient.get().uri("/")
                 .exchange()
                 .expectStatus().isOk()
-                .expectBody()
-                .jsonPath("$.service").isEqualTo("ILbuy Access Layer (API Gateway)")
-                .jsonPath("$.status").isEqualTo("running");
+                .expectBody(String.class)
+                .value(body -> {
+                    assert body.contains("我来购 ILbuy");
+                    assert body.contains("AI智能体微服务平台");
+                });
     }
 }

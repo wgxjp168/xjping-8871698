@@ -15,6 +15,13 @@ spring:
             allowedMethods: "*"
             allowedHeaders: "*"
 
+ilbuy:
+  routes:
+    business-logic: ${BUSINESS_LOGIC_URL:http://business-logic:8082}
+    ai-decision-hub: ${AI_DECISION_HUB_URL:http://ai-decision-hub:8081}
+    data-layer: ${DATA_LAYER_URL:http://data-layer:8083}
+    support-ops: ${SUPPORT_OPS_URL:http://support-ops:8084}
+
 management:
   endpoints:
     web:
