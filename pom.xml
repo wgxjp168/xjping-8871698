@@ -9,8 +9,8 @@
     <artifactId>ilbuy-platform</artifactId>
     <version>1.0.0-SNAPSHOT</version>
     <packaging>pom</packaging>
-    <name>ILbuy AI Purchase Decision Platform</name>
-    <description>我来购 AI采购决策平台 - 九层微服务架构</description>
+    <name>ILbuy AI Purchase Decision Platform - Parent</name>
+    <description>我来购 AI采购决策平台 - Maven父工程（统一依赖版本管理）</description>
 
     <modules>
         <!-- 公共组件 -->
@@ -20,14 +20,20 @@
         <module>common/common-redis</module>
         <module>common/common-openfeign</module>
 
-        <!-- 微服务层 -->
+        <!-- L1 接入网关层 -->
         <module>microservices/l1-gateway</module>
+
+        <!-- L5 业务逻辑层 -->
         <module>microservices/l5-business-logic/user-svc</module>
         <module>microservices/l5-business-logic/product-svc</module>
         <module>microservices/l5-business-logic/order-svc</module>
         <module>microservices/l5-business-logic/report-svc</module>
         <module>microservices/l5-business-logic/config-svc</module>
+
+        <!-- L6 报告输出层 -->
         <module>microservices/l6-report-output/report-generator</module>
+
+        <!-- L7 商业变现层 -->
         <module>microservices/l7-monetization/payment-svc</module>
         <module>microservices/l7-monetization/billing-svc</module>
     </modules>
@@ -37,32 +43,64 @@
         <maven.compiler.source>17</maven.compiler.source>
         <maven.compiler.target>17</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
 
-        <!-- Spring -->
-        <spring-boot.version>3.2.0</spring-boot.version>
-        <spring-cloud.version>2023.0.0</spring-cloud.version>
-        <spring-cloud-alibaba.version>2022.0.0.0</spring-cloud-alibaba.version>
+        <!-- ============ Spring 生态 ============ -->
+        <spring-boot.version>3.2.3</spring-boot.version>
+        <spring-cloud.version>2023.0.1</spring-cloud.version>
+        <spring-cloud-alibaba.version>2023.0.1.0</spring-cloud-alibaba.version>
 
-        <!-- DB & Cache -->
-        <mysql.version>8.0.33</mysql.version>
-        <mybatis-plus.version>3.5.5</mybatis-plus.version>
-        <redisson.version>3.25.0</redisson.version>
+        <!-- ============ 数据库 ============ -->
+        <mysql.version>8.3.0</mysql.version>
+        <mybatis-plus.version>3.5.6</mybatis-plus.version>
+        <druid.version>1.2.21</druid.version>
+        <dynamic-datasource.version>4.3.0</dynamic-datasource.version>
+        <p6spy.version>3.9.1</p6spy.version>
 
-        <!-- Utilities -->
-        <hutool.version>5.8.23</hutool.version>
-        <lombok.version>1.18.30</lombok.version>
+        <!-- ============ 缓存 ============ -->
+        <redisson.version>3.27.2</redisson.version>
+
+        <!-- ============ 安全 ============ -->
+        <jjwt.version>0.12.5</jjwt.version>
+        <bouncycastle.version>1.78</bouncycastle.version>
+
+        <!-- ============ 工具库 ============ -->
+        <hutool.version>5.8.26</hutool.version>
+        <lombok.version>1.18.32</lombok.version>
         <mapstruct.version>1.5.5.Final</mapstruct.version>
+        <guava.version>33.1.0-jre</guava.version>
+        <commons-lang3.version>3.14.0</commons-lang3.version>
+        <commons-io.version>2.16.1</commons-io.version>
 
-        <!-- Security -->
-        <jjwt.version>0.12.3</jjwt.version>
+        <!-- ============ 微服务调用 ============ -->
+        <resilience4j.version>2.2.0</resilience4j.version>
 
-        <!-- API Docs -->
-        <springdoc.version>2.3.0</springdoc.version>
+        <!-- ============ API文档 ============ -->
+        <springdoc.version>2.4.0</springdoc.version>
+
+        <!-- ============ 序列化 ============ -->
+        <jackson.version>2.17.0</jackson.version>
+
+        <!-- ============ 测试 ============ -->
+        <mockito.version>5.11.0</mockito.version>
+        <testcontainers.version>1.19.7</testcontainers.version>
+
+        <!-- ============ 监控 ============ -->
+        <micrometer.version>1.12.4</micrometer.version>
+
+        <!-- ============ 内部模块版本 ============ -->
+        <ilbuy.version>1.0.0-SNAPSHOT</ilbuy.version>
+
+        <!-- ============ Maven插件 ============ -->
+        <maven-compiler-plugin.version>3.13.0</maven-compiler-plugin.version>
+        <maven-surefire-plugin.version>3.2.5</maven-surefire-plugin.version>
+        <maven-resources-plugin.version>3.3.1</maven-resources-plugin.version>
+        <jacoco-maven-plugin.version>0.8.11</jacoco-maven-plugin.version>
     </properties>
 
     <dependencyManagement>
         <dependencies>
-            <!-- Spring Boot BOM -->
+            <!-- ============ Spring Boot BOM ============ -->
             <dependency>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-dependencies</artifactId>
@@ -70,7 +108,8 @@
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
-            <!-- Spring Cloud BOM -->
+
+            <!-- ============ Spring Cloud BOM ============ -->
             <dependency>
                 <groupId>org.springframework.cloud</groupId>
                 <artifactId>spring-cloud-dependencies</artifactId>
@@ -78,7 +117,8 @@
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
-            <!-- Spring Cloud Alibaba BOM -->
+
+            <!-- ============ Spring Cloud Alibaba BOM ============ -->
             <dependency>
                 <groupId>com.alibaba.cloud</groupId>
                 <artifactId>spring-cloud-alibaba-dependencies</artifactId>
@@ -87,83 +127,189 @@
                 <scope>import</scope>
             </dependency>
 
-            <!-- MySQL -->
+            <!-- ============ Resilience4j BOM ============ -->
+            <dependency>
+                <groupId>io.github.resilience4j</groupId>
+                <artifactId>resilience4j-bom</artifactId>
+                <version>${resilience4j.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+
+            <!-- ============ Testcontainers BOM ============ -->
+            <dependency>
+                <groupId>org.testcontainers</groupId>
+                <artifactId>testcontainers-bom</artifactId>
+                <version>${testcontainers.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+
+            <!-- ==================== 数据库 ==================== -->
             <dependency>
                 <groupId>com.mysql</groupId>
                 <artifactId>mysql-connector-j</artifactId>
                 <version>${mysql.version}</version>
             </dependency>
-            <!-- MyBatis Plus -->
             <dependency>
                 <groupId>com.baomidou</groupId>
-                <artifactId>mybatis-plus-boot-starter</artifactId>
+                <artifactId>mybatis-plus-spring-boot3-starter</artifactId>
                 <version>${mybatis-plus.version}</version>
             </dependency>
-            <!-- Redisson -->
+            <dependency>
+                <groupId>com.baomidou</groupId>
+                <artifactId>mybatis-plus-annotation</artifactId>
+                <version>${mybatis-plus.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.alibaba</groupId>
+                <artifactId>druid-spring-boot-3-starter</artifactId>
+                <version>${druid.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.baomidou</groupId>
+                <artifactId>dynamic-datasource-spring-boot3-starter</artifactId>
+                <version>${dynamic-datasource.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>p6spy</groupId>
+                <artifactId>p6spy</artifactId>
+                <version>${p6spy.version}</version>
+            </dependency>
+
+            <!-- ==================== 缓存 ==================== -->
             <dependency>
                 <groupId>org.redisson</groupId>
                 <artifactId>redisson-spring-boot-starter</artifactId>
                 <version>${redisson.version}</version>
             </dependency>
-            <!-- Hutool -->
-            <dependency>
-                <groupId>cn.hutool</groupId>
-                <artifactId>hutool-all</artifactId>
-                <version>${hutool.version}</version>
-            </dependency>
-            <!-- Lombok -->
-            <dependency>
-                <groupId>org.projectlombok</groupId>
-                <artifactId>lombok</artifactId>
-                <version>${lombok.version}</version>
-            </dependency>
-            <!-- MapStruct -->
-            <dependency>
-                <groupId>org.mapstruct</groupId>
-                <artifactId>mapstruct</artifactId>
-                <version>${mapstruct.version}</version>
-            </dependency>
-            <!-- JWT -->
+
+            <!-- ==================== 安全 ==================== -->
             <dependency>
                 <groupId>io.jsonwebtoken</groupId>
                 <artifactId>jjwt-api</artifactId>
                 <version>${jjwt.version}</version>
             </dependency>
-            <!-- SpringDoc OpenAPI -->
+            <dependency>
+                <groupId>io.jsonwebtoken</groupId>
+                <artifactId>jjwt-impl</artifactId>
+                <version>${jjwt.version}</version>
+                <scope>runtime</scope>
+            </dependency>
+            <dependency>
+                <groupId>io.jsonwebtoken</groupId>
+                <artifactId>jjwt-jackson</artifactId>
+                <version>${jjwt.version}</version>
+                <scope>runtime</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.bouncycastle</groupId>
+                <artifactId>bcprov-jdk18on</artifactId>
+                <version>${bouncycastle.version}</version>
+            </dependency>
+
+            <!-- ==================== 工具库 ==================== -->
+            <dependency>
+                <groupId>cn.hutool</groupId>
+                <artifactId>hutool-all</artifactId>
+                <version>${hutool.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.projectlombok</groupId>
+                <artifactId>lombok</artifactId>
+                <version>${lombok.version}</version>
+                <scope>provided</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.mapstruct</groupId>
+                <artifactId>mapstruct</artifactId>
+                <version>${mapstruct.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.mapstruct</groupId>
+                <artifactId>mapstruct-processor</artifactId>
+                <version>${mapstruct.version}</version>
+                <scope>provided</scope>
+            </dependency>
+            <dependency>
+                <groupId>com.google.guava</groupId>
+                <artifactId>guava</artifactId>
+                <version>${guava.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.commons</groupId>
+                <artifactId>commons-lang3</artifactId>
+                <version>${commons-lang3.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>commons-io</groupId>
+                <artifactId>commons-io</artifactId>
+                <version>${commons-io.version}</version>
+            </dependency>
+
+            <!-- ==================== API文档 ==================== -->
             <dependency>
                 <groupId>org.springdoc</groupId>
                 <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
                 <version>${springdoc.version}</version>
             </dependency>
 
-            <!-- 内部公共模块 -->
+            <!-- ==================== 监控 ==================== -->
+            <dependency>
+                <groupId>io.micrometer</groupId>
+                <artifactId>micrometer-registry-prometheus</artifactId>
+                <version>${micrometer.version}</version>
+            </dependency>
+
+            <!-- ==================== 内部公共模块 ==================== -->
             <dependency>
                 <groupId>com.ilbuy</groupId>
                 <artifactId>common-core</artifactId>
-                <version>${project.version}</version>
+                <version>${ilbuy.version}</version>
             </dependency>
             <dependency>
                 <groupId>com.ilbuy</groupId>
                 <artifactId>common-security</artifactId>
-                <version>${project.version}</version>
+                <version>${ilbuy.version}</version>
             </dependency>
             <dependency>
                 <groupId>com.ilbuy</groupId>
                 <artifactId>common-mybatis</artifactId>
-                <version>${project.version}</version>
+                <version>${ilbuy.version}</version>
             </dependency>
             <dependency>
                 <groupId>com.ilbuy</groupId>
                 <artifactId>common-redis</artifactId>
-                <version>${project.version}</version>
+                <version>${ilbuy.version}</version>
             </dependency>
             <dependency>
                 <groupId>com.ilbuy</groupId>
                 <artifactId>common-openfeign</artifactId>
-                <version>${project.version}</version>
+                <version>${ilbuy.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
+
+    <!-- 所有子模块共同依赖 -->
+    <dependencies>
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <!-- 测试框架 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-core</artifactId>
+            <version>${mockito.version}</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
 
     <build>
         <pluginManagement>
@@ -172,14 +318,31 @@
                     <groupId>org.springframework.boot</groupId>
                     <artifactId>spring-boot-maven-plugin</artifactId>
                     <version>${spring-boot.version}</version>
+                    <configuration>
+                        <excludes>
+                            <exclude>
+                                <groupId>org.projectlombok</groupId>
+                                <artifactId>lombok</artifactId>
+                            </exclude>
+                        </excludes>
+                    </configuration>
+                    <executions>
+                        <execution>
+                            <goals>
+                                <goal>repackage</goal>
+                            </goals>
+                        </execution>
+                    </executions>
                 </plugin>
+
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-compiler-plugin</artifactId>
-                    <version>3.11.0</version>
+                    <version>${maven-compiler-plugin.version}</version>
                     <configuration>
                         <source>${java.version}</source>
                         <target>${java.version}</target>
+                        <encoding>UTF-8</encoding>
                         <annotationProcessorPaths>
                             <path>
                                 <groupId>org.projectlombok</groupId>
@@ -194,7 +357,73 @@
                         </annotationProcessorPaths>
                     </configuration>
                 </plugin>
+
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-surefire-plugin</artifactId>
+                    <version>${maven-surefire-plugin.version}</version>
+                    <configuration>
+                        <argLine>-Dfile.encoding=UTF-8</argLine>
+                    </configuration>
+                </plugin>
+
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-resources-plugin</artifactId>
+                    <version>${maven-resources-plugin.version}</version>
+                    <configuration>
+                        <encoding>UTF-8</encoding>
+                    </configuration>
+                </plugin>
+
+                <!-- 测试覆盖率 -->
+                <plugin>
+                    <groupId>org.jacoco</groupId>
+                    <artifactId>jacoco-maven-plugin</artifactId>
+                    <version>${jacoco-maven-plugin.version}</version>
+                    <executions>
+                        <execution>
+                            <goals>
+                                <goal>prepare-agent</goal>
+                            </goals>
+                        </execution>
+                        <execution>
+                            <id>report</id>
+                            <phase>test</phase>
+                            <goals>
+                                <goal>report</goal>
+                            </goals>
+                        </execution>
+                    </executions>
+                </plugin>
             </plugins>
         </pluginManagement>
+
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+            </plugin>
+        </plugins>
     </build>
+
+    <repositories>
+        <repository>
+            <id>aliyun-central</id>
+            <url>https://maven.aliyun.com/repository/central</url>
+            <releases><enabled>true</enabled></releases>
+            <snapshots><enabled>false</enabled></snapshots>
+        </repository>
+        <repository>
+            <id>aliyun-spring</id>
+            <url>https://maven.aliyun.com/repository/spring</url>
+        </repository>
+    </repositories>
+
+    <pluginRepositories>
+        <pluginRepository>
+            <id>aliyun-plugin</id>
+            <url>https://maven.aliyun.com/repository/central</url>
+        </pluginRepository>
+    </pluginRepositories>
 </project>
