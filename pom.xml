@@ -13,29 +13,24 @@
     <description>我来购 AI采购决策平台 - Maven父工程（统一依赖版本管理）</description>
 
     <modules>
-        <!-- 公共组件 -->
+        <!-- ============ 公共组件（阶段1已完成）============ -->
         <module>common/common-core</module>
         <module>common/common-security</module>
         <module>common/common-mybatis</module>
         <module>common/common-redis</module>
         <module>common/common-openfeign</module>
 
-        <!-- L1 接入网关层 -->
-        <module>microservices/l1-gateway</module>
+        <!--
+            微服务模块在各阶段开发完成后逐步添加：
+            阶段2: L1 接入网关层 / L5 用户服务（已有pom.xml骨架）
+            阶段3: L2 AI决策中枢
+            阶段4: L3 数据采集层
+            阶段5: L5 其余业务服务
+            阶段6: L6 报告输出层 / L7 商业变现层
+        -->
 
-        <!-- L5 业务逻辑层 -->
+        <!-- L5 业务逻辑层 - 用户服务（已有pom.xml）-->
         <module>microservices/l5-business-logic/user-svc</module>
-        <module>microservices/l5-business-logic/product-svc</module>
-        <module>microservices/l5-business-logic/order-svc</module>
-        <module>microservices/l5-business-logic/report-svc</module>
-        <module>microservices/l5-business-logic/config-svc</module>
-
-        <!-- L6 报告输出层 -->
-        <module>microservices/l6-report-output/report-generator</module>
-
-        <!-- L7 商业变现层 -->
-        <module>microservices/l7-monetization/payment-svc</module>
-        <module>microservices/l7-monetization/billing-svc</module>
     </modules>
 
     <properties>
