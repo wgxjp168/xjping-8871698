@@ -1,0 +1,330 @@
+version: '3.9'
+
+# =============================================
+# 我来购(ILbuy) AI采购决策平台 - 本地开发环境
+# =============================================
+
+networks:
+  ilbuy-net:
+    driver: bridge
+
+volumes:
+  mysql_data:
+  redis_data:
+  es_data:
+  minio_data:
+  nacos_data:
+
+services:
+
+  # ============ 基础中间件 ============
+
+  mysql:
+    image: mysql:8.0
+    container_name: ilbuy-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: ilbuy@2024
+      MYSQL_DATABASE: ilbuy_main
+      MYSQL_CHARACTER_SET_SERVER: utf8mb4
+      MYSQL_COLLATION_SERVER: utf8mb4_unicode_ci
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./infra/docker-compose/mysql/init:/docker-entrypoint-initdb.d
+    networks:
+      - ilbuy-net
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-pilbuy@2024"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7.2-alpine
+    container_name: ilbuy-redis
+    command: redis-server --requirepass ilbuy@2024 --appendonly yes
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - ilbuy-net
+
+  elasticsearch:
+    image: elasticsearch:8.11.0
+    container_name: ilbuy-es
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    volumes:
+      - es_data:/usr/share/elasticsearch/data
+    networks:
+      - ilbuy-net
+
+  kibana:
+    image: kibana:8.11.0
+    container_name: ilbuy-kibana
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    ports:
+      - "5601:5601"
+    depends_on:
+      - elasticsearch
+    networks:
+      - ilbuy-net
+
+  rabbitmq:
+    image: rabbitmq:3.12-management-alpine
+    container_name: ilbuy-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: ilbuy
+      RABBITMQ_DEFAULT_PASS: ilbuy@2024
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    networks:
+      - ilbuy-net
+
+  minio:
+    image: minio/minio:latest
+    container_name: ilbuy-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ilbuy
+      MINIO_ROOT_PASSWORD: ilbuy@2024
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    networks:
+      - ilbuy-net
+
+  nacos:
+    image: nacos/nacos-server:v2.3.0
+    container_name: ilbuy-nacos
+    environment:
+      - MODE=standalone
+      - SPRING_DATASOURCE_PLATFORM=mysql
+      - MYSQL_SERVICE_HOST=mysql
+      - MYSQL_SERVICE_DB_NAME=nacos_config
+      - MYSQL_SERVICE_USER=root
+      - MYSQL_SERVICE_PASSWORD=ilbuy@2024
+    ports:
+      - "8848:8848"
+      - "9848:9848"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - ilbuy-net
+    volumes:
+      - nacos_data:/home/nacos/data
+
+  # ============ 监控组件 ============
+
+  prometheus:
+    image: prom/prometheus:v2.45.0
+    container_name: ilbuy-prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=30d'
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./microservices/l9-ops-support/prometheus:/etc/prometheus
+    networks:
+      - ilbuy-net
+
+  grafana:
+    image: grafana/grafana:10.2.0
+    container_name: ilbuy-grafana
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=ilbuy@2024
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+    networks:
+      - ilbuy-net
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.51
+    container_name: ilbuy-jaeger
+    ports:
+      - "16686:16686"
+      - "14268:14268"
+      - "6831:6831/udp"
+    networks:
+      - ilbuy-net
+
+  # ============ 核心微服务 ============
+
+  # L1 - API网关
+  l1-gateway:
+    build:
+      context: ./microservices/l1-gateway
+      dockerfile: Dockerfile
+    container_name: ilbuy-gateway
+    ports:
+      - "80:80"
+      - "8001:8001"
+    environment:
+      - SPRING_PROFILES_ACTIVE=dev
+      - NACOS_SERVER_ADDR=nacos:8848
+    depends_on:
+      - nacos
+      - redis
+    networks:
+      - ilbuy-net
+
+  # L2 - 意图识别服务
+  l2-intent-svc:
+    build:
+      context: ./microservices/l2-ai-decision/intent-svc
+      dockerfile: Dockerfile
+    container_name: ilbuy-intent-svc
+    ports:
+      - "8010:8010"
+    environment:
+      - APP_ENV=dev
+      - REDIS_HOST=redis
+      - NACOS_SERVER=nacos:8848
+    depends_on:
+      - redis
+      - nacos
+    networks:
+      - ilbuy-net
+
+  # L2 - 大模型调用服务
+  l2-llm-svc:
+    build:
+      context: ./microservices/l2-ai-decision/llm-svc
+      dockerfile: Dockerfile
+    container_name: ilbuy-llm-svc
+    ports:
+      - "8011:8011"
+    environment:
+      - APP_ENV=dev
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+    networks:
+      - ilbuy-net
+
+  # L2 - 决策引擎服务
+  l2-decision-svc:
+    build:
+      context: ./microservices/l2-ai-decision/decision-svc
+      dockerfile: Dockerfile
+    container_name: ilbuy-decision-svc
+    ports:
+      - "8012:8012"
+    environment:
+      - APP_ENV=dev
+      - MYSQL_HOST=mysql
+      - REDIS_HOST=redis
+    depends_on:
+      - mysql
+      - redis
+    networks:
+      - ilbuy-net
+
+  # L2 - 对话管理服务
+  l2-dialog-svc:
+    build:
+      context: ./microservices/l2-ai-decision/dialog-svc
+      dockerfile: Dockerfile
+    container_name: ilbuy-dialog-svc
+    ports:
+      - "8013:8013"
+    environment:
+      - NODE_ENV=development
+      - REDIS_HOST=redis
+    depends_on:
+      - redis
+    networks:
+      - ilbuy-net
+
+  # L3 - 数据采集服务
+  l3-crawler-svc:
+    build:
+      context: ./microservices/l3-data-process/crawler-svc
+      dockerfile: Dockerfile
+    container_name: ilbuy-crawler-svc
+    ports:
+      - "8030:8030"
+    environment:
+      - APP_ENV=dev
+      - RABBITMQ_HOST=rabbitmq
+    depends_on:
+      - rabbitmq
+    networks:
+      - ilbuy-net
+
+  # L5 - 用户服务
+  l5-user-svc:
+    build:
+      context: ./microservices/l5-business-logic/user-svc
+      dockerfile: Dockerfile
+    container_name: ilbuy-user-svc
+    ports:
+      - "8020:8020"
+    environment:
+      - SPRING_PROFILES_ACTIVE=dev
+      - MYSQL_HOST=mysql
+      - REDIS_HOST=redis
+    depends_on:
+      - mysql
+      - redis
+    networks:
+      - ilbuy-net
+
+  # L5 - 商品服务
+  l5-product-svc:
+    build:
+      context: ./microservices/l5-business-logic/product-svc
+      dockerfile: Dockerfile
+    container_name: ilbuy-product-svc
+    ports:
+      - "8021:8021"
+    environment:
+      - SPRING_PROFILES_ACTIVE=dev
+      - MYSQL_HOST=mysql
+      - ES_HOST=elasticsearch
+    networks:
+      - ilbuy-net
+
+  # L5 - 报告服务
+  l5-report-svc:
+    build:
+      context: ./microservices/l5-business-logic/report-svc
+      dockerfile: Dockerfile
+    container_name: ilbuy-report-svc
+    ports:
+      - "8024:8024"
+    environment:
+      - SPRING_PROFILES_ACTIVE=dev
+      - MYSQL_HOST=mysql
+      - MINIO_HOST=minio
+    networks:
+      - ilbuy-net
+
+  # L7 - 支付服务
+  l7-payment-svc:
+    build:
+      context: ./microservices/l7-monetization/payment-svc
+      dockerfile: Dockerfile
+    container_name: ilbuy-payment-svc
+    ports:
+      - "8050:8050"
+    environment:
+      - SPRING_PROFILES_ACTIVE=dev
+      - MYSQL_HOST=mysql
+    networks:
+      - ilbuy-net

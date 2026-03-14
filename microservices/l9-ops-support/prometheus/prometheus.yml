@@ -1,0 +1,87 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'ilbuy-prod'
+    env: 'production'
+
+rule_files:
+  - "rules/*.yml"
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ['alertmanager:9093']
+
+scrape_configs:
+  # Prometheus自身监控
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # L1 网关
+  - job_name: 'ilbuy-gateway'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['l1-gateway:8001']
+
+  # L2 AI决策层
+  - job_name: 'ilbuy-intent-svc'
+    static_configs:
+      - targets: ['l2-intent-svc:8010']
+
+  - job_name: 'ilbuy-llm-svc'
+    static_configs:
+      - targets: ['l2-llm-svc:8011']
+
+  - job_name: 'ilbuy-decision-svc'
+    static_configs:
+      - targets: ['l2-decision-svc:8012']
+
+  - job_name: 'ilbuy-dialog-svc'
+    static_configs:
+      - targets: ['l2-dialog-svc:8013']
+
+  # L3 数据采集
+  - job_name: 'ilbuy-crawler-svc'
+    static_configs:
+      - targets: ['l3-crawler-svc:8030']
+
+  # L5 业务逻辑层
+  - job_name: 'ilbuy-user-svc'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['l5-user-svc:8020']
+
+  - job_name: 'ilbuy-product-svc'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['l5-product-svc:8021']
+
+  - job_name: 'ilbuy-report-svc'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['l5-report-svc:8024']
+
+  # L7 变现层
+  - job_name: 'ilbuy-payment-svc'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['l7-payment-svc:8050']
+
+  # 中间件监控
+  - job_name: 'mysql-exporter'
+    static_configs:
+      - targets: ['mysql-exporter:9104']
+
+  - job_name: 'redis-exporter'
+    static_configs:
+      - targets: ['redis-exporter:9121']
+
+  - job_name: 'elasticsearch-exporter'
+    static_configs:
+      - targets: ['es-exporter:9114']
+
+  - job_name: 'rabbitmq-exporter'
+    static_configs:
+      - targets: ['rabbitmq:15692']
