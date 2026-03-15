@@ -116,13 +116,32 @@ public class RabbitMQConfig {
         return tmpl;
     }
 
-    // ── Listener container with retry ──────────────────────────────────
+    // ── Listener container factory (explicit, overrides Spring Boot auto-config) ──
+    /**
+     * 明确配置 rabbitListenerContainerFactory：
+     * - 使用 Jackson2JsonMessageConverter 反序列化 ProductIngestDTO
+     * - 重试 3 次（2s → 4s → 8s），耗尽后由 RejectAndDontRequeueRecoverer
+     *   拒绝消息并触发 x-dead-letter-exchange → DLQ
+     */
     @Bean
-    RetryOperationsInterceptor retryInterceptor() {
-        return RetryInterceptorBuilder.stateless()
+    SimpleRabbitListenerContainerFactory rabbitListenerContainerFactory(
+            ConnectionFactory connectionFactory,
+            Jackson2JsonMessageConverter jsonConverter) {
+
+        RetryOperationsInterceptor interceptor = RetryInterceptorBuilder.stateless()
             .maxAttempts(3)
             .backOffOptions(2000, 2.0, 10000)
             .recoverer(new RejectAndDontRequeueRecoverer())
             .build();
+
+        SimpleRabbitListenerContainerFactory factory = new SimpleRabbitListenerContainerFactory();
+        factory.setConnectionFactory(connectionFactory);
+        factory.setMessageConverter(jsonConverter);
+        factory.setAcknowledgeMode(AcknowledgeMode.AUTO);
+        factory.setPrefetchCount(10);
+        factory.setConcurrentConsumers(2);
+        factory.setMaxConcurrentConsumers(8);
+        factory.setAdviceChain(interceptor);
+        return factory;
     }
 }
