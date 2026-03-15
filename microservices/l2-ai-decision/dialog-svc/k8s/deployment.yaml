@@ -34,8 +34,8 @@ spec:
         fsGroup: 1001
       containers:
         - name: dialog-svc
-          image: ilbuy/dialog-svc:latest
-          imagePullPolicy: Always
+          image: ilbuy/dialog-svc:1.0.0
+          imagePullPolicy: IfNotPresent
           ports:
             - name: http
               containerPort: 8013

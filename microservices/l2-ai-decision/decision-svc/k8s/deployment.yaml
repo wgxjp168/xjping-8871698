@@ -31,7 +31,7 @@ spec:
         fsGroup: 1000
       containers:
         - name: decision-svc
-          image: ilbuy/decision-svc:latest
+          image: ilbuy/decision-svc:1.0.0
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8012
@@ -44,9 +44,9 @@ spec:
             - name: LOG_LEVEL
               value: "INFO"
             - name: INTENT_SVC_URL
-              value: "http://intent-svc.ilbuy-l2.svc.cluster.local:8011"
+              value: "http://intent-svc.ilbuy-l2.svc.cluster.local:8010"
             - name: LLM_SVC_URL
-              value: "http://llm-svc.ilbuy-l2.svc.cluster.local:8013"
+              value: "http://llm-svc.ilbuy-l2.svc.cluster.local:8011"
             - name: L3_DATA_SVC_URL
               value: "http://l3-data-svc.ilbuy-l3.svc.cluster.local:8031"
             - name: L3_PRODUCT_SVC_URL

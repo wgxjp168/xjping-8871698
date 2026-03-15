@@ -27,8 +27,8 @@ spec:
       terminationGracePeriodSeconds: 30
       containers:
         - name: llm-svc
-          image: ilbuy/llm-svc:latest
-          imagePullPolicy: Always
+          image: ilbuy/llm-svc:1.0.0
+          imagePullPolicy: IfNotPresent
           ports:
             - name: http
               containerPort: 8011

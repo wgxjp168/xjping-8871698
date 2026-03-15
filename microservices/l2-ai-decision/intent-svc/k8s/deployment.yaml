@@ -127,5 +127,5 @@ metadata:
   labels:
     app: intent-svc
 data:
-  llm_svc_url: "http://llm-svc:8020"
+  llm_svc_url: "http://llm-svc:8011"
   hf_model_name: "hfl/chinese-roberta-wwm-ext"

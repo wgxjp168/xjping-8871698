@@ -27,11 +27,14 @@ COPY --from=builder /install /usr/local
 COPY app/ ./app/
 
 # Environment defaults (overridden via k8s ConfigMap / Secrets)
-ENV ENV=production \
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PYTHONPATH=/app \
+    ENV=production \
     PORT=8012 \
     LOG_LEVEL=INFO \
-    INTENT_SVC_URL=http://intent-svc:8011 \
-    LLM_SVC_URL=http://llm-svc:8013 \
+    INTENT_SVC_URL=http://intent-svc:8010 \
+    LLM_SVC_URL=http://llm-svc:8011 \
     L3_DATA_SVC_URL=http://l3-data-svc:8031 \
     L3_PRODUCT_SVC_URL=http://l3-product-svc:8032
 

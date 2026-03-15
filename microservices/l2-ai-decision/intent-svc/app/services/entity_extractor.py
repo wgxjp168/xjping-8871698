@@ -71,7 +71,7 @@ SPECS_PATTERNS: dict[str, re.Pattern] = {
         r"(\d+)\s*[Gg][Bb]?\s*(?:存储|硬盘|闪存|SSD|ROM|rom)?", re.IGNORECASE
     ),
     "ram_storage_combo": re.compile(
-        r"(\d+)\s*[Gg]\s*\+\s*(\d+)\s*[Gg]", re.IGNORECASE
+        r"(\d+)\s*[Gg]?\s*\+\s*(\d+)\s*[Gg]", re.IGNORECASE
     ),
     "screen_size": re.compile(
         r"(\d+(?:\.\d+)?)\s*(?:英寸|寸|inch)", re.IGNORECASE
