@@ -315,6 +315,76 @@ services:
     networks:
       - ilbuy-net
 
+  # ============ L2 - AI决策中枢 ============
+
+  # L2 - 意图识别服务
+  l2-intent-svc:
+    build:
+      context: ./microservices/l2-ai-decision/intent-svc
+      dockerfile: Dockerfile
+    container_name: ilbuy-intent-svc
+    ports:
+      - "8010:8010"
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PASSWORD=ilbuy@2024
+      - NACOS_SERVER=nacos:8848
+    depends_on:
+      - redis
+    networks:
+      - ilbuy-net
+    healthcheck:
+      test: ["CMD", "python", "-c", "import httpx; httpx.get('http://localhost:8010/health').raise_for_status()"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+  # L2 - 大模型统一调用服务
+  l2-llm-svc:
+    build:
+      context: ./microservices/l2-ai-decision/llm-svc
+      dockerfile: Dockerfile
+    container_name: ilbuy-llm-svc
+    ports:
+      - "8011:8011"
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - ERNIE_API_KEY=${ERNIE_API_KEY:-}
+      - DEFAULT_PROVIDER=${DEFAULT_PROVIDER:-openai}
+    networks:
+      - ilbuy-net
+    healthcheck:
+      test: ["CMD", "python", "-c", "import httpx; httpx.get('http://localhost:8011/health').raise_for_status()"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+  # L2 - 决策编排服务（核心）
+  l2-decision-svc:
+    build:
+      context: ./microservices/l2-ai-decision/decision-svc
+      dockerfile: Dockerfile
+    container_name: ilbuy-decision-svc
+    ports:
+      - "8012:8012"
+    environment:
+      - INTENT_SVC_URL=http://ilbuy-intent-svc:8010
+      - LLM_SVC_URL=http://ilbuy-llm-svc:8011
+      - REDIS_HOST=redis
+      - REDIS_PASSWORD=ilbuy@2024
+    depends_on:
+      - l2-intent-svc
+      - l2-llm-svc
+      - redis
+    networks:
+      - ilbuy-net
+    healthcheck:
+      test: ["CMD", "python", "-c", "import httpx; httpx.get('http://localhost:8012/health').raise_for_status()"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
   # L7 - 支付服务
   l7-payment-svc:
     build:

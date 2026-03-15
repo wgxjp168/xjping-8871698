@@ -21,12 +21,20 @@
         <module>common/common-openfeign</module>
 
         <!--
-            微服务模块在各阶段开发完成后逐步添加：
-            阶段2: L1 接入网关层 / L5 用户服务（已有pom.xml骨架）
-            阶段3: L2 AI决策中枢
-            阶段4: L3 数据采集层
-            阶段5: L5 其余业务服务
-            阶段6: L6 报告输出层 / L7 商业变现层
+            微服务模块开发进度：
+            ✅ 阶段1: 公共组件（common-core/security/mybatis/redis/openfeign）
+            ✅ 阶段2-0: L0 多模态用户输入层
+            ✅ 阶段2-1: L1 接入网关层（api-gateway/auth-svc/websocket-svc）
+            ✅ 阶段3: L2 AI决策中枢（Python微服务，独立于Maven体系）
+                - intent-svc  (port 8010): NLP意图识别、B2B/B2C分类、参数提取
+                - llm-svc     (port 8011): 大模型统一调用（OpenAI/Claude/文心一言）
+                - decision-svc(port 8012): 决策编排（意图→采集→评分→报告）
+            📋 阶段4: L3 数据采集层（待实现）
+            📋 阶段5: L5 其余业务服务（待实现）
+            📋 阶段6: L6 报告输出层 / L7 商业变现层（待实现）
+
+            注意：L2 使用 Python/FastAPI 实现，不纳入 Maven 模块管理，
+                  通过 Docker Compose 与 Java 服务协同部署。
         -->
 
         <!-- L1 接入网关层（阶段2）- 子模块由 l1-gateway/pom.xml 统一管理 -->
