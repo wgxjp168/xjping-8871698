@@ -1,0 +1,43 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: crawler-svc
+  namespace: ilbuy-l3
+  labels:
+    app: crawler-svc
+    tier: l3-data
+spec:
+  type: ClusterIP
+  selector:
+    app: crawler-svc
+  ports:
+    - name: http
+      port: 8030
+      targetPort: http
+      protocol: TCP
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: crawler-svc-hpa
+  namespace: ilbuy-l3
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: crawler-svc
+  minReplicas: 2
+  maxReplicas: 8
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80

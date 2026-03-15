@@ -1,0 +1,128 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: etl-svc
+  namespace: ilbuy-l3
+  labels:
+    app: etl-svc
+    tier: l3-data
+    component: etl
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: etl-svc
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: etl-svc
+        tier: l3-data
+        component: etl
+    spec:
+      serviceAccountName: etl-svc
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
+        fsGroup: 1001
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: etl-svc
+          image: ilbuy/etl-svc:1.0.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8031
+              protocol: TCP
+          env:
+            - name: ENV
+              value: "production"
+            - name: PORT
+              value: "8031"
+            - name: LOG_LEVEL
+              value: "INFO"
+            - name: L4_DATA_SVC_URL
+              value: "http://l4-data-svc.ilbuy-l4.svc.cluster.local:8040"
+            - name: L4_INGEST_ENABLED
+              valueFrom:
+                configMapKeyRef:
+                  name: etl-svc-config
+                  key: l4_ingest_enabled
+            - name: REDIS_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: etl-svc-config
+                  key: redis_url
+            - name: MAX_BATCH_SIZE
+              valueFrom:
+                configMapKeyRef:
+                  name: etl-svc-config
+                  key: max_batch_size
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels:
+              app: etl-svc
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: etl-svc
+  namespace: ilbuy-l3
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: etl-svc-config
+  namespace: ilbuy-l3
+data:
+  redis_url:         "redis://redis.ilbuy-infra.svc.cluster.local:6379/3"
+  l4_ingest_enabled: "false"
+  max_batch_size:    "1000"
+  weight_price:      "0.25"
+  weight_popularity: "0.25"
+  weight_rating:     "0.25"
+  weight_availability: "0.15"
+  weight_value:      "0.10"

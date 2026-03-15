@@ -1,0 +1,175 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: crawler-svc
+  namespace: ilbuy-l3
+  labels:
+    app: crawler-svc
+    tier: l3-data
+    component: crawler
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: crawler-svc
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: crawler-svc
+        tier: l3-data
+        component: crawler
+    spec:
+      serviceAccountName: crawler-svc
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
+        fsGroup: 1001
+      terminationGracePeriodSeconds: 60
+      containers:
+        - name: crawler-svc
+          image: ilbuy/crawler-svc:1.0.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8030
+              protocol: TCP
+          env:
+            - name: ENV
+              value: "production"
+            - name: PORT
+              value: "8030"
+            - name: LOG_LEVEL
+              value: "INFO"
+            - name: ETL_SVC_URL
+              value: "http://etl-svc.ilbuy-l3.svc.cluster.local:8031"
+            - name: DECISION_SVC_URL
+              value: "http://decision-svc.ilbuy-l2.svc.cluster.local:8012"
+            - name: REDIS_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: crawler-svc-config
+                  key: redis_url
+            - name: PROXY_ENABLED
+              valueFrom:
+                configMapKeyRef:
+                  name: crawler-svc-config
+                  key: proxy_enabled
+            - name: TAOBAO_APP_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: platform-api-secrets
+                  key: taobao_app_key
+            - name: TAOBAO_APP_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: platform-api-secrets
+                  key: taobao_app_secret
+            - name: JD_APP_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: platform-api-secrets
+                  key: jd_app_key
+            - name: JD_APP_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: platform-api-secrets
+                  key: jd_app_secret
+            - name: PDD_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: platform-api-secrets
+                  key: pdd_client_id
+            - name: PDD_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: platform-api-secrets
+                  key: pdd_client_secret
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "256Mi"
+            limits:
+              cpu: "1000m"
+              memory: "512Mi"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels:
+              app: crawler-svc
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: crawler-svc
+  namespace: ilbuy-l3
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: crawler-svc-config
+  namespace: ilbuy-l3
+data:
+  redis_url:     "redis://redis.ilbuy-infra.svc.cluster.local:6379/2"
+  proxy_enabled: "false"
+  taobao_rpm:    "30"
+  jd_rpm:        "60"
+  pdd_rpm:       "40"
+---
+# Secret template — populate via CI/CD or external-secrets operator
+apiVersion: v1
+kind: Secret
+metadata:
+  name: platform-api-secrets
+  namespace: ilbuy-l3
+  annotations:
+    note: "Populate via CI/CD pipeline — do NOT commit real keys"
+type: Opaque
+stringData:
+  taobao_app_key:    ""
+  taobao_app_secret: ""
+  jd_app_key:        ""
+  jd_app_secret:     ""
+  ali1688_app_key:   ""
+  ali1688_app_secret: ""
+  pdd_client_id:     ""
+  pdd_client_secret: ""
+  vipshop_app_key:   ""
+  suning_app_key:    ""
+  douyin_app_key:    ""
+  douyin_app_secret: ""
