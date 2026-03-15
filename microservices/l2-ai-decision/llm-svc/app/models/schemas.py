@@ -58,12 +58,18 @@ class LLMChatRequest(BaseModel):
     )
     stream: bool = Field(
         default=False,
-        description="Whether to stream the response (reserved for future use)",
+        description="Whether to stream the response",
+    )
+    enable_thinking: bool = Field(
+        default=False,
+        description="Enable adaptive thinking (Anthropic claude-opus-4-6 / sonnet-4-6 only)",
     )
     context_type: Literal[
         "product_analysis",
         "decision_support",
         "report_generation",
+        "scoring_insight",
+        "intent_disambiguation",
         "general",
     ] = Field(
         default="general",
@@ -73,6 +79,10 @@ class LLMChatRequest(BaseModel):
 
 class LLMChatResponse(BaseModel):
     content: str = Field(description="Generated text content")
+    thinking: Optional[str] = Field(
+        default=None,
+        description="Thinking/reasoning trace from adaptive thinking (Anthropic only)",
+    )
     provider: str = Field(description="Provider that served the request")
     model: str = Field(description="Model identifier used")
     usage: Dict[str, Any] = Field(
@@ -173,3 +183,107 @@ class ReportGenerationResponse(BaseModel):
     provider: str = Field(description="Provider used")
     model: str = Field(description="Model used")
     latency_ms: float = Field(description="Generation latency in milliseconds")
+
+
+# ---------------------------------------------------------------------------
+# Scoring insight  (NEW)
+# LLM evaluates qualitative dimension signals that rule-based models miss.
+# ---------------------------------------------------------------------------
+
+
+class DimensionInsight(BaseModel):
+    dimension: str = Field(description="Scoring dimension name")
+    signal: Literal["positive", "negative", "neutral"] = Field(
+        description="Overall signal direction for this dimension"
+    )
+    adjustment: float = Field(
+        ge=-20.0,
+        le=20.0,
+        description="Suggested score adjustment (-20 to +20 points)",
+    )
+    rationale: str = Field(description="Chinese-language rationale for the adjustment")
+    confidence: float = Field(
+        ge=0.0,
+        le=1.0,
+        description="LLM confidence in this assessment",
+    )
+
+
+class ScoringInsightRequest(BaseModel):
+    scoring_context: Literal["B2B", "B2C_KNOWN", "B2C_UNKNOWN"] = Field(
+        description="Scoring model context"
+    )
+    intent: str = Field(description="User purchase intent")
+    entities: Dict[str, Any] = Field(description="Extracted entities")
+    dimension_scores: Dict[str, float] = Field(
+        description="Current rule-based dimension scores (0-100)"
+    )
+    enriched_context: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Enriched product/market context from L3 services",
+    )
+    provider: Optional[LLMProvider] = Field(default=None)
+
+
+class ScoringInsightResponse(BaseModel):
+    dimension_insights: List[DimensionInsight] = Field(
+        description="Per-dimension LLM assessment and adjustment suggestions"
+    )
+    risk_signals: List[str] = Field(
+        description="Key risk factors identified by LLM (Chinese)"
+    )
+    opportunity_signals: List[str] = Field(
+        description="Key opportunity factors identified by LLM (Chinese)"
+    )
+    overall_assessment: str = Field(
+        description="LLM overall purchase assessment narrative (Chinese)"
+    )
+    adjusted_total: float = Field(
+        ge=0.0,
+        le=100.0,
+        description="Suggested total score after applying LLM adjustments",
+    )
+    provider: str = Field(description="Provider used")
+    model: str = Field(description="Model used")
+    latency_ms: float = Field(description="Generation latency in milliseconds")
+
+
+# ---------------------------------------------------------------------------
+# Intent disambiguation  (NEW)
+# LLM resolves low-confidence intent classification ambiguity.
+# ---------------------------------------------------------------------------
+
+
+class IntentCandidate(BaseModel):
+    intent: str = Field(description="Intent enum value")
+    confidence: float = Field(ge=0.0, le=1.0, description="Rule-based confidence score")
+
+
+class IntentDisambiguationRequest(BaseModel):
+    text: str = Field(description="Original user utterance")
+    candidates: List[IntentCandidate] = Field(
+        description="Top-N rule-based intent candidates with confidence scores"
+    )
+    context: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Conversation context (previous intent, entities, session history)",
+    )
+    provider: Optional[LLMProvider] = Field(default=None)
+
+
+class IntentDisambiguationResponse(BaseModel):
+    intent: str = Field(description="Disambiguated intent enum value")
+    confidence: float = Field(
+        ge=0.0,
+        le=1.0,
+        description="LLM-calibrated confidence after disambiguation",
+    )
+    rationale: str = Field(
+        description="Chinese-language explanation of the disambiguation decision"
+    )
+    sub_intents: List[IntentCandidate] = Field(
+        default_factory=list,
+        description="Secondary intent signals from LLM analysis",
+    )
+    provider: str = Field(description="Provider used")
+    latency_ms: float = Field(description="Latency in milliseconds")

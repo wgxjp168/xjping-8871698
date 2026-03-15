@@ -6,16 +6,23 @@ Provider precedence:
   2. Default from settings.llm_provider
   3. Automatic fallback order: openai → anthropic → wenxin
 
-Retry logic is handled via tenacity with exponential back-off.
+Key features:
+  - Adaptive thinking for claude-opus-4-6 / claude-sonnet-4-6 (replaces
+    deprecated budget_tokens / extended-thinking).
+  - Thinking traces returned in LLMChatResponse.thinking.
+  - analyze_structured() enforces JSON Schema via output_config (Anthropic)
+    or prompt-augmented parsing (other providers).
+  - stream_chat() yields text tokens via AsyncIterator.
+  - Wenxin OAuth2 token with 30-day expiry + 60 s pre-expiry refresh.
 """
 
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
+import re
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any, AsyncIterator, Dict, List, Optional, Tuple
 
 import httpx
 from tenacity import (
@@ -30,9 +37,16 @@ from app.models.schemas import ChatMessage, LLMChatRequest, LLMChatResponse, LLM
 
 logger = logging.getLogger(__name__)
 
+# Models that support adaptive thinking (must NOT use budget_tokens).
+_ADAPTIVE_THINKING_MODELS = frozenset({
+    "claude-opus-4-6",
+    "claude-sonnet-4-6",
+})
+
 # ---------------------------------------------------------------------------
 # Retry decorator factory
 # ---------------------------------------------------------------------------
+
 
 def _build_retry():
     return retry(
@@ -64,7 +78,6 @@ class UnifiedLLMClient:
         if settings.openai_available:
             try:
                 from openai import AsyncOpenAI  # type: ignore
-
                 self._openai_client = AsyncOpenAI(
                     api_key=settings.openai_api_key,
                     timeout=settings.request_timeout,
@@ -76,7 +89,6 @@ class UnifiedLLMClient:
         if settings.anthropic_available:
             try:
                 import anthropic  # type: ignore
-
                 self._anthropic_client = anthropic.AsyncAnthropic(
                     api_key=settings.anthropic_api_key,
                     timeout=settings.request_timeout,
@@ -94,10 +106,7 @@ class UnifiedLLMClient:
     # ------------------------------------------------------------------
 
     async def chat(self, request: LLMChatRequest) -> LLMChatResponse:
-        """
-        Route the request to the appropriate provider with automatic
-        fallback if the primary provider fails.
-        """
+        """Route request to the appropriate provider with automatic fallback."""
         primary = (
             request.provider.value if request.provider else settings.llm_provider
         )
@@ -119,34 +128,118 @@ class UnifiedLLMClient:
             f"All LLM providers failed. Last error: {last_error}"
         ) from last_error
 
+    async def analyze_structured(
+        self,
+        request: LLMChatRequest,
+        json_schema: Dict[str, Any],
+    ) -> Tuple[Any, LLMChatResponse]:
+        """
+        Call the LLM and enforce a JSON Schema on the response.
+
+        - Anthropic (claude-opus-4-6/sonnet-4-6): uses output_config with
+          json_schema format for guaranteed valid JSON.
+        - Other providers: prompt-based JSON enforcement + post-call parsing.
+
+        Returns:
+            (parsed_object, raw_llm_response)
+        """
+        provider = (
+            request.provider.value if request.provider else settings.llm_provider
+        )
+        start = time.monotonic()
+
+        if provider == LLMProvider.anthropic.value and self._anthropic_client:
+            content, thinking, model, usage = await self._call_anthropic_structured(
+                messages=request.messages,
+                max_tokens=request.max_tokens,
+                temperature=request.temperature,
+                json_schema=json_schema,
+                enable_thinking=request.enable_thinking,
+            )
+        else:
+            # Fallback: augment last user message with schema hint
+            augmented_messages = list(request.messages)
+            schema_hint = (
+                "\n\n请严格按照以下JSON Schema格式输出，不要包含任何额外文字：\n"
+                + json.dumps(json_schema, ensure_ascii=False, indent=2)
+            )
+            if augmented_messages and augmented_messages[-1].role == "user":
+                last = augmented_messages[-1]
+                augmented_messages[-1] = ChatMessage(
+                    role="user", content=last.content + schema_hint
+                )
+            augmented_req = request.model_copy(update={"messages": augmented_messages})
+            resp = await self.chat(augmented_req)
+            content, thinking, model, usage = (
+                resp.content, resp.thinking, resp.model, resp.usage
+            )
+
+        latency_ms = round((time.monotonic() - start) * 1000, 2)
+        resp = LLMChatResponse(
+            content=content,
+            thinking=thinking,
+            provider=provider,
+            model=model,
+            usage=usage,
+            latency_ms=latency_ms,
+        )
+
+        # Parse JSON from response
+        raw = content.strip()
+        try:
+            parsed = json.loads(raw)
+        except json.JSONDecodeError:
+            match = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", raw, re.DOTALL)
+            if match:
+                parsed = json.loads(match.group(1))
+            else:
+                raise ValueError(f"LLM response is not valid JSON: {raw[:200]}")
+
+        return parsed, resp
+
+    async def stream_chat(self, request: LLMChatRequest) -> AsyncIterator[str]:
+        """
+        Stream text tokens. Anthropic yields real deltas; other providers
+        yield the full content as a single chunk.
+        """
+        provider = (
+            request.provider.value if request.provider else settings.llm_provider
+        )
+        if provider == LLMProvider.anthropic.value and self._anthropic_client:
+            async for token in self._stream_anthropic(request):
+                yield token
+        else:
+            resp = await self.chat(request)
+            yield resp.content
+
     # ------------------------------------------------------------------
     # Internal dispatch
     # ------------------------------------------------------------------
 
-    async def _dispatch(
-        self, provider: str, request: LLMChatRequest
-    ) -> LLMChatResponse:
+    async def _dispatch(self, provider: str, request: LLMChatRequest) -> LLMChatResponse:
         start = time.monotonic()
-        messages = request.messages
-        max_tokens = request.max_tokens
-        temperature = request.temperature
+        thinking: Optional[str] = None
 
         if provider == LLMProvider.openai.value:
             content, model, usage = await self._call_openai(
-                messages, max_tokens, temperature
+                request.messages, request.max_tokens, request.temperature
             )
         elif provider == LLMProvider.anthropic.value:
-            content, model, usage = await self._call_anthropic(
-                messages, max_tokens, temperature
+            content, thinking, model, usage = await self._call_anthropic(
+                request.messages, request.max_tokens, request.temperature,
+                request.enable_thinking,
             )
         elif provider == LLMProvider.wenxin.value:
-            content, model, usage = await self._call_wenxin(messages, max_tokens)
+            content, model, usage = await self._call_wenxin(
+                request.messages, request.max_tokens
+            )
         else:
             raise ValueError(f"Unknown provider: {provider!r}")
 
         latency_ms = (time.monotonic() - start) * 1000
         return LLMChatResponse(
             content=content,
+            thinking=thinking,
             provider=provider,
             model=model,
             usage=usage,
@@ -162,7 +255,7 @@ class UnifiedLLMClient:
         messages: List[ChatMessage],
         max_tokens: int,
         temperature: float,
-    ) -> tuple[str, str, Dict[str, Any]]:
+    ) -> Tuple[str, str, Dict[str, Any]]:
         if not self._openai_client:
             raise RuntimeError("OpenAI client is not initialised")
 
@@ -187,7 +280,7 @@ class UnifiedLLMClient:
         return await _inner()
 
     # ------------------------------------------------------------------
-    # Anthropic
+    # Anthropic — standard (non-streaming)
     # ------------------------------------------------------------------
 
     async def _call_anthropic(
@@ -195,22 +288,13 @@ class UnifiedLLMClient:
         messages: List[ChatMessage],
         max_tokens: int,
         temperature: float,
-    ) -> tuple[str, str, Dict[str, Any]]:
+        enable_thinking: bool = False,
+    ) -> Tuple[str, Optional[str], str, Dict[str, Any]]:
         if not self._anthropic_client:
             raise RuntimeError("Anthropic client is not initialised")
 
-        # Separate system prompt from the conversation turns
-        system_prompt = ""
-        conversation: List[Dict[str, str]] = []
-        for msg in messages:
-            if msg.role == "system":
-                system_prompt = msg.content
-            else:
-                conversation.append({"role": msg.role, "content": msg.content})
-
-        # Determine if this is a complex request that benefits from extended
-        # thinking (budget_tokens enables adaptive thinking in Claude models).
-        use_thinking = max_tokens >= 1024
+        system_prompt, conversation = self._split_system(messages)
+        use_adaptive = enable_thinking and self._supports_adaptive_thinking()
 
         @_build_retry()
         async def _inner():
@@ -221,40 +305,118 @@ class UnifiedLLMClient:
             )
             if system_prompt:
                 kwargs["system"] = system_prompt
-            if not (0.0 <= temperature <= 1.0):
-                # Anthropic accepts 0-1; clamp silently
-                kwargs["temperature"] = max(0.0, min(1.0, temperature))
-            else:
-                kwargs["temperature"] = temperature
 
-            if use_thinking:
-                # Enable extended thinking for complex analysis tasks.
-                # budget_tokens must be < max_tokens.
-                thinking_budget = min(max_tokens - 1, 8000)
-                kwargs["thinking"] = {
-                    "type": "enabled",
-                    "budget_tokens": thinking_budget,
-                }
-                # temperature must be 1 when thinking is enabled
-                kwargs["temperature"] = 1
+            if use_adaptive:
+                # Adaptive thinking for claude-opus-4-6 / claude-sonnet-4-6.
+                # temperature MUST NOT be set when adaptive thinking is enabled.
+                kwargs["thinking"] = {"type": "adaptive"}
+            else:
+                kwargs["temperature"] = max(0.0, min(1.0, temperature))
 
             response = await self._anthropic_client.messages.create(**kwargs)
 
-            # Collect text blocks (skip thinking blocks)
-            text_parts = [
-                block.text
-                for block in response.content
-                if hasattr(block, "text")
-            ]
-            content = "\n".join(text_parts)
+            text_parts: List[str] = []
+            thinking_parts: List[str] = []
+            for block in response.content:
+                if hasattr(block, "text"):
+                    text_parts.append(block.text)
+                elif hasattr(block, "thinking"):
+                    thinking_parts.append(block.thinking)
 
+            content = "\n".join(text_parts)
+            thinking = "\n".join(thinking_parts) if thinking_parts else None
             usage = {
                 "input_tokens": response.usage.input_tokens,
                 "output_tokens": response.usage.output_tokens,
             }
-            return content, response.model, usage
+            return content, thinking, response.model, usage
 
         return await _inner()
+
+    # ------------------------------------------------------------------
+    # Anthropic — structured JSON output (output_config json_schema)
+    # ------------------------------------------------------------------
+
+    async def _call_anthropic_structured(
+        self,
+        messages: List[ChatMessage],
+        max_tokens: int,
+        temperature: float,
+        json_schema: Dict[str, Any],
+        enable_thinking: bool = False,
+    ) -> Tuple[str, Optional[str], str, Dict[str, Any]]:
+        if not self._anthropic_client:
+            raise RuntimeError("Anthropic client is not initialised")
+
+        system_prompt, conversation = self._split_system(messages)
+        use_adaptive = enable_thinking and self._supports_adaptive_thinking()
+
+        @_build_retry()
+        async def _inner():
+            kwargs: Dict[str, Any] = dict(
+                model=settings.anthropic_model,
+                max_tokens=max_tokens,
+                messages=conversation,
+                output_config={
+                    "format": {
+                        "type": "json_schema",
+                        "schema": json_schema,
+                    }
+                },
+            )
+            if system_prompt:
+                kwargs["system"] = system_prompt
+            if use_adaptive:
+                kwargs["thinking"] = {"type": "adaptive"}
+            else:
+                kwargs["temperature"] = max(0.0, min(1.0, temperature))
+
+            response = await self._anthropic_client.messages.create(**kwargs)
+
+            text_parts: List[str] = []
+            thinking_parts: List[str] = []
+            for block in response.content:
+                if hasattr(block, "text"):
+                    text_parts.append(block.text)
+                elif hasattr(block, "thinking"):
+                    thinking_parts.append(block.thinking)
+
+            content = "\n".join(text_parts)
+            thinking = "\n".join(thinking_parts) if thinking_parts else None
+            usage = {
+                "input_tokens": response.usage.input_tokens,
+                "output_tokens": response.usage.output_tokens,
+            }
+            return content, thinking, response.model, usage
+
+        return await _inner()
+
+    # ------------------------------------------------------------------
+    # Anthropic — streaming
+    # ------------------------------------------------------------------
+
+    async def _stream_anthropic(self, request: LLMChatRequest) -> AsyncIterator[str]:
+        if not self._anthropic_client:
+            raise RuntimeError("Anthropic client is not initialised")
+
+        system_prompt, conversation = self._split_system(request.messages)
+        use_adaptive = request.enable_thinking and self._supports_adaptive_thinking()
+
+        kwargs: Dict[str, Any] = dict(
+            model=settings.anthropic_model,
+            max_tokens=request.max_tokens,
+            messages=conversation,
+        )
+        if system_prompt:
+            kwargs["system"] = system_prompt
+        if use_adaptive:
+            kwargs["thinking"] = {"type": "adaptive"}
+        else:
+            kwargs["temperature"] = max(0.0, min(1.0, request.temperature))
+
+        async with self._anthropic_client.messages.stream(**kwargs) as stream:
+            async for text in stream.text_stream:
+                yield text
 
     # ------------------------------------------------------------------
     # Wenxin (Baidu ERNIE-Bot)
@@ -264,13 +426,12 @@ class UnifiedLLMClient:
         self,
         messages: List[ChatMessage],
         max_tokens: int,
-    ) -> tuple[str, str, Dict[str, Any]]:
+    ) -> Tuple[str, str, Dict[str, Any]]:
         if not settings.wenxin_available:
             raise RuntimeError("Wenxin credentials are not configured")
 
         access_token = await self.get_wenxin_access_token()
 
-        # Wenxin does not support system role – prepend as first user message
         conversation: List[Dict[str, str]] = []
         system_text = ""
         for msg in messages:
@@ -280,24 +441,17 @@ class UnifiedLLMClient:
                 conversation.append({"role": msg.role, "content": msg.content})
 
         if system_text and conversation:
-            # Inject system context into the first user message
             conversation[0]["content"] = (
                 f"[系统说明] {system_text}\n\n{conversation[0]['content']}"
             )
 
-        # Wenxin requires alternating user/assistant turns starting with user
         if not conversation or conversation[0]["role"] != "user":
-            conversation.insert(
-                0, {"role": "user", "content": "请开始对话"}
-            )
+            conversation.insert(0, {"role": "user", "content": "请开始对话"})
 
         @_build_retry()
         async def _inner():
             url = f"{settings.wenxin_model_url}?access_token={access_token}"
-            payload = {
-                "messages": conversation,
-                "max_output_tokens": max_tokens,
-            }
+            payload = {"messages": conversation, "max_output_tokens": max_tokens}
             async with httpx.AsyncClient(timeout=settings.request_timeout) as client:
                 resp = await client.post(url, json=payload)
                 resp.raise_for_status()
@@ -315,8 +469,7 @@ class UnifiedLLMClient:
                 "completion_tokens": usage_raw.get("completion_tokens", 0),
                 "total_tokens": usage_raw.get("total_tokens", 0),
             }
-            model_name = "ernie-bot-pro"
-            return content, model_name, usage
+            return content, "ernie-bot-pro", usage
 
         return await _inner()
 
@@ -325,10 +478,7 @@ class UnifiedLLMClient:
     # ------------------------------------------------------------------
 
     async def get_wenxin_access_token(self) -> str:
-        """
-        Fetch (or return cached) a Baidu OAuth2 access token.
-        Tokens are valid for 30 days; we refresh 60 s before expiry.
-        """
+        """Return a cached Baidu OAuth2 access token, refreshing if near expiry."""
         global _wenxin_token, _wenxin_token_expires_at
 
         now = time.monotonic()
@@ -351,7 +501,6 @@ class UnifiedLLMClient:
             )
 
         _wenxin_token = data["access_token"]
-        # expires_in is in seconds; store as absolute monotonic time
         _wenxin_token_expires_at = now + int(data.get("expires_in", 2592000))
         logger.info("Wenxin access token refreshed (expires_in=%s s)", data.get("expires_in"))
         return _wenxin_token  # type: ignore[return-value]
@@ -360,18 +509,27 @@ class UnifiedLLMClient:
     # Helpers
     # ------------------------------------------------------------------
 
+    def _supports_adaptive_thinking(self) -> bool:
+        """True when the configured Anthropic model supports adaptive thinking."""
+        return settings.anthropic_model in _ADAPTIVE_THINKING_MODELS
+
+    @staticmethod
+    def _split_system(
+        messages: List[ChatMessage],
+    ) -> Tuple[str, List[Dict[str, str]]]:
+        """Separate system prompt from conversation turns for Anthropic API."""
+        system_prompt = ""
+        conversation: List[Dict[str, str]] = []
+        for msg in messages:
+            if msg.role == "system":
+                system_prompt = msg.content
+            else:
+                conversation.append({"role": msg.role, "content": msg.content})
+        return system_prompt, conversation
+
     def _build_fallback_order(self, primary: str) -> List[str]:
-        """
-        Return provider names in the order to try, starting with *primary*
-        and continuing with any other configured provider.
-        """
         all_providers = [p.value for p in LLMProvider]
-        available = [
-            p
-            for p in all_providers
-            if self._provider_is_available(p)
-        ]
-        # Put primary first
+        available = [p for p in all_providers if self._provider_is_available(p)]
         if primary in available:
             available.remove(primary)
             return [primary] + available
@@ -387,26 +545,30 @@ class UnifiedLLMClient:
         return False
 
     def get_provider_statuses(self) -> Dict[str, Dict[str, Any]]:
-        """Return availability and model info for each provider."""
         return {
             LLMProvider.openai.value: {
                 "available": self._openai_client is not None,
                 "model": settings.openai_model,
                 "api_key_configured": settings.openai_available,
+                "supports_thinking": False,
             },
             LLMProvider.anthropic.value: {
                 "available": self._anthropic_client is not None,
                 "model": settings.anthropic_model,
                 "api_key_configured": settings.anthropic_available,
+                "supports_thinking": (
+                    self._anthropic_client is not None
+                    and self._supports_adaptive_thinking()
+                ),
             },
             LLMProvider.wenxin.value: {
                 "available": settings.wenxin_available,
                 "model": "ernie-bot-pro",
                 "api_key_configured": settings.wenxin_available,
+                "supports_thinking": False,
             },
         }
 
 
-# Module-level singleton – instantiated once at import time so that
-# API clients are reused across all requests.
+# Module-level singleton – instantiated once at import time.
 llm_client = UnifiedLLMClient()

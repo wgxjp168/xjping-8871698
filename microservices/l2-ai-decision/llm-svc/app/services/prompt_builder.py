@@ -54,6 +54,27 @@ _SPEC_EXTRACTION_SYSTEM = (
     "如信息不全，相应字段填null。"
 )
 
+_SCORING_INSIGHT_SYSTEM = (
+    _BASE_SYSTEM
+    + "\n\n你是采购决策评分专家，需对各评分维度进行定性分析，识别规则引擎无法捕获的"
+    "市场信号、品牌信誉和情境风险。"
+    "\n\n请以JSON格式输出评分洞察，结构如下：\n"
+    '{"dimension_insights": [{"dimension": "维度名", "signal": "positive|negative|neutral", '
+    '"adjustment": -5.0, "rationale": "原因...", "confidence": 0.85}], '
+    '"risk_signals": ["风险1", "风险2"], "opportunity_signals": ["机会1"], '
+    '"overall_assessment": "综合评估...", "adjusted_total": 72.5}'
+)
+
+_INTENT_DISAMBIGUATION_SYSTEM = (
+    _BASE_SYSTEM
+    + "\n\n你是用户意图理解专家，专注于电商采购场景的意图识别。"
+    "当规则引擎对用户意图置信度较低时，你需要结合上下文对意图进行精准判断。"
+    "\n\n请以JSON格式输出消歧结果：\n"
+    '{"intent": "意图枚举值", "confidence": 0.92, '
+    '"rationale": "判断理由...", '
+    '"sub_intents": [{"intent": "次要意图", "confidence": 0.3}]}'
+)
+
 
 # ---------------------------------------------------------------------------
 # PromptBuilder
@@ -73,10 +94,6 @@ class PromptBuilder:
         requirements: Dict[str, Any],
         budget: Optional[Dict[str, Any]] = None,
     ) -> List[ChatMessage]:
-        """
-        Build a prompt asking the LLM to analyse a product against buyer
-        requirements and return a structured JSON response.
-        """
         budget_section = ""
         if budget:
             budget_section = f"\n\n**预算范围**：\n{json.dumps(budget, ensure_ascii=False, indent=2)}"
@@ -106,11 +123,6 @@ class PromptBuilder:
         brand_status: str,
         context: Dict[str, Any],
     ) -> List[ChatMessage]:
-        """
-        Build a prompt for generating a decision-support context, follow-up
-        questions, and a preliminary recommendation based on the user's
-        parsed intent and session context.
-        """
         user_content = (
             "请为以下采购决策场景提供智能决策支持。\n\n"
             f"**用户意图**：{intent}\n\n"
@@ -135,10 +147,6 @@ class PromptBuilder:
         decision_data: Dict[str, Any],
         scoring_result: Dict[str, Any],
     ) -> List[ChatMessage]:
-        """
-        Build a prompt for generating a comprehensive procurement decision
-        report combining decision data and scoring results.
-        """
         user_content = (
             "请根据以下采购决策数据和评分结果，生成一份完整的采购决策报告。\n\n"
             f"**决策数据**：\n{json.dumps(decision_data, ensure_ascii=False, indent=2)}\n\n"
@@ -164,10 +172,6 @@ class PromptBuilder:
 
     @staticmethod
     def build_spec_extraction_prompt(text: str) -> List[ChatMessage]:
-        """
-        Build a prompt for extracting structured product specifications
-        from unstructured text (listings, PDFs, emails…).
-        """
         user_content = (
             "请从以下文本中提取结构化的产品规格信息。\n\n"
             f"**原始文本**：\n{text}\n\n"
@@ -187,5 +191,99 @@ class PromptBuilder:
 
         return [
             ChatMessage(role="system", content=_SPEC_EXTRACTION_SYSTEM),
+            ChatMessage(role="user", content=user_content),
+        ]
+
+    # ------------------------------------------------------------------
+    # Scoring insight  (NEW)
+    # Asks the LLM to evaluate dimension signals missed by rule-based models.
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def build_scoring_insight_prompt(
+        scoring_context: str,
+        intent: str,
+        entities: Dict[str, Any],
+        dimension_scores: Dict[str, float],
+        enriched_context: Dict[str, Any],
+    ) -> List[ChatMessage]:
+        """
+        Build a prompt for LLM to assess qualitative purchase signals and
+        suggest per-dimension score adjustments.
+
+        Parameters
+        ----------
+        scoring_context:   'B2B' | 'B2C_KNOWN' | 'B2C_UNKNOWN'
+        intent:            User purchase intent string.
+        entities:          Extracted entities (brand, category, budget, specs…).
+        dimension_scores:  Current rule-based dimension scores (0-100).
+        enriched_context:  Product / market data from L3 services.
+        """
+        user_content = (
+            "请对以下采购场景的各评分维度进行定性分析，识别规则引擎可能遗漏的市场信号。\n\n"
+            f"**评分场景**：{scoring_context}\n\n"
+            f"**用户意图**：{intent}\n\n"
+            f"**识别实体**：\n{json.dumps(entities, ensure_ascii=False, indent=2)}\n\n"
+            f"**当前规则评分**（0-100分）：\n"
+            f"{json.dumps(dimension_scores, ensure_ascii=False, indent=2)}\n\n"
+            f"**产品与市场数据**：\n{json.dumps(enriched_context, ensure_ascii=False, indent=2)}\n\n"
+            "基于上述信息，请：\n"
+            "1. 对每个评分维度给出定性洞察（正向/负向/中性），以及建议调整分值（-20~+20）\n"
+            "2. 列出主要风险信号（3条以内）\n"
+            "3. 列出主要机会信号（3条以内）\n"
+            "4. 给出综合评估（100字以内）\n"
+            "5. 基于调整建议，给出调整后的综合分（0-100）\n\n"
+            "以JSON格式输出，adjustment字段为浮点数，正值表示加分，负值表示减分。"
+        )
+
+        return [
+            ChatMessage(role="system", content=_SCORING_INSIGHT_SYSTEM),
+            ChatMessage(role="user", content=user_content),
+        ]
+
+    # ------------------------------------------------------------------
+    # Intent disambiguation  (NEW)
+    # Resolves low-confidence intent classification ambiguity via LLM.
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def build_intent_disambiguation_prompt(
+        text: str,
+        candidates: List[Dict[str, Any]],
+        context: Dict[str, Any],
+    ) -> List[ChatMessage]:
+        """
+        Build a prompt for LLM to disambiguate among top-N intent candidates.
+
+        Parameters
+        ----------
+        text:        Original user utterance.
+        candidates:  List of {'intent': str, 'confidence': float} dicts,
+                     ordered by descending rule-based confidence.
+        context:     Conversation context (previous_intent, entities, session_id…).
+        """
+        candidates_str = json.dumps(candidates, ensure_ascii=False, indent=2)
+        context_str = json.dumps(context, ensure_ascii=False, indent=2)
+
+        # Enumerate known intent values inline so the LLM picks from the correct set
+        known_intents = (
+            "PURCHASE_INQUIRY, PRICE_QUERY, SPEC_QUERY, COMPARISON, "
+            "RECOMMENDATION, COMPLAINT, AFTER_SALES, LOGISTICS, RETURN, "
+            "EXCHANGE, BUDGET_INQUIRY, BRAND_QUERY, CATEGORY_BROWSE, "
+            "CUSTOM_ORDER, OTHER"
+        )
+
+        user_content = (
+            "以下是用户在电商采购场景下的原始话语，规则引擎识别置信度较低，需要你进行意图消歧。\n\n"
+            f"**用户话语**：{text}\n\n"
+            f"**规则引擎候选意图**（置信度从高到低）：\n{candidates_str}\n\n"
+            f"**对话上下文**：\n{context_str}\n\n"
+            f"**可选意图枚举**：{known_intents}\n\n"
+            "请综合用户话语的语义、上下文和候选意图，选择最准确的意图，"
+            "并说明理由。intent字段必须是上述枚举值之一，confidence范围0.0-1.0。"
+        )
+
+        return [
+            ChatMessage(role="system", content=_INTENT_DISAMBIGUATION_SYSTEM),
             ChatMessage(role="user", content=user_content),
         ]

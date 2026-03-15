@@ -96,6 +96,26 @@ class ScoreResult(BaseModel):
         default_factory=list,
         description="Detailed factor breakdown with explanations",
     )
+    # --- LLM enhancement fields (populated when LLM insight is applied) ---
+    llm_adjusted_score: Optional[float] = Field(
+        default=None,
+        ge=0, le=100,
+        description="Score after applying LLM dimension adjustments",
+    )
+    llm_adjusted_grade: Optional[Grade] = Field(
+        default=None,
+        description="Grade after LLM adjustment",
+    )
+    score_lower_bound: Optional[float] = Field(
+        default=None,
+        ge=0, le=100,
+        description="Conservative lower bound (based on missing-data uncertainty)",
+    )
+    score_upper_bound: Optional[float] = Field(
+        default=None,
+        ge=0, le=100,
+        description="Optimistic upper bound (based on missing-data uncertainty)",
+    )
 
     @field_validator("grade", mode="before")
     @classmethod

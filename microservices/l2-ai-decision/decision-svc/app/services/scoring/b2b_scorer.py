@@ -4,19 +4,24 @@ B2B Scoring Model.
 Scores a purchase decision from a business-to-business perspective across six
 weighted dimensions.  All raw dimension scores are 0-100; the total is the
 weighted sum.
+
+New in this revision:
+  - Dynamic weight adjustment based on sector / urgency / compliance signals.
+  - score_with_llm_adjustments(): accepts LLM-suggested per-dimension deltas.
+  - Confidence interval (lower_bound, upper_bound) based on data completeness.
 """
 from __future__ import annotations
 
 import logging
 import math
-from typing import Any
+from typing import Any, Dict, List, Optional
 
 from app.models.schemas import FactorDetail, Grade, ScoreResult
 
 logger = logging.getLogger(__name__)
 
-# Dimension weights — must sum to 1.0
-DIMENSION_WEIGHTS: dict[str, float] = {
+# Default dimension weights — must sum to 1.0
+_BASE_WEIGHTS: dict[str, float] = {
     "price_competitiveness": 0.25,
     "supplier_reliability": 0.20,
     "delivery_capability": 0.20,
@@ -24,6 +29,8 @@ DIMENSION_WEIGHTS: dict[str, float] = {
     "after_service": 0.10,
     "min_order_qty_fit": 0.10,
 }
+
+_TOTAL_SIGNALS = 13  # number of context signals used for confidence calculation
 
 
 def _grade_from_score(score: float) -> Grade:
@@ -34,6 +41,46 @@ def _grade_from_score(score: float) -> Grade:
     if score >= 55:
         return Grade.C
     return Grade.D
+
+
+def _dynamic_weights(context: dict[str, Any]) -> dict[str, float]:
+    """
+    Adjust base weights based on contextual signals:
+
+    - urgency=high   → delivery_capability weight + 0.05
+    - compliance_strict=true → quality_compliance weight + 0.05
+    - price_sensitive=true   → price_competitiveness weight + 0.05
+    - long_term_contract=true → supplier_reliability weight + 0.05
+
+    Excess weight is drawn from after_service and min_order_qty_fit proportionally.
+    """
+    weights = dict(_BASE_WEIGHTS)
+    boosts: dict[str, float] = {}
+
+    if str(context.get("urgency", "")).lower() == "high":
+        boosts["delivery_capability"] = 0.05
+    if context.get("compliance_strict"):
+        boosts["quality_compliance"] = 0.05
+    if context.get("price_sensitive"):
+        boosts["price_competitiveness"] = 0.05
+    if context.get("long_term_contract"):
+        boosts["supplier_reliability"] = 0.05
+
+    if not boosts:
+        return weights
+
+    total_boost = sum(boosts.values())
+    # Drain from lower-priority dimensions proportionally
+    drainable = ["after_service", "min_order_qty_fit"]
+    drain_per = total_boost / len(drainable)
+    for dim in drainable:
+        weights[dim] = max(0.02, weights[dim] - drain_per)
+    for dim, boost in boosts.items():
+        weights[dim] = weights[dim] + boost
+
+    # Renormalise to exactly 1.0
+    total = sum(weights.values())
+    return {k: round(v / total, 6) for k, v in weights.items()}
 
 
 class B2BScorerModel:
@@ -55,22 +102,51 @@ class B2BScorerModel:
         support_response_hours  float   average support response time in hours
         order_quantity          int     requested order quantity
         min_order_quantity      int     supplier minimum order quantity
+
+    Dynamic weight signals (optional):
+        urgency                 str     'high' | 'normal' | 'low'
+        compliance_strict       bool    strict regulatory environment
+        price_sensitive         bool    cost is the primary driver
+        long_term_contract      bool    evaluating for a long-term supplier
     """
 
     def score(self, context: dict[str, Any]) -> ScoreResult:
+        """Standard scoring without LLM adjustments."""
+        return self._compute(context, llm_adjustments=None)
+
+    def score_with_llm_adjustments(
+        self,
+        context: dict[str, Any],
+        llm_adjustments: Dict[str, float],
+    ) -> ScoreResult:
+        """
+        Score with LLM-suggested per-dimension adjustments.
+
+        llm_adjustments: dict mapping dimension name → delta (-20 to +20).
+        The adjustments are clamped and applied after the base score is computed.
+        """
+        return self._compute(context, llm_adjustments=llm_adjustments)
+
+    # ------------------------------------------------------------------
+    # Core computation
+    # ------------------------------------------------------------------
+
+    def _compute(
+        self,
+        context: dict[str, Any],
+        llm_adjustments: Optional[Dict[str, float]],
+    ) -> ScoreResult:
+        weights = _dynamic_weights(context)
         factors: list[FactorDetail] = []
         data_completeness_count = 0
-        total_signals = 13
 
         # ------------------------------------------------------------------ #
-        # 1. Price Competitiveness (weight=0.25)
+        # 1. Price Competitiveness
         # ------------------------------------------------------------------ #
-        weight = DIMENSION_WEIGHTS["price_competitiveness"]
+        w = weights["price_competitiveness"]
         market_price_ratio: float = context.get("market_price_ratio", 1.0)
         bulk_discount: bool = bool(context.get("bulk_discount_available", False))
 
-        # Lower ratio = cheaper than market = better score
-        # ratio=0.7 → 100, ratio=1.0 → 75, ratio=1.3 → 40, ratio>=1.5 → 10
         if market_price_ratio <= 0.7:
             price_score = 100.0
         elif market_price_ratio <= 1.0:
@@ -79,77 +155,66 @@ class B2BScorerModel:
             price_score = 75.0 - (market_price_ratio - 1.0) / 0.3 * 35.0
         else:
             price_score = max(10.0, 40.0 - (market_price_ratio - 1.3) / 0.2 * 30.0)
-
         if bulk_discount:
             price_score = min(100.0, price_score + 8.0)
             data_completeness_count += 1
+        if "market_price_ratio" in context:
+            data_completeness_count += 1
 
-        data_completeness_count += 1 if "market_price_ratio" in context else 0
-        price_explanation = (
-            f"市场价格比率 {market_price_ratio:.2f}"
-            f"{'（含批量折扣）' if bulk_discount else ''}"
-            f"，竞争力评分 {price_score:.1f}"
-        )
         factors.append(FactorDetail(
             name="price_competitiveness",
             score=price_score,
-            weight=weight,
-            explanation=price_explanation,
-            weighted_contribution=price_score * weight,
+            weight=w,
+            explanation=(
+                f"市场价格比率 {market_price_ratio:.2f}"
+                f"{'（含批量折扣）' if bulk_discount else ''}"
+                f"，竞争力评分 {price_score:.1f}"
+            ),
+            weighted_contribution=price_score * w,
         ))
 
         # ------------------------------------------------------------------ #
-        # 2. Supplier Reliability (weight=0.20)
+        # 2. Supplier Reliability
         # ------------------------------------------------------------------ #
-        weight = DIMENSION_WEIGHTS["supplier_reliability"]
-        brand_tier: str = context.get("brand_tier", "C").upper()
-        cert_count: int = int(context.get("certification_count", 0))
-        years: int = int(context.get("years_in_market", 0))
+        w = weights["supplier_reliability"]
+        brand_tier = context.get("brand_tier", "C").upper()
+        cert_count = int(context.get("certification_count", 0))
+        years = int(context.get("years_in_market", 0))
 
         tier_score = {"A": 100.0, "B": 70.0, "C": 40.0}.get(brand_tier, 40.0)
-
-        # Each certification adds up to 5 points (cap at 6 certs = +30)
         cert_bonus = min(30.0, cert_count * 5.0)
-
-        # Years in market: 0-3y=0, 5y=20, 10y=40, 20y+=60 (cap)
         if years <= 3:
             years_score = years * 5.0
         elif years <= 10:
             years_score = 15.0 + (years - 3) / 7 * 25.0
         else:
             years_score = 40.0 + min(20.0, (years - 10) * 2.0)
-
         reliability_score = min(100.0, tier_score * 0.5 + cert_bonus * 0.3 + years_score * 0.2)
 
-        if "brand_tier" in context:
-            data_completeness_count += 1
-        if "certification_count" in context:
-            data_completeness_count += 1
-        if "years_in_market" in context:
-            data_completeness_count += 1
+        for k in ["brand_tier", "certification_count", "years_in_market"]:
+            if k in context:
+                data_completeness_count += 1
 
-        reliability_explanation = (
-            f"供应商级别 {brand_tier}（基础分 {tier_score:.0f}），"
-            f"拥有 {cert_count} 项认证，"
-            f"市场运营 {years} 年，"
-            f"综合可靠性评分 {reliability_score:.1f}"
-        )
         factors.append(FactorDetail(
             name="supplier_reliability",
             score=reliability_score,
-            weight=weight,
-            explanation=reliability_explanation,
-            weighted_contribution=reliability_score * weight,
+            weight=w,
+            explanation=(
+                f"供应商级别 {brand_tier}（基础分 {tier_score:.0f}），"
+                f"拥有 {cert_count} 项认证，"
+                f"市场运营 {years} 年，"
+                f"综合可靠性评分 {reliability_score:.1f}"
+            ),
+            weighted_contribution=reliability_score * w,
         ))
 
         # ------------------------------------------------------------------ #
-        # 3. Delivery Capability (weight=0.20)
+        # 3. Delivery Capability
         # ------------------------------------------------------------------ #
-        weight = DIMENSION_WEIGHTS["delivery_capability"]
-        lead_time: int = int(context.get("lead_time_days", 14))
-        stock_avail: float = float(context.get("stock_availability", 0.5))
+        w = weights["delivery_capability"]
+        lead_time = int(context.get("lead_time_days", 14))
+        stock_avail = float(context.get("stock_availability", 0.5))
 
-        # Lead time: ≤3 days=100, 7=80, 14=55, 30=30, >30 declines further
         if lead_time <= 3:
             lead_score = 100.0
         elif lead_time <= 7:
@@ -161,38 +226,32 @@ class B2BScorerModel:
         else:
             lead_score = max(10.0, 30.0 - (lead_time - 30) * 0.5)
 
-        stock_score = stock_avail * 100.0  # linear 0-100
+        delivery_score = lead_score * 0.6 + (stock_avail * 100.0) * 0.4
 
-        delivery_score = lead_score * 0.6 + stock_score * 0.4
+        for k in ["lead_time_days", "stock_availability"]:
+            if k in context:
+                data_completeness_count += 1
 
-        if "lead_time_days" in context:
-            data_completeness_count += 1
-        if "stock_availability" in context:
-            data_completeness_count += 1
-
-        delivery_explanation = (
-            f"交货周期 {lead_time} 天（评分 {lead_score:.1f}），"
-            f"库存充足率 {stock_avail * 100:.0f}%（评分 {stock_score:.1f}），"
-            f"交付能力综合评分 {delivery_score:.1f}"
-        )
         factors.append(FactorDetail(
             name="delivery_capability",
             score=delivery_score,
-            weight=weight,
-            explanation=delivery_explanation,
-            weighted_contribution=delivery_score * weight,
+            weight=w,
+            explanation=(
+                f"交货周期 {lead_time} 天（评分 {lead_score:.1f}），"
+                f"库存充足率 {stock_avail * 100:.0f}%，"
+                f"交付能力综合评分 {delivery_score:.1f}"
+            ),
+            weighted_contribution=delivery_score * w,
         ))
 
         # ------------------------------------------------------------------ #
-        # 4. Quality & Compliance (weight=0.15)
+        # 4. Quality & Compliance
         # ------------------------------------------------------------------ #
-        weight = DIMENSION_WEIGHTS["quality_compliance"]
-        has_quality_cert: bool = bool(context.get("has_quality_cert", False))
-        return_rate: float = float(context.get("return_rate", 0.05))
+        w = weights["quality_compliance"]
+        has_quality_cert = bool(context.get("has_quality_cert", False))
+        return_rate = float(context.get("return_rate", 0.05))
 
         cert_score = 100.0 if has_quality_cert else 50.0
-
-        # Return rate: 0%=100, 1%=90, 5%=60, 10%=20, >10% declines further
         if return_rate <= 0.01:
             return_score = 100.0 - return_rate / 0.01 * 10.0
         elif return_rate <= 0.05:
@@ -201,35 +260,31 @@ class B2BScorerModel:
             return_score = 60.0 - (return_rate - 0.05) / 0.05 * 40.0
         else:
             return_score = max(0.0, 20.0 - (return_rate - 0.10) * 200.0)
-
         quality_score = cert_score * 0.55 + return_score * 0.45
 
-        if "has_quality_cert" in context:
-            data_completeness_count += 1
-        if "return_rate" in context:
-            data_completeness_count += 1
+        for k in ["has_quality_cert", "return_rate"]:
+            if k in context:
+                data_completeness_count += 1
 
-        quality_explanation = (
-            f"{'已' if has_quality_cert else '未'}获质量认证，"
-            f"历史退货率 {return_rate * 100:.1f}%（评分 {return_score:.1f}），"
-            f"质量合规综合评分 {quality_score:.1f}"
-        )
         factors.append(FactorDetail(
             name="quality_compliance",
             score=quality_score,
-            weight=weight,
-            explanation=quality_explanation,
-            weighted_contribution=quality_score * weight,
+            weight=w,
+            explanation=(
+                f"{'已' if has_quality_cert else '未'}获质量认证，"
+                f"历史退货率 {return_rate * 100:.1f}%，"
+                f"质量合规综合评分 {quality_score:.1f}"
+            ),
+            weighted_contribution=quality_score * w,
         ))
 
         # ------------------------------------------------------------------ #
-        # 5. After-Sales Service (weight=0.10)
+        # 5. After-Sales Service
         # ------------------------------------------------------------------ #
-        weight = DIMENSION_WEIGHTS["after_service"]
-        warranty_months: int = int(context.get("warranty_months", 12))
-        support_hours: float = float(context.get("support_response_hours", 48.0))
+        w = weights["after_service"]
+        warranty_months = int(context.get("warranty_months", 12))
+        support_hours = float(context.get("support_response_hours", 48.0))
 
-        # Warranty: <6m=40, 12m=70, 24m=90, 36m+=100
         if warranty_months < 6:
             warranty_score = max(0.0, warranty_months / 6 * 40.0)
         elif warranty_months < 12:
@@ -239,7 +294,6 @@ class B2BScorerModel:
         else:
             warranty_score = min(100.0, 90.0 + (warranty_months - 24) / 12 * 10.0)
 
-        # Support response: ≤4h=100, 24h=70, 48h=40, >48h declines
         if support_hours <= 4:
             support_score = 100.0
         elif support_hours <= 24:
@@ -251,78 +305,93 @@ class B2BScorerModel:
 
         after_service_score = warranty_score * 0.5 + support_score * 0.5
 
-        if "warranty_months" in context:
-            data_completeness_count += 1
-        if "support_response_hours" in context:
-            data_completeness_count += 1
+        for k in ["warranty_months", "support_response_hours"]:
+            if k in context:
+                data_completeness_count += 1
 
-        after_service_explanation = (
-            f"质保期 {warranty_months} 个月（评分 {warranty_score:.1f}），"
-            f"平均响应 {support_hours:.0f} 小时（评分 {support_score:.1f}），"
-            f"售后服务综合评分 {after_service_score:.1f}"
-        )
         factors.append(FactorDetail(
             name="after_service",
             score=after_service_score,
-            weight=weight,
-            explanation=after_service_explanation,
-            weighted_contribution=after_service_score * weight,
+            weight=w,
+            explanation=(
+                f"质保期 {warranty_months} 个月（评分 {warranty_score:.1f}），"
+                f"平均响应 {support_hours:.0f} 小时（评分 {support_score:.1f}），"
+                f"售后服务综合评分 {after_service_score:.1f}"
+            ),
+            weighted_contribution=after_service_score * w,
         ))
 
         # ------------------------------------------------------------------ #
-        # 6. Minimum Order Quantity Fit (weight=0.10)
+        # 6. MOQ Fit
         # ------------------------------------------------------------------ #
-        weight = DIMENSION_WEIGHTS["min_order_qty_fit"]
-        order_qty: int = int(context.get("order_quantity", 1))
-        moq: int = int(context.get("min_order_quantity", 1))
+        w = weights["min_order_qty_fit"]
+        order_qty = int(context.get("order_quantity", 1))
+        moq = max(1, int(context.get("min_order_quantity", 1)))
 
-        if moq <= 0:
-            moq_fit_score = 100.0
+        ratio = order_qty / moq
+        if ratio >= 1.0:
+            moq_fit_score = min(100.0, 70.0 + min(30.0, (ratio - 1.0) * 15.0))
         else:
-            ratio = order_qty / moq
-            if ratio >= 1.0:
-                # Meets or exceeds MOQ — reward meeting it cleanly
-                moq_fit_score = min(100.0, 70.0 + min(30.0, (ratio - 1.0) * 15.0))
-            else:
-                # Below MOQ — linear penalty
-                moq_fit_score = max(0.0, ratio * 70.0)
+            moq_fit_score = max(0.0, ratio * 70.0)
 
-        if "order_quantity" in context:
-            data_completeness_count += 1
-        if "min_order_quantity" in context:
-            data_completeness_count += 1
+        for k in ["order_quantity", "min_order_quantity"]:
+            if k in context:
+                data_completeness_count += 1
 
-        moq_explanation = (
-            f"订单数量 {order_qty}，最小起订量 {moq}"
-            f"（比率 {order_qty / max(moq, 1):.2f}），"
-            f"MOQ 匹配度评分 {moq_fit_score:.1f}"
-        )
         factors.append(FactorDetail(
             name="min_order_qty_fit",
             score=moq_fit_score,
-            weight=weight,
-            explanation=moq_explanation,
-            weighted_contribution=moq_fit_score * weight,
+            weight=w,
+            explanation=(
+                f"订单数量 {order_qty}，最小起订量 {moq}（比率 {ratio:.2f}），"
+                f"MOQ 匹配度评分 {moq_fit_score:.1f}"
+            ),
+            weighted_contribution=moq_fit_score * w,
         ))
 
         # ------------------------------------------------------------------ #
-        # Aggregate
+        # Aggregate base score
         # ------------------------------------------------------------------ #
-        total_score = sum(f.weighted_contribution for f in factors)
-        total_score = round(min(100.0, max(0.0, total_score)), 2)
-
+        total_score = round(
+            min(100.0, max(0.0, sum(f.weighted_contribution for f in factors))), 2
+        )
         dimension_scores = {f.name: round(f.score, 2) for f in factors}
         grade = _grade_from_score(total_score)
 
-        # Confidence: based on data completeness
-        confidence = round(min(1.0, data_completeness_count / total_signals), 3)
-        # Boost confidence slightly when grade boundary is clear
-        if total_score >= 90 or total_score <= 40:
-            confidence = min(1.0, confidence + 0.05)
+        # Confidence + uncertainty band based on data completeness
+        completeness = data_completeness_count / _TOTAL_SIGNALS
+        confidence = round(min(1.0, completeness + (0.05 if total_score >= 90 or total_score <= 40 else 0.0)), 3)
+        missing_fraction = 1.0 - completeness
+        score_lower = round(max(0.0, total_score - missing_fraction * 15), 2)
+        score_upper = round(min(100.0, total_score + missing_fraction * 10), 2)
+
+        # ------------------------------------------------------------------ #
+        # Apply LLM adjustments (optional)
+        # ------------------------------------------------------------------ #
+        llm_adjusted_score: Optional[float] = None
+        llm_adjusted_grade: Optional[Grade] = None
+
+        if llm_adjustments:
+            dim_scores_adj = dict(dimension_scores)
+            adjusted_total = 0.0
+            for f in factors:
+                delta = float(llm_adjustments.get(f.name, 0.0))
+                # Clamp adjustment to [-20, +20] range
+                delta = max(-20.0, min(20.0, delta))
+                adj_score = max(0.0, min(100.0, f.score + delta))
+                dim_scores_adj[f.name] = round(adj_score, 2)
+                adjusted_total += adj_score * f.weight
+
+            llm_adjusted_score = round(min(100.0, max(0.0, adjusted_total)), 2)
+            llm_adjusted_grade = _grade_from_score(llm_adjusted_score)
+            logger.info(
+                "B2B LLM adjustments applied: base=%.2f → adjusted=%.2f (%s)",
+                total_score, llm_adjusted_score, llm_adjusted_grade,
+            )
 
         logger.info(
-            "B2B score: total=%.2f grade=%s confidence=%.3f",
-            total_score, grade, confidence,
+            "B2B score: total=%.2f grade=%s confidence=%.3f ci=[%.1f, %.1f]",
+            total_score, grade, confidence, score_lower, score_upper,
         )
 
         return ScoreResult(
@@ -331,6 +400,10 @@ class B2BScorerModel:
             grade=grade,
             confidence=confidence,
             factors=factors,
+            llm_adjusted_score=llm_adjusted_score,
+            llm_adjusted_grade=llm_adjusted_grade,
+            score_lower_bound=score_lower,
+            score_upper_bound=score_upper,
         )
 
 

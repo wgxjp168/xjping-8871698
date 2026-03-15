@@ -2,10 +2,11 @@
 API route definitions for ILbuy Intent Service.
 
 Endpoints:
-  POST /intent/recognize  → IntentRecognizeResponse
-  POST /entity/extract    → EntityExtractResponse
-  POST /brand/detect      → BrandDetectResponse
-  GET  /health            → HealthResponse
+  POST /intent/recognize        → IntentRecognizeResponse (rule-based)
+  POST /intent/recognize/smart  → IntentRecognizeResponse (LLM fallback on low confidence)
+  POST /entity/extract          → EntityExtractResponse
+  POST /brand/detect            → BrandDetectResponse
+  GET  /health                  → HealthResponse
 """
 
 from __future__ import annotations
@@ -107,6 +108,54 @@ async def recognize_intent(
     elapsed_ms = (time.perf_counter() - start_ts) * 1000
     logger.info(
         "intent_recognize session=%s intent=%s confidence=%.4f latency_ms=%.1f",
+        body.session_id,
+        result.intent,
+        result.confidence,
+        elapsed_ms,
+    )
+    return result
+
+
+@router.post(
+    "/intent/recognize/smart",
+    response_model=IntentRecognizeResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Recognize intent with LLM fallback for low-confidence cases",
+    response_description="Intent result, potentially LLM-disambiguated when confidence < 0.55",
+    tags=["Intent"],
+)
+async def recognize_intent_smart(
+    request: Request,
+    body: IntentRecognizeRequest,
+    recognizer: IntentRecognizer = Depends(get_intent_recognizer),
+) -> IntentRecognizeResponse:
+    """
+    Layered intent recognition: rule-based first, then LLM disambiguation
+    when calibrated confidence falls below the 0.55 threshold.
+
+    Use this endpoint for user-facing flows where accuracy matters most.
+    Use `/intent/recognize` for bulk/offline processing where latency is critical.
+    """
+    start_ts = time.perf_counter()
+    try:
+        result = await recognizer.recognize_with_llm_fallback(
+            text=body.text,
+            llm_svc_url=settings.llm_svc_url,
+            context=body.context,
+            session_id=body.session_id,
+        )
+    except Exception as exc:
+        logger.exception(
+            "Smart intent recognition failed for session_id=%s", body.session_id
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Intent recognition error: {exc}",
+        ) from exc
+
+    elapsed_ms = (time.perf_counter() - start_ts) * 1000
+    logger.info(
+        "intent_recognize_smart session=%s intent=%s confidence=%.4f latency_ms=%.1f",
         body.session_id,
         result.intent,
         result.confidence,

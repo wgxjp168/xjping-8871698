@@ -64,11 +64,15 @@ class DecisionEngine:
         # Step 4: Apply rules
         rule_result = self._step_apply_rules(enriched)
 
-        # Step 5: Calculate scores
+        # Step 5: Calculate scores (base rule-based score)
         score_result = self._step_calculate_scores(enriched, scoring_context)
 
-        # Step 6: Get LLM insights (optional, async)
-        llm_insights = await self._step_get_llm_insights(enriched, request)
+        # Step 6: Get LLM scoring insights and apply adjustments (optional, async)
+        llm_insights = await self._step_get_llm_insights(enriched, request, score_result)
+        if llm_insights:
+            score_result = self._step_apply_llm_adjustments(
+                score_result, scoring_context, enriched, llm_insights
+            )
 
         # Step 7: Generate explanation
         explanation = self._step_generate_explanation(score_result, rule_result, enriched)
@@ -278,40 +282,127 @@ class DecisionEngine:
         return result
 
     # ---------------------------------------------------------------------- #
-    # Step 6 — LLM insights (async, optional)
+    # Step 5b — Apply LLM dimension adjustments to ScoreResult
+    # ---------------------------------------------------------------------- #
+
+    def _step_apply_llm_adjustments(
+        self,
+        score_result: ScoreResult,
+        scoring_context: ScoringContext,
+        context: dict[str, Any],
+        llm_insights: dict[str, Any],
+    ) -> ScoreResult:
+        """
+        Re-score using LLM-suggested per-dimension adjustments.
+
+        dimension_insights from llm_insights is a list of
+        {dimension, adjustment, signal, rationale, confidence}.
+        Only adjustments with LLM confidence ≥ 0.6 are applied.
+        """
+        adjustments: dict[str, float] = {}
+        for di in llm_insights.get("dimension_insights", []):
+            dim = di.get("dimension", "")
+            delta = float(di.get("adjustment", 0.0))
+            llm_conf = float(di.get("confidence", 0.0))
+            # Gate on LLM confidence to avoid noisy adjustments
+            if llm_conf >= 0.6 and dim:
+                adjustments[dim] = delta
+
+        if not adjustments:
+            return score_result
+
+        if scoring_context == ScoringContext.B2B:
+            updated = b2b_scorer.score_with_llm_adjustments(context, adjustments)
+        elif scoring_context == ScoringContext.B2C_KNOWN:
+            updated = b2c_known_scorer.score_with_llm_adjustments(context, adjustments)
+        else:
+            updated = b2c_unknown_scorer.score_with_llm_adjustments(context, adjustments)
+
+        logger.info(
+            "Step 5b: LLM adjustments applied to %d dimensions — "
+            "base=%.2f adj=%.2f",
+            len(adjustments),
+            score_result.total_score,
+            updated.llm_adjusted_score or updated.total_score,
+        )
+        return updated
+
+    # ---------------------------------------------------------------------- #
+    # Step 6 — LLM scoring insights (async, optional)
+    #
+    # Calls llm-svc /llm/analyze/scoring to get per-dimension LLM assessments
+    # and applies the adjustment deltas to produce llm_adjusted_score.
+    # Falls back gracefully when llm-svc is unavailable.
     # ---------------------------------------------------------------------- #
 
     async def _step_get_llm_insights(
         self,
         context: dict[str, Any],
         request: DecisionAnalyzeRequest,
+        score_result: Optional[ScoreResult] = None,
     ) -> Optional[dict[str, Any]]:
-        logger.debug("Step 6: get_llm_insights")
+        logger.debug("Step 6: get_llm_insights (scoring insight mode)")
 
         # If pre-computed analysis was provided, use it directly
         if request.llm_analysis:
             return request.llm_analysis
 
+        # Determine scoring context string for the LLM
+        org_type = str(context.get("org_type", "")).lower()
+        if org_type in {"b2b", "enterprise", "corporate", "company"} or any(
+            kw in request.intent.lower()
+            for kw in ["企业", "公司", "采购", "批量"]
+        ):
+            scoring_ctx_str = "B2B"
+        elif str(context.get("brand_status", "")).upper() == "KNOWN":
+            scoring_ctx_str = "B2C_KNOWN"
+        else:
+            scoring_ctx_str = "B2C_UNKNOWN"
+
+        dimension_scores: dict[str, float] = {}
+        if score_result:
+            dimension_scores = score_result.dimension_scores
+
+        # Trim enriched context to relevant keys to keep prompt concise
+        enriched_summary = {
+            k: v for k, v in context.items()
+            if k in {
+                "product_brand", "product_category", "product_price",
+                "market_price_ratio", "in_stock", "average_rating",
+                "brand_tier", "lead_time_days", "has_quality_cert",
+                "return_rate", "warranty_months",
+            }
+        }
+
         try:
             async with httpx.AsyncClient(timeout=settings.http_timeout) as client:
                 payload = {
-                    "session_id": request.session_id,
+                    "scoring_context": scoring_ctx_str,
                     "intent": request.intent,
-                    "context_summary": {
-                        k: v for k, v in context.items()
-                        if k in {
-                            "product_brand", "product_category", "product_price",
-                            "market_price_ratio", "in_stock", "average_rating",
-                        }
+                    "entities": {
+                        k: v for k, v in request.entities.items()
+                        if k in {"brand", "category", "budget_max", "budget_min", "specs"}
                     },
+                    "dimension_scores": dimension_scores,
+                    "enriched_context": enriched_summary,
                 }
                 resp = await client.post(
-                    f"{settings.llm_svc_url}/llm/analyze",
+                    f"{settings.llm_svc_url}/llm/analyze/scoring",
                     json=payload,
                 )
                 if resp.status_code == 200:
-                    logger.info("Step 6: LLM insights obtained")
-                    return resp.json()
+                    data = resp.json()
+                    logger.info(
+                        "Step 6: LLM scoring insights obtained — "
+                        "adjusted_total=%.2f risk_signals=%d",
+                        data.get("adjusted_total", 0),
+                        len(data.get("risk_signals", [])),
+                    )
+                    return data
+                logger.warning(
+                    "Step 6: LLM scoring service returned %d — skipping",
+                    resp.status_code,
+                )
         except Exception as exc:  # noqa: BLE001
             logger.info("Step 6: LLM service unavailable (%s), skipping insights", exc)
 
