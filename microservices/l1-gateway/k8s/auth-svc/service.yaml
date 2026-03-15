@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: auth-svc
+  namespace: ilbuy
+  labels:
+    app: auth-svc
+    layer: l1-gateway
+spec:
+  type: ClusterIP             # 只在集群内部暴露（由 api-gateway 路由访问）
+  selector:
+    app: auth-svc
+  ports:
+    - name: http
+      port: 8001
+      targetPort: 8001
+      protocol: TCP

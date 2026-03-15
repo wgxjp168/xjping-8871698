@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ilbuy
+  labels:
+    app.kubernetes.io/part-of: ilbuy-platform
+    layer: l1-gateway

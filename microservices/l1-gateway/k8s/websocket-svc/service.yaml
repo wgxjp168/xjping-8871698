@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: websocket-svc
+  namespace: ilbuy
+  labels:
+    app: websocket-svc
+    layer: l1-gateway
+spec:
+  type: ClusterIP
+  selector:
+    app: websocket-svc
+  ports:
+    - name: http
+      port: 8002
+      targetPort: 8002
+      protocol: TCP

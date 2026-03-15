@@ -1,0 +1,44 @@
+server:
+  port: 8002
+
+spring:
+  application:
+    name: websocket-svc
+  profiles:
+    active: dev
+  cloud:
+    nacos:
+      discovery:
+        server-addr: ${NACOS_SERVER_ADDR:localhost:8848}
+        namespace: ${NACOS_NAMESPACE:}
+        group: ILBUY_GROUP
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      database: 2   # websocket-svc 独立 DB
+
+ilbuy:
+  jwt:
+    secret: ${JWT_SECRET:ilbuy-platform-jwt-secret-key-2024-must-be-at-least-256-bits}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+
+logging:
+  level:
+    com.ilbuy.websocket: INFO

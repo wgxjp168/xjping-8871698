@@ -1,0 +1,22 @@
+spring:
+  cloud:
+    nacos:
+      discovery:
+        server-addr: ${NACOS_SERVER_ADDR}
+        namespace: ${NACOS_NAMESPACE:prod}
+  data:
+    redis:
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD}
+      database: 2
+
+ilbuy:
+  jwt:
+    secret: ${JWT_SECRET}
+
+logging:
+  level:
+    com.ilbuy.websocket: INFO
+  file:
+    name: /var/log/ilbuy/websocket-svc.log

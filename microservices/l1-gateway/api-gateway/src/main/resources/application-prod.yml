@@ -1,0 +1,28 @@
+spring:
+  cloud:
+    nacos:
+      discovery:
+        server-addr: ${NACOS_SERVER_ADDR}
+        namespace: ${NACOS_NAMESPACE:prod}
+  data:
+    redis:
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD}
+      ssl:
+        enabled: ${REDIS_SSL:false}
+
+ilbuy:
+  jwt:
+    secret: ${JWT_SECRET}          # 必须来自 K8s Secret
+    access-token-ttl: 7200
+  rate-limit:
+    business-limit-per-min: 1000
+    consumer-limit-per-min: 100
+
+logging:
+  level:
+    com.ilbuy.gateway: INFO
+    org.springframework.cloud.gateway: WARN
+  file:
+    name: /var/log/ilbuy/api-gateway.log

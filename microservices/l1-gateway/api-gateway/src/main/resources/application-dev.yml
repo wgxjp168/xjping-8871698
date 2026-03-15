@@ -1,0 +1,23 @@
+spring:
+  cloud:
+    nacos:
+      discovery:
+        server-addr: localhost:8848
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password:
+
+ilbuy:
+  jwt:
+    secret: ilbuy-platform-jwt-secret-key-2024-must-be-at-least-256-bits
+  rate-limit:
+    business-limit-per-min: 1000
+    consumer-limit-per-min: 100
+
+logging:
+  level:
+    com.ilbuy.gateway: DEBUG
+    org.springframework.cloud.gateway: DEBUG
+    reactor.netty: INFO

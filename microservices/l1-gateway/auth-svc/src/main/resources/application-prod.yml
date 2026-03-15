@@ -1,0 +1,30 @@
+spring:
+  cloud:
+    nacos:
+      discovery:
+        server-addr: ${NACOS_SERVER_ADDR}
+        namespace: ${NACOS_NAMESPACE:prod}
+  datasource:
+    druid:
+      url: jdbc:mysql://${DB_HOST}:${DB_PORT:3306}/${DB_NAME:ilbuy_auth}?useSSL=true&serverTimezone=Asia/Shanghai&characterEncoding=utf8
+      username: ${DB_USER}
+      password: ${DB_PASSWORD}
+      max-active: 50
+  data:
+    redis:
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD}
+      ssl:
+        enabled: ${REDIS_SSL:false}
+      database: 1
+
+ilbuy:
+  jwt:
+    secret: ${JWT_SECRET}   # K8s Secret 挂载
+
+logging:
+  level:
+    com.ilbuy.auth: INFO
+  file:
+    name: /var/log/ilbuy/auth-svc.log

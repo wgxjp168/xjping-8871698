@@ -1,0 +1,104 @@
+server:
+  port: 80
+  netty:
+    connection-timeout: 10s
+
+spring:
+  application:
+    name: api-gateway
+  profiles:
+    active: dev
+  cloud:
+    nacos:
+      discovery:
+        server-addr: ${NACOS_SERVER_ADDR:localhost:8848}
+        namespace: ${NACOS_NAMESPACE:}
+        group: ILBUY_GROUP
+    gateway:
+      discovery:
+        locator:
+          enabled: false          # 禁用自动路由，使用手工配置
+          lower-case-service-id: true
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowedOriginPatterns: "*"
+            allowedMethods: "GET,POST,PUT,DELETE,OPTIONS,PATCH"
+            allowedHeaders: "*"
+            allowCredentials: true
+            maxAge: 3600
+      default-filters:
+        - DedupeResponseHeader=Access-Control-Allow-Credentials Access-Control-Allow-Origin
+      httpclient:
+        connect-timeout: 5000
+        response-timeout: 30s
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      database: 0
+      lettuce:
+        pool:
+          max-active: 20
+          max-idle: 10
+          min-idle: 2
+
+# Resilience4j 熔断配置
+resilience4j:
+  circuitbreaker:
+    instances:
+      auth-cb:
+        slidingWindowSize: 20
+        minimumNumberOfCalls: 10
+        failureRateThreshold: 50
+        waitDurationInOpenState: 30s
+        permittedNumberOfCallsInHalfOpenState: 5
+      multimodal-cb:
+        slidingWindowSize: 30
+        minimumNumberOfCalls: 15
+        failureRateThreshold: 60
+        waitDurationInOpenState: 60s
+      default:
+        slidingWindowSize: 20
+        minimumNumberOfCalls: 10
+        failureRateThreshold: 50
+        waitDurationInOpenState: 30s
+
+# 自定义配置
+ilbuy:
+  jwt:
+    secret: ${JWT_SECRET:ilbuy-platform-jwt-secret-key-2024-must-be-at-least-256-bits}
+    access-token-ttl: 7200
+    blacklist-key-prefix: "jwt:blacklist:"
+  rate-limit:
+    business-limit-per-min: 1000
+    consumer-limit-per-min: 100
+    window-seconds: 60
+    key-prefix: "rate:limit:"
+    whitelist-paths:
+      - /auth/login
+      - /auth/refresh
+      - /auth/captcha
+      - /actuator/health
+      - /actuator/info
+      - /v3/api-docs/**
+      - /swagger-ui/**
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus,gateway
+  endpoint:
+    health:
+      show-details: when_authorized
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+
+logging:
+  level:
+    com.ilbuy.gateway: INFO
+    org.springframework.cloud.gateway: WARN
