@@ -1,0 +1,138 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: multimodal-input-svc
+  namespace: ilbuy-prod
+  labels:
+    app: multimodal-input-svc
+    layer: l0-user-input
+    version: "1.0.0"
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: multimodal-input-svc
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0        # 零停机滚动更新
+  template:
+    metadata:
+      labels:
+        app: multimodal-input-svc
+        layer: l0-user-input
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port:   "8000"
+        prometheus.io/path:   "/actuator/prometheus"
+    spec:
+      terminationGracePeriodSeconds: 45
+      serviceAccountName: ilbuy-svc-account
+
+      containers:
+        - name: multimodal-input-svc
+          image: registry.cn-hangzhou.aliyuncs.com/ilbuy/multimodal-input-svc:1.0.0
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8000
+              name: http
+              protocol: TCP
+
+          env:
+            # 环境标识
+            - name: SPRING_PROFILES_ACTIVE
+              value: "prod"
+            # JWT密钥（从Secret注入）
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: ilbuy-secrets
+                  key: jwt-secret
+            # Redis
+            - name: REDIS_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: ilbuy-config
+                  key: redis-host
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: ilbuy-secrets
+                  key: redis-password
+            # Nacos
+            - name: NACOS_ADDR
+              valueFrom:
+                configMapKeyRef:
+                  name: ilbuy-config
+                  key: nacos-addr
+            # 百度语音识别
+            - name: BAIDU_VOICE_ENABLED
+              value: "true"
+            - name: BAIDU_VOICE_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: ilbuy-secrets
+                  key: baidu-voice-api-key
+            - name: BAIDU_VOICE_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: ilbuy-secrets
+                  key: baidu-voice-secret-key
+            # 图像识别服务地址
+            - name: CV_SERVICE_URL
+              value: "http://cv-recognition-svc:9300"
+            - name: IMAGE_MOCK_ENABLED
+              value: "false"
+            # JVM参数
+            - name: JAVA_OPTS
+              value: >-
+                -XX:+UseContainerSupport
+                -XX:MaxRAMPercentage=75.0
+                -XX:+UseG1GC
+                -Djava.security.egd=file:/dev/./urandom
+
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "512Mi"
+            limits:
+              cpu: "1000m"
+              memory: "1Gi"
+
+          # 启动探针（Pod启动阶段）
+          startupProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8000
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            failureThreshold: 12
+
+          # 存活探针
+          livenessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8000
+            initialDelaySeconds: 0
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+          # 就绪探针
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8000
+            initialDelaySeconds: 0
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+
+          lifecycle:
+            preStop:
+              exec:
+                command: ["/bin/sh", "-c", "sleep 10"]
+
+      imagePullSecrets:
+        - name: aliyun-registry-secret

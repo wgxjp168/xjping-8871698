@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: multimodal-input-svc
+  namespace: ilbuy-prod
+  labels:
+    app: multimodal-input-svc
+    layer: l0-user-input
+  annotations:
+    prometheus.io/scrape: "true"
+spec:
+  type: ClusterIP
+  selector:
+    app: multimodal-input-svc
+  ports:
+    - name: http
+      protocol: TCP
+      port: 8000
+      targetPort: 8000

@@ -1,0 +1,39 @@
+# ===== Prod 环境配置（敏感值通过 K8s Secret 注入）=====
+spring:
+  datasource:
+    url: jdbc:mysql://${DB_HOST:mysql-cluster}:${DB_PORT:3306}/${DB_NAME:ilbuy_profile}?useUnicode=true&characterEncoding=utf-8&useSSL=true&serverTimezone=Asia/Shanghai
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    hikari:
+      minimum-idle: 10
+      maximum-pool-size: 50
+      connection-timeout: 5000
+
+  data:
+    redis:
+      host: ${REDIS_HOST:redis-cluster}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD}
+      database: 2
+
+  cloud:
+    nacos:
+      discovery:
+        server-addr: ${NACOS_ADDR:nacos:8848}
+        namespace: prod
+        group: DEFAULT_GROUP
+
+ilbuy:
+  jwt:
+    secret: ${JWT_SECRET}
+
+server:
+  tomcat:
+    threads:
+      max: 400
+      min-spare: 50
+
+logging:
+  level:
+    com.ilbuy: INFO
+    root: WARN

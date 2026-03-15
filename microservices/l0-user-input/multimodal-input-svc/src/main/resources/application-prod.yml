@@ -1,0 +1,49 @@
+# ===== Prod 环境配置（敏感值通过 K8s Secret / 环境变量注入）=====
+spring:
+  data:
+    redis:
+      host: ${REDIS_HOST:redis-cluster}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD}
+      database: 1
+      ssl:
+        enabled: false
+
+  cloud:
+    nacos:
+      discovery:
+        server-addr: ${NACOS_ADDR:nacos:8848}
+        namespace: prod
+        group: DEFAULT_GROUP
+        heart-beat-interval: 5000
+        heart-beat-timeout: 15000
+
+server:
+  tomcat:
+    threads:
+      max: 400
+      min-spare: 50
+
+# Prod：开启真实语音/图像识别
+ilbuy:
+  jwt:
+    secret: ${JWT_SECRET}       # 必须通过K8s Secret注入
+  voice:
+    default-provider: ${VOICE_PROVIDER:baidu}
+    baidu:
+      enabled: ${BAIDU_VOICE_ENABLED:true}
+      api-key: ${BAIDU_VOICE_API_KEY}
+      secret-key: ${BAIDU_VOICE_SECRET_KEY}
+    ifly:
+      enabled: ${IFLY_VOICE_ENABLED:false}
+      app-id: ${IFLY_APP_ID:}
+      api-key: ${IFLY_API_KEY:}
+      api-secret: ${IFLY_API_SECRET:}
+  image:
+    mock-enabled: false          # prod使用真实图像识别
+    cv-service-url: ${CV_SERVICE_URL:http://cv-recognition-svc:9300}
+
+logging:
+  level:
+    com.ilbuy: INFO
+    root: WARN

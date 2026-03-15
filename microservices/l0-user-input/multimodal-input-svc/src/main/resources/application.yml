@@ -1,0 +1,102 @@
+server:
+  port: 8000
+  shutdown: graceful
+  tomcat:
+    threads:
+      max: 200
+      min-spare: 20
+    connection-timeout: 20s
+
+spring:
+  application:
+    name: multimodal-input-svc
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:dev}
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
+
+  # Jackson
+  jackson:
+    default-property-inclusion: non_null
+    serialization:
+      write-dates-as-timestamps: false
+    deserialization:
+      fail-on-unknown-properties: false
+    time-zone: Asia/Shanghai
+
+  # Redis
+  data:
+    redis:
+      timeout: 3000ms
+      lettuce:
+        pool:
+          max-active: 20
+          max-idle: 10
+          min-idle: 5
+          max-wait: 1000ms
+
+  # Feign
+  cloud:
+    openfeign:
+      client:
+        config:
+          default:
+            connect-timeout: 5000
+            read-timeout: 10000
+      circuitbreaker:
+        enabled: true
+
+# 管理端点
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+  endpoint:
+    health:
+      show-details: when-authorized
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
+# Swagger
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+  info:
+    title: ILbuy L0 多模态输入适配服务
+    version: 1.0.0
+    description: 支持文本/图片/链接/语音四种输入模态解析
+
+# JWT（与common-security保持一致）
+ilbuy:
+  jwt:
+    secret: ${JWT_SECRET:ilbuy-jwt-secret-key-2024-please-change-in-prod}
+    expiration: 7200
+
+  # 语音识别配置（各环境覆盖）
+  voice:
+    default-provider: ${VOICE_PROVIDER:baidu}
+    baidu:
+      enabled: ${BAIDU_VOICE_ENABLED:false}
+      api-key: ${BAIDU_VOICE_API_KEY:}
+      secret-key: ${BAIDU_VOICE_SECRET_KEY:}
+    ifly:
+      enabled: ${IFLY_VOICE_ENABLED:false}
+      app-id: ${IFLY_APP_ID:}
+      api-key: ${IFLY_API_KEY:}
+      api-secret: ${IFLY_API_SECRET:}
+
+  # 图像识别配置
+  image:
+    mock-enabled: ${IMAGE_MOCK_ENABLED:true}
+    cv-service-url: ${CV_SERVICE_URL:http://cv-recognition-svc:9300}
+
+logging:
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level [%X{traceId}] %logger{36} - %msg%n"
+  level:
+    com.ilbuy: INFO

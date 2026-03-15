@@ -1,0 +1,130 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: user-profile-svc
+  namespace: ilbuy-prod
+  labels:
+    app: user-profile-svc
+    layer: l0-user-input
+    version: "1.0.0"
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: user-profile-svc
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: user-profile-svc
+        layer: l0-user-input
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port:   "8001"
+        prometheus.io/path:   "/actuator/prometheus"
+    spec:
+      terminationGracePeriodSeconds: 45
+      serviceAccountName: ilbuy-svc-account
+
+      containers:
+        - name: user-profile-svc
+          image: registry.cn-hangzhou.aliyuncs.com/ilbuy/user-profile-svc:1.0.0
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8001
+              name: http
+              protocol: TCP
+
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: "prod"
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: ilbuy-secrets
+                  key: jwt-secret
+            # 数据库
+            - name: DB_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: ilbuy-config
+                  key: db-host
+            - name: DB_NAME
+              value: "ilbuy_profile"
+            - name: DB_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: ilbuy-secrets
+                  key: db-username
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: ilbuy-secrets
+                  key: db-password
+            # Redis
+            - name: REDIS_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: ilbuy-config
+                  key: redis-host
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: ilbuy-secrets
+                  key: redis-password
+            # Nacos
+            - name: NACOS_ADDR
+              valueFrom:
+                configMapKeyRef:
+                  name: ilbuy-config
+                  key: nacos-addr
+            - name: JAVA_OPTS
+              value: >-
+                -XX:+UseContainerSupport
+                -XX:MaxRAMPercentage=75.0
+                -XX:+UseG1GC
+                -Djava.security.egd=file:/dev/./urandom
+
+          resources:
+            requests:
+              cpu: "200m"
+              memory: "512Mi"
+            limits:
+              cpu: "1000m"
+              memory: "1Gi"
+
+          startupProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8001
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            failureThreshold: 12
+
+          livenessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8001
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8001
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+
+          lifecycle:
+            preStop:
+              exec:
+                command: ["/bin/sh", "-c", "sleep 10"]
+
+      imagePullSecrets:
+        - name: aliyun-registry-secret

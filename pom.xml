@@ -31,6 +31,10 @@
 
         <!-- L5 业务逻辑层 - 用户服务（已有pom.xml）-->
         <module>microservices/l5-business-logic/user-svc</module>
+
+        <!-- L0 用户输入层 -->
+        <module>microservices/l0-user-input/multimodal-input-svc</module>
+        <module>microservices/l0-user-input/user-profile-svc</module>
     </modules>
 
     <properties>

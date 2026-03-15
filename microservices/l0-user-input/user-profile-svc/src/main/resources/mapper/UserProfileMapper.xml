@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.ilbuy.l0.profile.mapper.UserProfileMapper">
+
+    <!-- 完整画像结果映射（含偏好子集合） -->
+    <resultMap id="userProfileWithPreferencesMap" type="com.ilbuy.l0.profile.domain.entity.UserProfile">
+        <id     column="user_id"              property="userId"/>
+        <result column="nickname"             property="nickname"/>
+        <result column="gender"               property="gender"/>
+        <result column="age_group"            property="ageGroup"/>
+        <result column="city"                 property="city"/>
+        <result column="budget_min"           property="budgetMin"/>
+        <result column="budget_max"           property="budgetMax"/>
+        <result column="avg_spend_min"        property="avgSpendMin"/>
+        <result column="avg_spend_max"        property="avgSpendMax"/>
+        <result column="preferred_categories" property="preferredCategories"/>
+        <result column="scene_tags"           property="sceneTags"/>
+        <result column="preferred_brands"     property="preferredBrands"/>
+        <result column="preferred_platforms"  property="preferredPlatforms"/>
+        <result column="purchase_frequency"   property="purchaseFrequency"/>
+        <result column="eco_friendly"         property="ecoFriendly"/>
+        <result column="profile_score"        property="profileScore"/>
+        <result column="created_at"           property="createdAt"/>
+        <result column="updated_at"           property="updatedAt"/>
+        <result column="version"              property="version"/>
+    </resultMap>
+
+    <!-- 查询用户完整画像（供缓存未命中时使用） -->
+    <select id="selectWithPreferencesByUserId"
+            parameterType="java.lang.Long"
+            resultMap="userProfileWithPreferencesMap">
+        SELECT
+            up.user_id,
+            up.nickname,
+            up.gender,
+            up.age_group,
+            up.city,
+            up.budget_min,
+            up.budget_max,
+            up.avg_spend_min,
+            up.avg_spend_max,
+            up.preferred_categories,
+            up.scene_tags,
+            up.preferred_brands,
+            up.preferred_platforms,
+            up.purchase_frequency,
+            up.eco_friendly,
+            up.profile_score,
+            up.created_at,
+            up.updated_at,
+            up.version
+        FROM
+            user_profile up
+        WHERE
+            up.user_id = #{userId}
+            AND up.deleted = 0
+    </select>
+
+</mapper>
