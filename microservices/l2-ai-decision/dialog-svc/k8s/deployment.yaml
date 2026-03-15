@@ -1,0 +1,122 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dialog-svc
+  namespace: ilbuy
+  labels:
+    app: dialog-svc
+    component: l2-ai-decision
+    version: "1.0.0"
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: dialog-svc
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        app: dialog-svc
+        component: l2-ai-decision
+        version: "1.0.0"
+      annotations:
+        prometheus.io/scrape: "false"
+    spec:
+      # Run as the non-root user created in the Dockerfile (UID 1001).
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
+        fsGroup: 1001
+      containers:
+        - name: dialog-svc
+          image: ilbuy/dialog-svc:latest
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 8013
+              protocol: TCP
+          env:
+            - name: NODE_ENV
+              value: "production"
+            - name: PORT
+              value: "8013"
+            # Non-sensitive configuration from ConfigMap
+            - name: REDIS_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: dialog-svc-config
+                  key: REDIS_URL
+            - name: INTENT_SVC_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: dialog-svc-config
+                  key: INTENT_SVC_URL
+            - name: DECISION_SVC_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: dialog-svc-config
+                  key: DECISION_SVC_URL
+            - name: AUTH_SVC_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: dialog-svc-config
+                  key: AUTH_SVC_URL
+            - name: SESSION_TTL
+              valueFrom:
+                configMapKeyRef:
+                  name: dialog-svc-config
+                  key: SESSION_TTL
+            - name: LOG_LEVEL
+              valueFrom:
+                configMapKeyRef:
+                  name: dialog-svc-config
+                  key: LOG_LEVEL
+            # Sensitive values from Secret
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: dialog-svc-secret
+                  key: JWT_SECRET
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "200m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          # Writable tmp directory required by dumb-init / Node.js
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
+      terminationGracePeriodSeconds: 30
+      restartPolicy: Always

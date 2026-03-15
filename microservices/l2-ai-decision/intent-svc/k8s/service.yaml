@@ -1,0 +1,53 @@
+# ---------------------------------------------------------------------------
+# Kubernetes Service — ILbuy Intent Service
+# ClusterIP: internal-only access within the l2-ai-decision namespace
+# ---------------------------------------------------------------------------
+apiVersion: v1
+kind: Service
+metadata:
+  name: intent-svc
+  namespace: l2-ai-decision
+  labels:
+    app: intent-svc
+    component: nlp
+    part-of: ilbuy-l2-ai-decision-hub
+spec:
+  type: ClusterIP
+  selector:
+    app: intent-svc
+  ports:
+    - name: http
+      protocol: TCP
+      port: 8010
+      targetPort: http    # references containerPort name in Deployment
+---
+# ---------------------------------------------------------------------------
+# Horizontal Pod Autoscaler (optional, recommended for production)
+# ---------------------------------------------------------------------------
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: intent-svc-hpa
+  namespace: l2-ai-decision
+  labels:
+    app: intent-svc
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: intent-svc
+  minReplicas: 2
+  maxReplicas: 6
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80

@@ -1,0 +1,50 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: decision-svc
+  labels:
+    app: decision-svc
+    tier: l2-ai-decision
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: decision-svc
+  template:
+    metadata:
+      labels:
+        app: decision-svc
+    spec:
+      containers:
+        - name: decision-svc
+          image: ilbuy/decision-svc:latest
+          ports:
+            - containerPort: 8012
+          env:
+            - name: ENV
+              value: "production"
+            - name: LLM_SVC_URL
+              value: "http://llm-svc:8011"
+            - name: INTENT_SVC_URL
+              value: "http://intent-svc:8010"
+            - name: L3_DATA_SVC_URL
+              value: "http://l3-data-svc:8020"
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "200m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8012
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8012
+            initialDelaySeconds: 5
+            periodSeconds: 10

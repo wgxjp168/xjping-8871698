@@ -1,0 +1,131 @@
+# ---------------------------------------------------------------------------
+# Kubernetes Deployment — ILbuy Intent Service
+# ---------------------------------------------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: intent-svc
+  namespace: l2-ai-decision
+  labels:
+    app: intent-svc
+    component: nlp
+    part-of: ilbuy-l2-ai-decision-hub
+    version: "1.0.0"
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: intent-svc
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0          # Zero-downtime rollout
+  template:
+    metadata:
+      labels:
+        app: intent-svc
+        component: nlp
+        part-of: ilbuy-l2-ai-decision-hub
+        version: "1.0.0"
+      annotations:
+        prometheus.io/scrape: "false"
+    spec:
+      serviceAccountName: intent-svc
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
+        fsGroup: 1001
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: intent-svc
+          image: ilbuy/intent-svc:1.0.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8010
+              protocol: TCP
+          env:
+            - name: ENV
+              value: "production"
+            - name: PORT
+              value: "8010"
+            - name: LOG_LEVEL
+              value: "INFO"
+            - name: LLM_SVC_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: intent-svc-config
+                  key: llm_svc_url
+            - name: HF_MODEL_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: intent-svc-config
+                  key: hf_model_name
+            - name: NLP_DEVICE
+              value: "cpu"
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "500m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false    # transformers needs write access to cache
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: model-cache
+              mountPath: /app/.cache
+      volumes:
+        - name: model-cache
+          emptyDir:
+            sizeLimit: 2Gi
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app: intent-svc
+                topologyKey: kubernetes.io/hostname
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: intent-svc
+  namespace: l2-ai-decision
+  labels:
+    app: intent-svc
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: intent-svc-config
+  namespace: l2-ai-decision
+  labels:
+    app: intent-svc
+data:
+  llm_svc_url: "http://llm-svc:8020"
+  hf_model_name: "hfl/chinese-roberta-wwm-ext"

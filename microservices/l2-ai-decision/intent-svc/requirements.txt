@@ -1,0 +1,14 @@
+fastapi>=0.115
+uvicorn[standard]
+pydantic>=2.9
+pydantic-settings
+httpx
+python-dotenv
+transformers>=4.40
+torch
+jieba
+scikit-learn
+numpy
+pytest
+pytest-asyncio
+httpx[testing]
