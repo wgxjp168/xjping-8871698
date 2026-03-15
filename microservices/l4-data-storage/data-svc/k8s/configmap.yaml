@@ -1,0 +1,36 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: data-svc-config
+  namespace: ilbuy-l4
+  labels:
+    app: data-svc
+    layer: l4
+data:
+  ENV: "production"
+  PORT: "8035"
+  # MySQL
+  MYSQL_URL: "jdbc:mysql://mysql.ilbuy-infra.svc.cluster.local:3306/ilbuy?useSSL=true&characterEncoding=UTF-8&serverTimezone=UTC"
+  # Redis
+  REDIS_HOST: "redis.ilbuy-infra.svc.cluster.local"
+  REDIS_PORT: "6379"
+  REDIS_DB: "3"
+  # Elasticsearch
+  ES_URI: "http://elasticsearch.ilbuy-infra.svc.cluster.local:9200"
+  # RabbitMQ
+  RABBITMQ_HOST: "rabbitmq.ilbuy-infra.svc.cluster.local"
+  RABBITMQ_PORT: "5672"
+  RABBITMQ_VHOST: "/ilbuy"
+  RABBITMQ_SSL: "false"
+  # Canal
+  CANAL_ENABLED: "true"
+  CANAL_HOST: "canal-server.ilbuy-infra.svc.cluster.local"
+  CANAL_PORT: "11111"
+  CANAL_DESTINATION: "ilbuy_canal"
+  CANAL_FILTER: "ilbuy\\.products"
+  # MinIO
+  MINIO_ENDPOINT: "http://minio.ilbuy-infra.svc.cluster.local:9000"
+  MINIO_BUCKET: "ilbuy-product-images"
+  # ClickHouse
+  CLICKHOUSE_URL: "jdbc:clickhouse://clickhouse.ilbuy-infra.svc.cluster.local:8123/ilbuy_analytics"
+  CLICKHOUSE_USER: "default"

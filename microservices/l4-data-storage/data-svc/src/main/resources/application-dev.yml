@@ -1,0 +1,67 @@
+# ====================================================================
+# 开发环境配置 (ENV=development)
+# 本地 Docker Compose 启动各中间件
+# ====================================================================
+
+spring:
+  # ── MySQL ────────────────────────────────────────────────────────────
+  datasource:
+    url: jdbc:mysql://localhost:3306/ilbuy_dev?useSSL=false&allowPublicKeyRetrieval=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai
+    username: ilbuy
+    password: ilbuy_dev_pass
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      pool-name: HikariDev
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 10000
+
+  jpa:
+    hibernate:
+      ddl-auto: update    # 开发环境自动建表
+    show-sql: true
+
+  # ── Redis ────────────────────────────────────────────────────────────
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      database: 3
+      timeout: 3000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 4
+          min-idle: 1
+
+  # ── Elasticsearch ────────────────────────────────────────────────────
+  elasticsearch:
+    uris: http://localhost:9200
+    connection-timeout: 5s
+    socket-timeout: 30s
+
+  # ── RabbitMQ ────────────────────────────────────────────────────────
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: guest
+    password: guest
+    virtual-host: /
+
+logging:
+  level:
+    com.ilbuy: DEBUG
+    org.springframework.amqp: DEBUG
+    org.hibernate.SQL: DEBUG
+
+ilbuy:
+  canal:
+    enabled: false       # 开发环境不启动 Canal（需单独部署 Canal Server）
+  minio:
+    endpoint: http://localhost:9000
+    access-key: minioadmin
+    secret-key: minioadmin
+  clickhouse:
+    url: jdbc:clickhouse://localhost:8123/ilbuy_analytics_dev
+    username: default
+    password: ""

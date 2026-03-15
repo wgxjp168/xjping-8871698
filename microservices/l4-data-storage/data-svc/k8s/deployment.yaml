@@ -1,0 +1,153 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: data-svc
+  namespace: ilbuy-l4
+  labels:
+    app: data-svc
+    layer: l4
+    version: "1.0.0"
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: data-svc
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: data-svc
+        layer: l4
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8035"
+        prometheus.io/path: "/actuator/prometheus"
+    spec:
+      serviceAccountName: data-svc
+      terminationGracePeriodSeconds: 60
+
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels:
+              app: data-svc
+
+      containers:
+        - name: data-svc
+          image: ilbuy/data-svc:1.0.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8035
+              name: http
+
+          # ── 环境变量（ConfigMap） ──────────────────────────────────
+          envFrom:
+            - configMapRef:
+                name: data-svc-config
+
+          # ── 敏感配置（Secret） ────────────────────────────────────
+          env:
+            - name: MYSQL_USER
+              valueFrom:
+                secretKeyRef:
+                  name: data-svc-secrets
+                  key: mysql-user
+            - name: MYSQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: data-svc-secrets
+                  key: mysql-password
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: data-svc-secrets
+                  key: redis-password
+            - name: RABBITMQ_USER
+              valueFrom:
+                secretKeyRef:
+                  name: data-svc-secrets
+                  key: rabbitmq-user
+            - name: RABBITMQ_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: data-svc-secrets
+                  key: rabbitmq-password
+            - name: MINIO_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: data-svc-secrets
+                  key: minio-access-key
+            - name: MINIO_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: data-svc-secrets
+                  key: minio-secret-key
+            - name: ES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: data-svc-secrets
+                  key: es-user
+            - name: ES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: data-svc-secrets
+                  key: es-password
+            - name: CLICKHOUSE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: data-svc-secrets
+                  key: clickhouse-password
+
+          # ── 资源限制 ──────────────────────────────────────────────
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "512Mi"
+            limits:
+              cpu: "2000m"
+              memory: "1Gi"
+
+          # ── 存活探针 ──────────────────────────────────────────────
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8035
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            failureThreshold: 3
+
+          # ── 就绪探针 ──────────────────────────────────────────────
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 8035
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            failureThreshold: 3
+
+          # ── 安全加固 ──────────────────────────────────────────────
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1001
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false   # Spring Boot 需要写 /tmp
+            capabilities:
+              drop: ["ALL"]
+
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: logs
+              mountPath: /app/logs
+
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        - name: logs
+          emptyDir: {}

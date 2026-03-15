@@ -1,0 +1,85 @@
+spring:
+  application:
+    name: data-svc
+  profiles:
+    active: ${ENV:production}
+
+  # ── Jackson ─────────────────────────────────────────────────────────
+  jackson:
+    default-property-inclusion: non_null
+    serialization:
+      write-dates-as-timestamps: false
+
+  # ── JPA 公共配置 ─────────────────────────────────────────────────────
+  jpa:
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: false
+        jdbc:
+          batch_size: 50
+          order_inserts: true
+          order_updates: true
+
+  # ── RabbitMQ ────────────────────────────────────────────────────────
+  rabbitmq:
+    listener:
+      simple:
+        acknowledge-mode: manual
+        retry:
+          enabled: true
+          max-attempts: 3
+          initial-interval: 2000ms
+          multiplier: 2.0
+          max-interval: 10000ms
+        prefetch: 10
+        concurrency: 2
+        max-concurrency: 8
+
+  # ── Cache ────────────────────────────────────────────────────────────
+  cache:
+    type: redis
+
+server:
+  port: ${PORT:8035}
+  shutdown: graceful
+  tomcat:
+    max-threads: 200
+    accept-count: 100
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+
+logging:
+  pattern:
+    console: "%d{HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+
+# ── ILbuy 自定义配置 ───────────────────────────────────────────────────
+ilbuy:
+  canal:
+    enabled: ${CANAL_ENABLED:false}
+    host: ${CANAL_HOST:localhost}
+    port: ${CANAL_PORT:11111}
+    destination: ${CANAL_DESTINATION:ilbuy_canal}
+    filter: ${CANAL_FILTER:ilbuy\.products}
+
+  minio:
+    endpoint: ${MINIO_ENDPOINT:http://minio:9000}
+    access-key: ${MINIO_ACCESS_KEY:minioadmin}
+    secret-key: ${MINIO_SECRET_KEY:minioadmin}
+    bucket: ${MINIO_BUCKET:ilbuy-product-images}
+
+  clickhouse:
+    url: ${CLICKHOUSE_URL:jdbc:clickhouse://clickhouse:8123/ilbuy_analytics}
+    username: ${CLICKHOUSE_USER:default}
+    password: ${CLICKHOUSE_PASSWORD:}

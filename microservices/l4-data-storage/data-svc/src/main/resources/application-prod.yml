@@ -1,0 +1,66 @@
+# ====================================================================
+# 生产环境配置 (ENV=production)
+# 所有敏感值从 K8s Secret/ConfigMap 注入为环境变量
+# ====================================================================
+
+spring:
+  # ── MySQL ────────────────────────────────────────────────────────────
+  datasource:
+    url: ${MYSQL_URL:jdbc:mysql://mysql:3306/ilbuy?useSSL=true&characterEncoding=UTF-8&serverTimezone=UTC}
+    username: ${MYSQL_USER}
+    password: ${MYSQL_PASSWORD}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      pool-name: HikariProd
+      maximum-pool-size: 30
+      minimum-idle: 5
+      connection-timeout: 5000
+      idle-timeout: 300000
+      max-lifetime: 1200000
+      leak-detection-threshold: 60000
+
+  jpa:
+    hibernate:
+      ddl-auto: validate   # 生产环境不自动变更表结构
+    show-sql: false
+
+  # ── Redis ────────────────────────────────────────────────────────────
+  data:
+    redis:
+      host: ${REDIS_HOST:redis}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      database: ${REDIS_DB:3}
+      timeout: 2000ms
+      lettuce:
+        pool:
+          max-active: 20
+          max-idle: 10
+          min-idle: 2
+
+  # ── Elasticsearch ────────────────────────────────────────────────────
+  elasticsearch:
+    uris: ${ES_URI:http://elasticsearch:9200}
+    username: ${ES_USER:}
+    password: ${ES_PASSWORD:}
+    connection-timeout: 5s
+    socket-timeout: 30s
+
+  # ── RabbitMQ ────────────────────────────────────────────────────────
+  rabbitmq:
+    host: ${RABBITMQ_HOST:rabbitmq}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USER}
+    password: ${RABBITMQ_PASSWORD}
+    virtual-host: ${RABBITMQ_VHOST:/ilbuy}
+    ssl:
+      enabled: ${RABBITMQ_SSL:false}
+
+logging:
+  level:
+    com.ilbuy: INFO
+    root: WARN
+  file:
+    name: /app/logs/data-svc.log
+    max-size: 50MB
+    max-history: 7
