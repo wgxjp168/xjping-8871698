@@ -2,49 +2,100 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: decision-svc
+  namespace: ilbuy-l2
   labels:
     app: decision-svc
-    tier: l2-ai-decision
+    tier: l2-ai
+    component: decision-hub
 spec:
   replicas: 2
   selector:
     matchLabels:
       app: decision-svc
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
   template:
     metadata:
       labels:
         app: decision-svc
+        tier: l2-ai
+        component: decision-hub
     spec:
+      serviceAccountName: decision-svc
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
       containers:
         - name: decision-svc
           image: ilbuy/decision-svc:latest
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8012
+              protocol: TCP
           env:
             - name: ENV
               value: "production"
-            - name: LLM_SVC_URL
-              value: "http://llm-svc:8011"
+            - name: PORT
+              value: "8012"
+            - name: LOG_LEVEL
+              value: "INFO"
             - name: INTENT_SVC_URL
-              value: "http://intent-svc:8010"
+              value: "http://intent-svc.ilbuy-l2.svc.cluster.local:8011"
+            - name: LLM_SVC_URL
+              value: "http://llm-svc.ilbuy-l2.svc.cluster.local:8013"
             - name: L3_DATA_SVC_URL
-              value: "http://l3-data-svc:8020"
+              value: "http://l3-data-svc.ilbuy-l3.svc.cluster.local:8031"
+            - name: L3_PRODUCT_SVC_URL
+              value: "http://l3-product-svc.ilbuy-l3.svc.cluster.local:8032"
           resources:
             requests:
+              cpu: "250m"
               memory: "256Mi"
-              cpu: "200m"
             limits:
-              memory: "512Mi"
               cpu: "500m"
+              memory: "512Mi"
           livenessProbe:
             httpGet:
               path: /health
               port: 8012
-            initialDelaySeconds: 10
-            periodSeconds: 30
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            failureThreshold: 3
           readinessProbe:
             httpGet:
               path: /health
               port: 8012
-            initialDelaySeconds: 5
+            initialDelaySeconds: 10
             periodSeconds: 10
+            failureThreshold: 3
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels:
+              app: decision-svc
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: decision-svc
+  namespace: ilbuy-l2
+  labels:
+    app: decision-svc
