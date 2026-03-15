@@ -53,9 +53,9 @@ class ChatWebSocketHandlerTest {
         attrs.put("userType", "CONSUMER");
         attrs.put("clientIp", "127.0.0.1");
 
-        when(wsSession.getId()).thenReturn("ws-session-001");
-        when(wsSession.getAttributes()).thenReturn(attrs);
-        when(wsSession.isOpen()).thenReturn(true);
+        lenient().when(wsSession.getId()).thenReturn("ws-session-001");
+        lenient().when(wsSession.getAttributes()).thenReturn(attrs);
+        lenient().when(wsSession.isOpen()).thenReturn(true);
     }
 
     @Test

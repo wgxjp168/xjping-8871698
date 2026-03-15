@@ -71,8 +71,8 @@ class AuthServiceTest {
         ReflectionTestUtils.setField(authService, "jwtUtils", jwtUtils);
         ReflectionTestUtils.setField(authService, "jwtProperties", jwtProperties);
 
-        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
-        doNothing().when(valueOperations).set(anyString(), anyString(), any(Duration.class));
+        lenient().when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        lenient().doNothing().when(valueOperations).set(anyString(), anyString(), any(Duration.class));
     }
 
     @Test

@@ -32,7 +32,7 @@ public class L2ConversationServiceStub implements L2ConversationService {
         try {
             // 模拟流式响应（实际由 L2 conversation-svc 提供）
             String[] parts = ("【AI决策建议-桩实现】\n" +
-                "收到您的需求："" + content + ""\n" +
+                "收到您的需求：\"" + content + "\"\n" +
                 "正在分析最优采购方案...\n" +
                 "当前为 L1 WebSocket 服务桩实现，L2 AI 决策服务（conversation-svc）开发完成后将提供真实分析。")
                 .split("\n");

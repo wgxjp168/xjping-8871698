@@ -29,7 +29,12 @@ import static org.mockito.Mockito.when;
 /**
  * JWT 鉴权过滤器单元测试
  */
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
+    properties = {
+        "spring.cloud.nacos.discovery.enabled=false",
+        "spring.cloud.nacos.config.enabled=false",
+        "spring.cloud.discovery.enabled=false"
+    })
 @AutoConfigureWebTestClient
 @DisplayName("JWT 鉴权过滤器测试")
 class JwtAuthGlobalFilterTest {
@@ -64,7 +69,7 @@ class JwtAuthGlobalFilterTest {
         webTestClient.post()
             .uri("/auth/login")
             .exchange()
-            .expectStatus().isNotEqualTo(HttpStatus.UNAUTHORIZED);
+            .expectStatus().value(status -> org.assertj.core.api.Assertions.assertThat(status).isNotEqualTo(401));
     }
 
     @Test
@@ -96,7 +101,7 @@ class JwtAuthGlobalFilterTest {
             .uri("/api/v1/user/profile")
             .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
             .exchange()
-            .expectStatus().isNotEqualTo(HttpStatus.UNAUTHORIZED);
+            .expectStatus().value(status -> org.assertj.core.api.Assertions.assertThat(status).isNotEqualTo(401));
     }
 
     @Test

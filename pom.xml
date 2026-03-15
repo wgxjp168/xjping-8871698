@@ -29,11 +29,8 @@
             阶段6: L6 报告输出层 / L7 商业变现层
         -->
 
-        <!-- L1 接入网关层（阶段2）-->
+        <!-- L1 接入网关层（阶段2）- 子模块由 l1-gateway/pom.xml 统一管理 -->
         <module>microservices/l1-gateway</module>
-        <module>microservices/l1-gateway/api-gateway</module>
-        <module>microservices/l1-gateway/auth-svc</module>
-        <module>microservices/l1-gateway/websocket-svc</module>
 
         <!-- L5 业务逻辑层 - 用户服务（已有pom.xml）-->
         <module>microservices/l5-business-logic/user-svc</module>

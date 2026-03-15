@@ -3,10 +3,14 @@ package com.ilbuy.auth.api;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ilbuy.auth.dto.LoginRequest;
 import com.ilbuy.auth.dto.LoginResponse;
+import com.ilbuy.auth.mapper.UserCredentialMapper;
 import com.ilbuy.auth.service.AuthService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration;
+import org.springframework.boot.autoconfigure.jdbc.DataSourceTransactionManagerAutoConfiguration;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
@@ -21,7 +25,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 /**
  * AuthController 接口测试（MockMvc）
  */
-@WebMvcTest(AuthController.class)
+@WebMvcTest(value = AuthController.class,
+    excludeAutoConfiguration = {DataSourceAutoConfiguration.class, DataSourceTransactionManagerAutoConfiguration.class})
+@AutoConfigureMockMvc(addFilters = false)
 @DisplayName("AuthController 接口测试")
 class AuthControllerTest {
 
@@ -33,6 +39,9 @@ class AuthControllerTest {
 
     @MockBean
     private AuthService authService;
+
+    @MockBean
+    private UserCredentialMapper userCredentialMapper;
 
     @Test
     @DisplayName("POST /auth/login - 正常登录返回 200 及 Token")
