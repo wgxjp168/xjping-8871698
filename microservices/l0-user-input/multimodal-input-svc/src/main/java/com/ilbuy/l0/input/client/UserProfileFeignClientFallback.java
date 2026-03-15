@@ -19,6 +19,6 @@ public class UserProfileFeignClientFallback implements UserProfileFeignClient {
     @Override
     public Result<UserProfileSummary> getUserSummary(Long userId) {
         log.warn("[UserProfileFallback] user-profile-svc 不可用，返回空画像: userId={}", userId);
-        return Result.success(null);
+        return Result.ok(null);
     }
 }

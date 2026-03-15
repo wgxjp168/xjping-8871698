@@ -6,7 +6,6 @@ import com.ilbuy.l0.input.domain.enums.InputType;
 import com.ilbuy.l0.input.parser.*;
 import com.ilbuy.l0.input.parser.platform.EcommercePlatform;
 import com.ilbuy.l0.input.parser.platform.PlatformUrlParser;
-import com.ilbuy.l0.input.service.impl.InternalImageRecognitionService;
 import com.ilbuy.l0.input.service.impl.InputParserServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -25,7 +24,7 @@ import static org.mockito.Mockito.when;
 /**
  * InputParserService 综合单元测试
  *
- * <p>验证四种输入类型的解析流程完整性。
+ * <p>验证四种输入类型的解析流程完整性，不依赖 Spring Context。
  */
 @ExtendWith(MockitoExtension.class)
 @DisplayName("InputParserService - 多模态输入解析集成测试")
@@ -38,15 +37,18 @@ class InputParserServiceTest {
 
     @BeforeEach
     void setUp() {
+        // VoiceToTextService mock 需要返回 providerCode
+        when(voiceToTextService.providerCode()).thenReturn("baidu");
+
         PlatformUrlParser platformUrlParser = new PlatformUrlParser();
         TextInputParser  textParser  = new TextInputParser();
         ImageInputParser imageParser = new ImageInputParser(imageRecognitionService);
         LinkInputParser  linkParser  = new LinkInputParser(platformUrlParser);
-        VoiceInputParser voiceParser = new VoiceInputParser(voiceToTextService, textParser);
+        // VoiceInputParser 使用 List<VoiceToTextService> 注入
+        VoiceInputParser voiceParser = new VoiceInputParser(
+                List.of(voiceToTextService), textParser, "baidu");
 
         List<InputParser> parsers = List.of(textParser, imageParser, linkParser, voiceParser);
-
-        // 空的voiceService列表（单测中通过mock覆盖）
         parserService = new InputParserServiceImpl(parsers, List.of(voiceToTextService), "baidu");
     }
 
@@ -132,6 +134,53 @@ class InputParserServiceTest {
         assertThat(result.getPlatformProductId()).isEqualTo("B08N5WRWNW");
     }
 
+    @Test
+    @DisplayName("链接解析：淘宝商品链接（含追踪参数）")
+    void parseLinkTaobao() {
+        InputRequest request = new InputRequest();
+        request.setInputType(InputType.LINK);
+        request.setRawUrl("https://item.taobao.com/item.htm?id=123456789012&spm=aaa&ali_trackid=xxx");
+        request.setUserId(1L);
+
+        ParsedInput result = parserService.parse(request);
+
+        assertThat(result.isSuccess()).isTrue();
+        assertThat(result.getPlatform()).isEqualTo(EcommercePlatform.TAOBAO);
+        assertThat(result.getPlatformProductId()).isEqualTo("123456789012");
+        // 标准化URL应去除追踪参数
+        assertThat(result.getNormalizedUrl())
+                .isEqualTo("https://item.taobao.com/item.htm?id=123456789012");
+    }
+
+    @Test
+    @DisplayName("链接解析：拼多多商品链接")
+    void parseLinkPDD() {
+        InputRequest request = new InputRequest();
+        request.setInputType(InputType.LINK);
+        request.setRawUrl("https://mobile.yangkeduo.com/goods.html?goods_id=555666777&from=xxx");
+        request.setUserId(1L);
+
+        ParsedInput result = parserService.parse(request);
+
+        assertThat(result.isSuccess()).isTrue();
+        assertThat(result.getPlatform()).isEqualTo(EcommercePlatform.PINDUODUO);
+        assertThat(result.getPlatformProductId()).isEqualTo("555666777");
+    }
+
+    @Test
+    @DisplayName("链接解析：非电商链接返回失败")
+    void parseUnknownLink() {
+        InputRequest request = new InputRequest();
+        request.setInputType(InputType.LINK);
+        request.setRawUrl("https://www.baidu.com/s?wd=游戏本");
+        request.setUserId(1L);
+
+        ParsedInput result = parserService.parse(request);
+
+        assertThat(result.isSuccess()).isFalse();
+        assertThat(result.getPlatform()).isEqualTo(EcommercePlatform.UNKNOWN);
+    }
+
     // ==================== 图片解析测试 ====================
 
     @Test
@@ -183,7 +232,6 @@ class InputParserServiceTest {
         String audioUrl = "https://oss.ilbuy.com/input/audio/test.mp3";
         when(voiceToTextService.transcribe(anyString(), anyString()))
                 .thenReturn(VoiceToTextService.TranscribeResult.ok("我想买2000元以内的运动鞋", 1200));
-        when(voiceToTextService.providerCode()).thenReturn("baidu");
 
         InputRequest request = new InputRequest();
         request.setInputType(InputType.VOICE);
@@ -198,6 +246,25 @@ class InputParserServiceTest {
         assertThat(result.getTranscribedText()).isEqualTo("我想买2000元以内的运动鞋");
         assertThat(result.getProductKeyword()).contains("运动鞋");
         assertThat(result.getBudgetMax()).isEqualByComparingTo(new BigDecimal("2000"));
+    }
+
+    @Test
+    @DisplayName("语音解析：转写失败返回失败结果")
+    void parseVoiceFailure() {
+        String audioUrl = "https://oss.ilbuy.com/input/audio/noise.mp3";
+        when(voiceToTextService.transcribe(anyString(), anyString()))
+                .thenReturn(VoiceToTextService.TranscribeResult.fail("音频质量过低"));
+
+        InputRequest request = new InputRequest();
+        request.setInputType(InputType.VOICE);
+        request.setFileUrl(audioUrl);
+        request.setVoiceProvider("baidu");
+        request.setUserId(1L);
+
+        ParsedInput result = parserService.parse(request);
+
+        assertThat(result.isSuccess()).isFalse();
+        assertThat(result.getFailReason()).contains("音频质量过低");
     }
 
     // ==================== 批量解析测试 ====================

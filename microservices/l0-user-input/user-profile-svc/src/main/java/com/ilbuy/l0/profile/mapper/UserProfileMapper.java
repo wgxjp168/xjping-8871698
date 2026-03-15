@@ -4,7 +4,7 @@ import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.ilbuy.l0.profile.domain.entity.UserProfile;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
-import org.apache.ibatis.annotations.Select;
+import org.apache.ibatis.annotations.Update;
 
 /**
  * 用户画像 Mapper
@@ -18,15 +18,17 @@ import org.apache.ibatis.annotations.Select;
 public interface UserProfileMapper extends BaseMapper<UserProfile> {
 
     /**
-     * 根据用户ID查询画像（带偏好数据，join查询）
-     * 在 UserProfileMapper.xml 中实现
+     * 根据用户ID查询完整画像（UserProfileMapper.xml 实现）
      */
     UserProfile selectWithPreferencesByUserId(@Param("userId") Long userId);
 
     /**
      * 更新用户画像完整度分
+     *
+     * <p>注意：直接执行 UPDATE，不走 MyBatis-Plus 拦截器，
+     * 此处用 {@code @Update} 注解（非 @Select）。
      */
-    @Select("UPDATE user_profile SET profile_score = #{score}, updated_at = NOW() " +
+    @Update("UPDATE user_profile SET profile_score = #{score}, updated_at = NOW() " +
             "WHERE user_id = #{userId} AND deleted = 0")
     int updateProfileScore(@Param("userId") Long userId, @Param("score") Integer score);
 }

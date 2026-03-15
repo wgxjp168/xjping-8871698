@@ -1,7 +1,7 @@
 package com.ilbuy.l0.profile.api;
 
 import com.ilbuy.common.core.result.Result;
-import com.ilbuy.common.security.util.SecurityUtils;
+import com.ilbuy.common.security.context.SecurityUtils;
 import com.ilbuy.l0.profile.domain.dto.UserProfileUpdateDTO;
 import com.ilbuy.l0.profile.domain.vo.UserProfileVO;
 import com.ilbuy.l0.profile.service.UserProfileService;
@@ -21,7 +21,7 @@ import org.springframework.web.bind.annotation.*;
  * <p>提供用户画像的完整 CRUD，同时暴露 summary 接口供
  * multimodal-input-svc 通过 Feign 快速获取预算/偏好摘要。
  *
- * <p>与 L1 网关对接接口预留：
+ * <p>与上下游对接接口预留：
  * <ul>
  *   <li>L1/L2 调用：GET /api/v0/profiles/{userId}/summary 获取画像摘要</li>
  *   <li>L5 业务层调用：POST /api/v0/profiles/{userId}/preference 行为驱动更新权重</li>
@@ -46,19 +46,19 @@ public class UserProfileController {
     @Operation(summary = "获取当前用户完整画像")
     @PreAuthorize("isAuthenticated()")
     public Result<UserProfileVO> getMyProfile() {
-        Long userId = SecurityUtils.getCurrentUserId();
-        return Result.success(userProfileService.getProfile(userId));
+        Long userId = SecurityUtils.currentUserId();
+        return Result.ok(userProfileService.getProfile(userId));
     }
 
     /**
-     * 获取指定用户完整画像（管理员或内部服务调用）
+     * 获取指定用户完整画像（管理员或本人）
      */
     @GetMapping("/{userId}")
     @Operation(summary = "获取指定用户完整画像（需管理员权限）")
-    @PreAuthorize("hasRole('ADMIN') or @securityUtils.isCurrentUser(#userId)")
+    @PreAuthorize("hasRole('ADMIN') or #userId == @securityUtils.currentUserId()")
     public Result<UserProfileVO> getProfile(
             @Parameter(description = "用户ID") @PathVariable Long userId) {
-        return Result.success(userProfileService.getProfile(userId));
+        return Result.ok(userProfileService.getProfile(userId));
     }
 
     /**
@@ -70,7 +70,7 @@ public class UserProfileController {
     @PreAuthorize("isAuthenticated()")
     public Result<UserProfileVO> getProfileSummary(
             @Parameter(description = "用户ID") @PathVariable Long userId) {
-        return Result.success(userProfileService.getProfileSummary(userId));
+        return Result.ok(userProfileService.getProfileSummary(userId));
     }
 
     /**
@@ -80,14 +80,13 @@ public class UserProfileController {
     @Operation(summary = "更新当前用户画像")
     @PreAuthorize("isAuthenticated()")
     public Result<Void> updateMyProfile(@Valid @RequestBody UserProfileUpdateDTO dto) {
-        Long userId = SecurityUtils.getCurrentUserId();
+        Long userId = SecurityUtils.currentUserId();
         userProfileService.updateProfile(userId, dto);
-        return Result.success();
+        return Result.ok();
     }
 
     /**
      * 行为驱动的偏好权重更新（供 L5 业务层调用）
-     * 例如：用户下单后调用此接口增强对应品牌/品类权重
      */
     @PostMapping("/{userId}/preference")
     @Operation(summary = "行为驱动偏好权重更新", description = "用户行为后由L5业务层调用")
@@ -98,7 +97,7 @@ public class UserProfileController {
             @RequestParam String dimensionValue,
             @RequestParam(defaultValue = "5") int weightDelta) {
         userProfileService.updatePreferenceWeight(userId, dimension, dimensionValue, weightDelta);
-        return Result.success();
+        return Result.ok();
     }
 
     /**
@@ -111,7 +110,7 @@ public class UserProfileController {
             @PathVariable Long userId,
             @RequestParam String nickname) {
         userProfileService.initProfile(userId, nickname);
-        return Result.success();
+        return Result.ok();
     }
 
     /**
@@ -121,6 +120,6 @@ public class UserProfileController {
     @Operation(summary = "刷新画像完整度分")
     @PreAuthorize("hasRole('ADMIN')")
     public Result<Integer> refreshScore(@PathVariable Long userId) {
-        return Result.success(userProfileService.refreshProfileScore(userId));
+        return Result.ok(userProfileService.refreshProfileScore(userId));
     }
 }

@@ -1,7 +1,7 @@
 package com.ilbuy.l0.input.api;
 
 import com.ilbuy.common.core.result.Result;
-import com.ilbuy.common.security.util.SecurityUtils;
+import com.ilbuy.common.security.context.SecurityUtils;
 import com.ilbuy.l0.input.domain.dto.InputRequest;
 import com.ilbuy.l0.input.domain.dto.ParsedInput;
 import com.ilbuy.l0.input.service.InputParserService;
@@ -25,7 +25,7 @@ import java.util.List;
  *
  * <p>与 L1 网关对接接口预留：
  * <ul>
- *   <li>L1 下行调用：L1 → GET /api/v0/input/profile/{userId} 获取用户画像辅助决策</li>
+ *   <li>L1 下行调用：L1 → GET /api/v0/profiles/{userId}/summary 获取用户画像辅助决策</li>
  *   <li>L1 上行接收：POST /api/v1/decision/start 接收 ParsedInput 启动决策流程</li>
  * </ul>
  *
@@ -57,12 +57,12 @@ public class InputController {
     @PreAuthorize("isAuthenticated()")
     public Result<ParsedInput> parse(@Valid @RequestBody InputRequest request) {
         // 从JWT中注入userId（优先级高于请求体中的userId）
-        Long userId = SecurityUtils.getCurrentUserId();
+        Long userId = SecurityUtils.currentUserId();
         request.setUserId(userId);
 
         log.info("[InputAPI] 收到解析请求: type={}, userId={}", request.getInputType(), userId);
         ParsedInput result = inputParserService.parse(request);
-        return Result.success(result);
+        return Result.ok(result);
     }
 
     /**
@@ -72,12 +72,12 @@ public class InputController {
     @Operation(summary = "批量解析多模态输入", description = "最多支持10条并发解析")
     @PreAuthorize("isAuthenticated()")
     public Result<List<ParsedInput>> parseBatch(@Valid @RequestBody List<InputRequest> requests) {
-        Long userId = SecurityUtils.getCurrentUserId();
+        Long userId = SecurityUtils.currentUserId();
         requests.forEach(r -> r.setUserId(userId));
 
         log.info("[InputAPI] 收到批量解析请求: count={}, userId={}", requests.size(), userId);
         List<ParsedInput> results = inputParserService.parseBatch(requests);
-        return Result.success(results);
+        return Result.ok(results);
     }
 
     /**
@@ -86,6 +86,6 @@ public class InputController {
     @GetMapping("/health")
     @Operation(summary = "健康检查", description = "L1网关心跳探测接口，无需鉴权")
     public Result<String> health() {
-        return Result.success("multimodal-input-svc:UP");
+        return Result.ok("multimodal-input-svc:UP");
     }
 }

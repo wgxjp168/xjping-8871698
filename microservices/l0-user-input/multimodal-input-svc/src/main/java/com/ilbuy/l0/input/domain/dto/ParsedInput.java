@@ -33,7 +33,7 @@ import java.util.Map;
  * @author ILbuy Team
  */
 @Data
-@Builder
+@Builder(toBuilder = true)
 @Schema(description = "多模态输入解析结果")
 public class ParsedInput {
 
