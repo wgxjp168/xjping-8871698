@@ -19,13 +19,15 @@ from .base import BasePlatformAdapter
 logger = logging.getLogger(__name__)
 settings = get_settings()
 
-_API_BASE = "https://gw.open.1688.com/openapi/http/1/system.gw/alibaba.product.search/1"
+_API_BASE  = "https://gw.open.1688.com/openapi/http/1/system.gw/alibaba.product.search/1"
+_API_PATH  = "/openapi/http/1/system.gw/alibaba.product.search/1"   # used in sign
 
 
 class Ali1688Adapter(BasePlatformAdapter):
     platform = Platform.ALI1688
 
-    def _sign(self, path: str, params: Dict[str, str]) -> str:
+    def _sign(self, params: Dict[str, str], path: str = _API_PATH) -> str:
+        """1688 open-platform sign: secret + path + sorted(k+v) + secret → MD5 upper."""
         secret = settings.ali1688_app_secret or "MOCK_SECRET"
         sorted_str = "".join(f"{k}{v}" for k, v in sorted(params.items()))
         body = path + sorted_str
@@ -53,6 +55,9 @@ class Ali1688Adapter(BasePlatformAdapter):
                 params["priceStart"] = str(int(filters.price_min))
             if filters.price_max is not None:
                 params["priceEnd"] = str(int(filters.price_max))
+
+        # Sign must be computed after all business params are set
+        params["sign"] = self._sign(params)
 
         proxy_url = await proxy_manager.get_proxy()
 

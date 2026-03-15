@@ -4,16 +4,17 @@ Proxy IP Pool Manager
 Maintains a rotating pool of HTTP proxies with:
   - Health checking (async latency probes)
   - Automatic eviction on repeated failures
-  - Round-robin rotation with success-rate weighting
+  - Weighted-random rotation by success rate
+  - Ban detection: 403 / CAPTCHA responses → ProxyStatus.BANNED
   - Redis-backed persistence (optional)
 """
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
 import random
 import time
+from datetime import datetime, timezone
 from typing import Dict, List, Optional
 
 import httpx
@@ -25,6 +26,16 @@ logger = logging.getLogger(__name__)
 settings = get_settings()
 
 _PROBE_URL = "https://httpbin.org/ip"   # lightweight check endpoint
+
+# HTTP status codes that indicate the proxy IP has been banned by the target
+_BAN_STATUS_CODES = {403, 407, 429}
+
+# Keywords in response body that indicate a CAPTCHA / ban page
+_CAPTCHA_KEYWORDS = ("captcha", "verify", "robot", "forbidden", "blocked", "人机验证", "滑块")
+
+
+def _utcnow() -> datetime:
+    return datetime.now(timezone.utc)
 
 
 class ProxyManager:
@@ -75,7 +86,7 @@ class ProxyManager:
                 chosen = active[self._rr_index % len(active)]
                 self._rr_index += 1
 
-            chosen.last_used = time.time()
+            chosen.last_used = _utcnow()
             return chosen.url
 
     async def add_proxy(self, host: str, port: int, protocol: str = "http",
@@ -86,7 +97,6 @@ class ProxyManager:
             username=username, password=password,
         )
         async with self._lock:
-            # Deduplicate by host:port
             existing = {f"{p.host}:{p.port}" for p in self._pool}
             key = f"{host}:{port}"
             if key not in existing:
@@ -95,6 +105,7 @@ class ProxyManager:
         return record
 
     async def report_failure(self, proxy_url: str) -> None:
+        """Record a network-level failure (timeout, connection refused, etc.)."""
         async with self._lock:
             for p in self._pool:
                 if p.url == proxy_url:
@@ -105,6 +116,7 @@ class ProxyManager:
                     break
 
     async def report_success(self, proxy_url: str) -> None:
+        """Record a successful request through this proxy."""
         async with self._lock:
             for p in self._pool:
                 if p.url == proxy_url:
@@ -112,6 +124,32 @@ class ProxyManager:
                     p.fail_count = max(0, p.fail_count - 1)
                     p.status = ProxyStatus.ACTIVE
                     break
+
+    async def report_ban(self, proxy_url: str) -> None:
+        """
+        Mark a proxy as BANNED — used when the target platform returns a 403 /
+        CAPTCHA response, indicating the proxy IP has been identified and blocked.
+        BANNED proxies are excluded from rotation permanently until manually cleared.
+        """
+        async with self._lock:
+            for p in self._pool:
+                if p.url == proxy_url:
+                    p.status = ProxyStatus.BANNED
+                    logger.warning(
+                        '"Proxy %s:%d marked BANNED (IP blocked by platform)"',
+                        p.host, p.port,
+                    )
+                    break
+
+    def check_response_for_ban(self, response_text: str, status_code: int) -> bool:
+        """
+        Heuristic check: returns True if the response looks like a ban/CAPTCHA page.
+        Call this after receiving a non-error HTTP response to detect soft-bans.
+        """
+        if status_code in _BAN_STATUS_CODES:
+            return True
+        text_lower = response_text.lower()
+        return any(kw in text_lower for kw in _CAPTCHA_KEYWORDS)
 
     def pool_size(self) -> int:
         return len(self._pool)
@@ -127,10 +165,10 @@ class ProxyManager:
             sum(p.success_rate for p in active) / len(active) if active else 0.0
         )
         return {
-            "total":        len(self._pool),
-            "active":       len(active),
-            "failed":       len(failed),
-            "banned":       len(banned),
+            "total":            len(self._pool),
+            "active":           len(active),
+            "failed":           len(failed),
+            "banned":           len(banned),
             "avg_success_rate": round(avg_rate, 3),
         }
 
@@ -139,7 +177,7 @@ class ProxyManager:
     async def _load_seed_proxies(self) -> None:
         """
         In production, load proxies from Redis / external provider.
-        Here we keep the pool empty until proxies are added via add_proxy().
+        Pool starts empty — add proxies via POST /proxy/add.
         """
         logger.info('"Proxy seed loaded (pool empty — add via API)"')
 
@@ -150,7 +188,8 @@ class ProxyManager:
 
     async def _check_all(self) -> None:
         async with self._lock:
-            pool_copy = list(self._pool)
+            # Only re-probe ACTIVE and FAILED proxies; skip permanently BANNED
+            pool_copy = [p for p in self._pool if p.status != ProxyStatus.BANNED]
 
         tasks = [self._probe(p) for p in pool_copy]
         results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -166,7 +205,7 @@ class ProxyManager:
                     proxy.success_count += 1
                     proxy.status = ProxyStatus.ACTIVE
                     proxy.fail_count = max(0, proxy.fail_count - 1)
-                proxy.last_checked = time.time()
+                proxy.last_checked = _utcnow()
 
         logger.info('"Proxy health check complete: %s"', self.pool_stats())
 

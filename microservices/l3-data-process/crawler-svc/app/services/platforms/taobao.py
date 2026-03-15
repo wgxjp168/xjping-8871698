@@ -16,7 +16,7 @@ from app.models.schemas import CrawlFilters, Platform, RawProduct
 from app.services.api_manager import api_manager
 from app.services.compliance_monitor import compliance_monitor
 from app.services.proxy_manager import proxy_manager
-from .base import BasePlatformAdapter
+from .base import BasePlatformAdapter, PlatformAPIError
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -79,6 +79,20 @@ class TaobaoAdapter(BasePlatformAdapter):
                 params=params, proxy=proxy_url,
             )
             data = resp.json()
+            # Check for platform-level business errors (error codes in JSON body)
+            try:
+                self.check_api_error(data)
+            except PlatformAPIError as api_err:
+                logger.warning(
+                    '"Taobao API error keyword=%s code=%s msg=%s"',
+                    keyword, api_err.code, api_err.message,
+                )
+                if proxy_url and self.is_ban_error(api_err):
+                    await proxy_manager.report_ban(proxy_url)
+                elif proxy_url and self.is_rate_limit_error(api_err):
+                    await proxy_manager.report_failure(proxy_url)
+                return self._mock_products(keyword, max_results, session_id, job_id)
+
         except Exception as exc:
             logger.error('"Taobao search error keyword=%s: %s"', keyword, exc)
             if proxy_url:

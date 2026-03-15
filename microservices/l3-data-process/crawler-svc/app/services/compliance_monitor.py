@@ -3,8 +3,15 @@ Compliance Monitor
 ==================
 Ensures all crawling respects:
   - robots.txt rules (user-agent, disallow, crawl-delay)
-  - Platform-specific rate limits
+  - Platform-specific minimum rate limits
   - Legal compliance flags per platform
+
+Public helpers:
+  - is_allowed(platform, path)         → check robots.txt allow/deny
+  - get_crawl_delay(platform)          → effective delay (robots.txt ∪ minimum)
+  - enforce_delay(platform)            → sleep as needed between requests
+  - check_before_crawl(platform, path) → combined allowed-check + delay guard
+  - compliance_report()                → full per-platform status dict
 """
 from __future__ import annotations
 
@@ -12,7 +19,7 @@ import asyncio
 import logging
 import time
 import urllib.robotparser
-from typing import Dict, Optional, Tuple
+from typing import Dict, Optional
 from urllib.parse import urlparse
 
 import httpx
@@ -48,6 +55,10 @@ _MIN_DELAYS: Dict[Platform, float] = {
 }
 
 
+class ComplianceViolation(Exception):
+    """Raised by check_before_crawl() when the path is disallowed by robots.txt."""
+
+
 class RobotsCacheEntry:
     def __init__(self, parser: urllib.robotparser.RobotFileParser,
                  crawl_delay: float, fetched_at: float) -> None:
@@ -66,6 +77,9 @@ class ComplianceMonitor:
         self._cache:    Dict[Platform, RobotsCacheEntry] = {}
         self._lock      = asyncio.Lock()
         self._last_req: Dict[Platform, float] = {}
+        # Per-platform crawl counters for reporting
+        self._crawl_count:   Dict[Platform, int] = {p: 0 for p in Platform}
+        self._blocked_count: Dict[Platform, int] = {p: 0 for p in Platform}
 
     # ── Public API ───────────────────────────────────────────────────────
 
@@ -102,15 +116,42 @@ class ComplianceMonitor:
             logger.debug('"Compliance delay %.2fs for %s"', wait, platform.value)
             await asyncio.sleep(wait)
 
+    async def check_before_crawl(self, platform: Platform, path: str = "/") -> None:
+        """
+        Convenience guard: combines robots.txt allow-check with crawl-delay.
+        Call this at the start of every crawl operation instead of calling
+        is_allowed() and enforce_delay() separately.
+
+        Raises ComplianceViolation if the path is disallowed.
+        Always waits the appropriate crawl delay before returning.
+        """
+        allowed = await self.is_allowed(platform, path)
+        if not allowed:
+            async with self._lock:
+                self._blocked_count[platform] += 1
+            logger.warning(
+                '"robots.txt DISALLOW %s path=%s — skipping"', platform.value, path,
+            )
+            raise ComplianceViolation(
+                f"Path '{path}' disallowed by robots.txt for {platform.value}"
+            )
+
+        async with self._lock:
+            self._crawl_count[platform] += 1
+
+        await self.enforce_delay(platform)
+
     async def compliance_report(self) -> Dict[str, Dict]:
         report = {}
         for p in Platform:
             delay = await self.get_crawl_delay(p)
             cached = p in self._cache and not self._cache[p].is_expired()
             report[p.value] = {
-                "robots_cached": cached,
-                "crawl_delay_s": delay,
-                "min_delay_s":   _MIN_DELAYS.get(p, settings.default_crawl_delay_s),
+                "robots_cached":  cached,
+                "crawl_delay_s":  delay,
+                "min_delay_s":    _MIN_DELAYS.get(p, settings.default_crawl_delay_s),
+                "total_crawls":   self._crawl_count[p],
+                "blocked_crawls": self._blocked_count[p],
             }
         return report
 
@@ -147,8 +188,8 @@ class ComplianceMonitor:
         parser.set_url(robots_url)
         parser.parse(content.splitlines())
 
-        raw_delay  = parser.crawl_delay(USER_AGENT) or 0.0
-        min_delay  = _MIN_DELAYS.get(platform, settings.default_crawl_delay_s)
+        raw_delay   = parser.crawl_delay(USER_AGENT) or 0.0
+        min_delay   = _MIN_DELAYS.get(platform, settings.default_crawl_delay_s)
         crawl_delay = max(float(raw_delay), min_delay)
 
         logger.info(
