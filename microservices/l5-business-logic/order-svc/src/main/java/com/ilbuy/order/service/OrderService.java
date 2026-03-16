@@ -3,6 +3,7 @@ package com.ilbuy.order.service;
 import com.ilbuy.order.model.dto.*;
 import com.ilbuy.order.model.entity.Order;
 import com.ilbuy.order.model.entity.OrderItem;
+import com.ilbuy.order.model.enums.OrderScene;
 import com.ilbuy.order.model.enums.OrderStatus;
 import com.ilbuy.order.mq.OrderEventPublisher;
 import com.ilbuy.order.repository.OrderRepository;
@@ -38,13 +39,37 @@ public class OrderService {
             .map(i -> i.getUnitPrice().multiply(BigDecimal.valueOf(i.getQuantity())))
             .reduce(BigDecimal.ZERO, BigDecimal::add);
 
+        // ── B2B/B2C 场景校验 ──────────────────────────────────────
+        OrderScene scene = request.getScene() != null ? request.getScene() : OrderScene.B2C;
+        if (scene == OrderScene.B2B) {
+            // B2B：开具专票时 invoiceTitle 和 taxpayerId 必填
+            if (Boolean.TRUE.equals(request.getInvoiceRequired())) {
+                if (request.getInvoiceTitle() == null || request.getInvoiceTitle().isBlank()) {
+                    throw new IllegalArgumentException("B2B 开票申请需提供开票抬头");
+                }
+                if (request.getTaxpayerId() == null || request.getTaxpayerId().isBlank()) {
+                    throw new IllegalArgumentException("B2B 开票申请需提供纳税人识别号");
+                }
+            }
+            log.info("B2B order: userId={} supplierNo={} contractNo={} invoiceRequired={}",
+                    userId, request.getSupplierNo(), request.getContractNo(), request.getInvoiceRequired());
+        }
+
+        // ── B2C 优惠券折扣（mock：固定减 10 元） ──────────────────
+        BigDecimal discount = BigDecimal.ZERO;
+        if (scene == OrderScene.B2C && request.getCouponCode() != null && !request.getCouponCode().isBlank()) {
+            discount = new BigDecimal("10.00");
+            log.info("B2C coupon applied: couponCode={} discount={}", request.getCouponCode(), discount);
+        }
+        BigDecimal finalAmount = total.subtract(discount).max(BigDecimal.ZERO);
+
         Order order = Order.builder()
             .orderNo(orderNoGenerator.next())
             .userId(userId)
             .status(OrderStatus.PENDING)
             .totalAmount(total)
-            .discountAmount(BigDecimal.ZERO)
-            .finalAmount(total)
+            .discountAmount(discount)
+            .finalAmount(finalAmount)
             .paymentMethod(request.getPaymentMethod())
             .shippingName(request.getShippingName())
             .shippingPhone(request.getShippingPhone())
@@ -52,6 +77,15 @@ public class OrderService {
             .shippingCity(request.getShippingCity())
             .shippingProvince(request.getShippingProvince())
             .remark(request.getRemark())
+            // 场景字段
+            .scene(scene)
+            .contractNo(request.getContractNo())
+            .invoiceRequired(Boolean.TRUE.equals(request.getInvoiceRequired()))
+            .invoiceTitle(request.getInvoiceTitle())
+            .taxpayerId(request.getTaxpayerId())
+            .supplierNo(request.getSupplierNo())
+            .couponCode(request.getCouponCode())
+            .flashSaleId(request.getFlashSaleId())
             .build();
 
         List<OrderItem> items = request.getItems().stream()
@@ -219,6 +253,15 @@ public class OrderService {
             .cancelledAt(o.getCancelledAt())
             .createdAt(o.getCreatedAt())
             .items(itemDTOs)
+            // 场景字段
+            .scene(o.getScene())
+            .contractNo(o.getContractNo())
+            .invoiceRequired(o.getInvoiceRequired())
+            .invoiceTitle(o.getInvoiceTitle())
+            .taxpayerId(o.getTaxpayerId())
+            .supplierNo(o.getSupplierNo())
+            .couponCode(o.getCouponCode())
+            .flashSaleId(o.getFlashSaleId())
             .build();
     }
 }

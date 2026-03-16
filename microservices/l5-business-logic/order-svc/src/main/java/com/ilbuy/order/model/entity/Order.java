@@ -1,5 +1,6 @@
 package com.ilbuy.order.model.entity;
 
+import com.ilbuy.order.model.enums.OrderScene;
 import com.ilbuy.order.model.enums.OrderStatus;
 import com.ilbuy.order.model.enums.PaymentMethod;
 import jakarta.persistence.*;
@@ -93,6 +94,50 @@ public class Order {
 
     @Column(name = "remark", length = 512)
     private String remark;
+
+    // ── 场景区分字段 ─────────────────────────────────────────────
+
+    /**
+     * 业务场景：B2B（企业采购）/ B2C（消费者）。
+     * 默认 B2C，兼容旧数据。
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "scene", length = 8, nullable = false)
+    @Builder.Default
+    private OrderScene scene = OrderScene.B2C;
+
+    // ── B2B 专属字段 ─────────────────────────────────────────────
+
+    /** 关联的采购合同编号（B2B 可选） */
+    @Column(name = "contract_no", length = 40)
+    private String contractNo;
+
+    /** 是否需要开具增值税专用发票（B2B） */
+    @Column(name = "invoice_required")
+    @Builder.Default
+    private Boolean invoiceRequired = false;
+
+    /** 开票抬头（B2B） */
+    @Column(name = "invoice_title", length = 128)
+    private String invoiceTitle;
+
+    /** 纳税人识别号（B2B 专票必填） */
+    @Column(name = "taxpayer_id", length = 32)
+    private String taxpayerId;
+
+    /** 供应商编号（B2B 采购来源） */
+    @Column(name = "supplier_no", length = 30)
+    private String supplierNo;
+
+    // ── B2C 专属字段 ─────────────────────────────────────────────
+
+    /** 优惠券码（B2C） */
+    @Column(name = "coupon_code", length = 32)
+    private String couponCode;
+
+    /** 闪购活动 ID（B2C） */
+    @Column(name = "flash_sale_id")
+    private Long flashSaleId;
 
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @Builder.Default

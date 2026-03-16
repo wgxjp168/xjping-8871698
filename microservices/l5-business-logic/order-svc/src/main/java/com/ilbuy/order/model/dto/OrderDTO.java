@@ -1,5 +1,6 @@
 package com.ilbuy.order.model.dto;
 
+import com.ilbuy.order.model.enums.OrderScene;
 import com.ilbuy.order.model.enums.OrderStatus;
 import com.ilbuy.order.model.enums.PaymentMethod;
 import lombok.Builder;
@@ -27,6 +28,17 @@ public class OrderDTO {
     private String shippingProvince;
     private String remark;
     private String cancelReason;
+    // 场景区分
+    private OrderScene scene;
+    // B2B
+    private String contractNo;
+    private Boolean invoiceRequired;
+    private String invoiceTitle;
+    private String taxpayerId;
+    private String supplierNo;
+    // B2C
+    private String couponCode;
+    private Long flashSaleId;
     private Instant paidAt;
     private Instant shippedAt;
     private Instant deliveredAt;
