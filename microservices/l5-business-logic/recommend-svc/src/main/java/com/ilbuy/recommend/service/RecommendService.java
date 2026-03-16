@@ -231,6 +231,124 @@ public class RecommendService {
     }
 
     // -------------------------------------------------------------------------
+    // B2B Procurement Recommendations
+    // -------------------------------------------------------------------------
+
+    /**
+     * Returns B2B procurement homepage recommendations for the authenticated buyer.
+     * B2B scene: surfaces frequently purchased items, category-matched products,
+     * new supplier stock, and recommended suppliers — all tailored to procurement history.
+     * Cache: "recommend:b2b:{userId}" TTL=1h (B2B recommendations change less frequently than B2C).
+     */
+    @Transactional(readOnly = true)
+    public B2BRecommendDTO getB2BHomepageRecommendations(Long userId) {
+        String cacheKey = CACHE_B2B_HOMEPAGE_PREFIX + userId;
+
+        Object cached = redisTemplate.opsForValue().get(cacheKey);
+        if (cached instanceof B2BRecommendDTO dto) {
+            log.debug("Cache hit for B2B homepage recommendations, userId={}", userId);
+            return dto;
+        }
+
+        log.debug("Cache miss for B2B homepage recommendations, userId={}", userId);
+
+        // frequentlyPurchased: CF-sourced items where the user has the most ORDER events
+        List<RecommendItem> cfItems = cfEngine.recommend(userId, forYouLimit);
+        List<RecommendItemDTO> frequentlyPurchased = toDto(cfItems);
+
+        // categoryBased: content-based items matching user's most-ordered categories
+        List<RecommendItem> contentItems = contentEngine.recommend(userId, forYouLimit);
+        List<RecommendItemDTO> categoryBased = toDto(contentItems);
+
+        // newSupplierProducts: NEW-sourced items from the recommendation pool
+        List<RecommendItem> newItems = recommendItemRepository
+            .findBySourceOrderByScoreDesc(RecommendSource.NEW, PageRequest.of(0, newLimit));
+        List<RecommendItemDTO> newSupplierProducts = toDto(newItems);
+
+        // recommendedSuppliers: mock list (production would derive from category match)
+        List<String> recommendedSuppliers = recommendSuppliers(userId);
+
+        B2BRecommendDTO result = B2BRecommendDTO.builder()
+            .frequentlyPurchased(frequentlyPurchased)
+            .categoryBased(categoryBased)
+            .newSupplierProducts(newSupplierProducts)
+            .recommendedSuppliers(recommendedSuppliers)
+            .build();
+
+        // B2B recommendations are cached for 1 hour — procurement patterns change less frequently than B2C browsing
+        redisTemplate.opsForValue().set(cacheKey, result, 1, TimeUnit.HOURS);
+
+        return result;
+    }
+
+    /**
+     * Tracks a B2B procurement behavior event.
+     * B2B scene: captures procurement-specific actions (RFQ, bulk order, contract signing)
+     * that differ fundamentally from B2C browsing events.
+     * Maps B2B event types to the nearest generic EventType for storage.
+     */
+    @Transactional
+    public void trackB2BEvent(Long userId, B2BTrackEventRequest req) {
+        // Map B2B-specific event types to the nearest generic EventType
+        EventType mappedType;
+        switch (req.getEventType()) {
+            case "BULK_ORDER":
+            case "CONTRACT_SIGN":
+                mappedType = EventType.ORDER;
+                break;
+            case "RFQ_SUBMIT":
+                mappedType = EventType.ORDER;
+                break;
+            case "PROCUREMENT_VIEW":
+            default:
+                mappedType = EventType.VIEW;
+                break;
+        }
+
+        BehaviorEvent event = BehaviorEvent.builder()
+            .userId(userId)
+            .eventType(mappedType)
+            .category(req.getCategory())
+            .build();
+
+        behaviorEventRepository.save(event);
+        log.info("B2B event tracked: userId={} type={} supplierNo={}",
+            userId, req.getEventType(), req.getSupplierNo());
+
+        // Invalidate B2B homepage cache so next request rebuilds recommendations
+        redisTemplate.delete(CACHE_B2B_HOMEPAGE_PREFIX + userId);
+    }
+
+    /**
+     * Recommends suppliers based on the user's ORDER behavior history.
+     * B2B scene: helps buyers discover and diversify their supplier base
+     * by matching against categories they frequently procure.
+     * Returns up to 5 supplier numbers.
+     */
+    @Transactional(readOnly = true)
+    public List<String> recommendSuppliers(Long userId) {
+        // Derive suppliers from the user's ORDER events and their categories
+        List<BehaviorEvent> orderEvents = behaviorEventRepository
+            .findByUserIdAndEventTypeOrderByCreatedAtDesc(userId, EventType.ORDER,
+                PageRequest.of(0, 20));
+
+        List<String> suppliers = orderEvents.stream()
+            .map(BehaviorEvent::getCategory)
+            .filter(Objects::nonNull)
+            .distinct()
+            .map(category -> "SUP" + (Math.abs(category.hashCode()) % 1000))
+            .limit(5)
+            .collect(Collectors.toList());
+
+        // Fall back to well-known mock suppliers when the user has no procurement history
+        if (suppliers.isEmpty()) {
+            suppliers = Arrays.asList("SUP001", "SUP002");
+        }
+
+        return suppliers;
+    }
+
+    // -------------------------------------------------------------------------
     // Helpers
     // -------------------------------------------------------------------------
 
