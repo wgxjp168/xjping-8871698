@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: price-svc-config
+  namespace: ilbuy-l5
+  labels:
+    app: price-svc
+    layer: l5
+    env: production
+# prod replicas_hint: 2
+data:
+  ENV: "production"
+  SERVER_PORT: "8033"
+  DB_HOST: "mysql.ilbuy-infra.svc.cluster.local"
+  DB_PORT: "3306"
+  DB_NAME: "ilbuy_price"
+  DB_URL: "jdbc:mysql://mysql.ilbuy-infra.svc.cluster.local:3306/ilbuy_price?useSSL=true&characterEncoding=UTF-8&serverTimezone=UTC"
+  REDIS_HOST: "redis.ilbuy-infra.svc.cluster.local"
+  REDIS_PORT: "6379"
+  REDIS_DB: "9"
+  LOG_LEVEL: "INFO"
+  JWT_EXPIRATION_MS: "86400000"
+  JAVA_OPTS: "-Xms256m -Xmx512m"

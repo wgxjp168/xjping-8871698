@@ -1,0 +1,110 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cart-svc
+  namespace: ilbuy-l5
+  labels:
+    app: cart-svc
+    layer: l5
+    version: "1.0.0"
+spec:
+  replicas: 1  # prod: 2
+  selector:
+    matchLabels:
+      app: cart-svc
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: cart-svc
+        layer: l5
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8025"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: cart-svc
+      terminationGracePeriodSeconds: 60
+
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels:
+              app: cart-svc
+
+      containers:
+        - name: cart-svc
+          image: ilbuy/cart-svc:1.0.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8025
+              name: http
+
+          # Environment variables from ConfigMap
+          envFrom:
+            - configMapRef:
+                name: cart-svc-config
+
+          # Sensitive config from Secret
+          env:
+            - name: REDIS_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: ilbuy-l5-secrets
+                  key: REDIS_PASS
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: ilbuy-l5-secrets
+                  key: JWT_SECRET
+
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "64Mi"
+            limits:
+              cpu: "200m"
+              memory: "128Mi"
+
+          # Go service - simpler health check
+          livenessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8025
+            initialDelaySeconds: 10
+            periodSeconds: 30
+            failureThreshold: 3
+
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8025
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            failureThreshold: 3
+
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1001
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+            capabilities:
+              drop: ["ALL"]
+
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: logs
+              mountPath: /app/logs
+
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        - name: logs
+          emptyDir: {}

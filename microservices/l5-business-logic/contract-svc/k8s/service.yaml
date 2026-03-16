@@ -1,0 +1,24 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: contract-svc
+  namespace: ilbuy-l5
+  labels:
+    app: contract-svc
+    layer: l5
+spec:
+  type: ClusterIP
+  selector:
+    app: contract-svc
+  ports:
+    - port: 8031
+      targetPort: 8031
+      name: http
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: contract-svc
+  namespace: ilbuy-l5

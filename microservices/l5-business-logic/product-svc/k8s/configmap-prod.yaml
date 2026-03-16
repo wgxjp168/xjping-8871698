@@ -1,0 +1,24 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: product-svc-config
+  namespace: ilbuy-l5
+  labels:
+    app: product-svc
+    layer: l5
+    env: production
+# prod replicas_hint: 2
+data:
+  ENV: "production"
+  SERVER_PORT: "8021"
+  DB_HOST: "mysql.ilbuy-infra.svc.cluster.local"
+  DB_PORT: "3306"
+  DB_NAME: "ilbuy_product"
+  DB_URL: "jdbc:mysql://mysql.ilbuy-infra.svc.cluster.local:3306/ilbuy_product?useSSL=true&characterEncoding=UTF-8&serverTimezone=UTC"
+  REDIS_HOST: "redis.ilbuy-infra.svc.cluster.local"
+  REDIS_PORT: "6379"
+  REDIS_DB: "2"
+  ES_HOST: "http://elasticsearch.ilbuy-infra.svc.cluster.local:9200"
+  LOG_LEVEL: "INFO"
+  JWT_EXPIRATION_MS: "86400000"
+  JAVA_OPTS: "-Xms512m -Xmx1g"

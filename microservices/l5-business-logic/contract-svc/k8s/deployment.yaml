@@ -1,0 +1,111 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: contract-svc
+  namespace: ilbuy-l5
+  labels:
+    app: contract-svc
+    layer: l5
+    version: "1.0.0"
+spec:
+  replicas: 1  # prod: 1
+  selector:
+    matchLabels:
+      app: contract-svc
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: contract-svc
+        layer: l5
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8031"
+        prometheus.io/path: "/actuator/prometheus"
+    spec:
+      serviceAccountName: contract-svc
+      terminationGracePeriodSeconds: 60
+
+      containers:
+        - name: contract-svc
+          image: ilbuy/contract-svc:1.0.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8031
+              name: http
+
+          # Environment variables from ConfigMap
+          envFrom:
+            - configMapRef:
+                name: contract-svc-config
+
+          # Sensitive config from Secret
+          env:
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: ilbuy-l5-secrets
+                  key: DB_USER
+            - name: DB_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: ilbuy-l5-secrets
+                  key: DB_PASS
+            - name: REDIS_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: ilbuy-l5-secrets
+                  key: REDIS_PASS
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: ilbuy-l5-secrets
+                  key: JWT_SECRET
+
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "384Mi"
+            limits:
+              cpu: "500m"
+              memory: "768Mi"
+
+          livenessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8031
+            initialDelaySeconds: 45
+            periodSeconds: 30
+            failureThreshold: 3
+
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 8031
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 3
+
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1001
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+            capabilities:
+              drop: ["ALL"]
+
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: logs
+              mountPath: /app/logs
+
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        - name: logs
+          emptyDir: {}

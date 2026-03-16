@@ -1,0 +1,24 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cart-svc
+  namespace: ilbuy-l5
+  labels:
+    app: cart-svc
+    layer: l5
+spec:
+  type: ClusterIP
+  selector:
+    app: cart-svc
+  ports:
+    - port: 8025
+      targetPort: 8025
+      name: http
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: cart-svc
+  namespace: ilbuy-l5

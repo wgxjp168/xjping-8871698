@@ -1,0 +1,121 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: notify-svc
+  namespace: ilbuy-l5
+  labels:
+    app: notify-svc
+    layer: l5
+    version: "1.0.0"
+spec:
+  replicas: 1  # prod: 1
+  selector:
+    matchLabels:
+      app: notify-svc
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: notify-svc
+        layer: l5
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8040"
+        prometheus.io/path: "/actuator/prometheus"
+    spec:
+      serviceAccountName: notify-svc
+      terminationGracePeriodSeconds: 60
+
+      containers:
+        - name: notify-svc
+          image: ilbuy/notify-svc:1.0.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8040
+              name: http
+
+          # Environment variables from ConfigMap
+          envFrom:
+            - configMapRef:
+                name: notify-svc-config
+
+          # Sensitive config from Secret
+          env:
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: ilbuy-l5-secrets
+                  key: DB_USER
+            - name: DB_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: ilbuy-l5-secrets
+                  key: DB_PASS
+            - name: REDIS_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: ilbuy-l5-secrets
+                  key: REDIS_PASS
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: ilbuy-l5-secrets
+                  key: JWT_SECRET
+            - name: RABBIT_USER
+              valueFrom:
+                secretKeyRef:
+                  name: ilbuy-l5-secrets
+                  key: RABBIT_USER
+            - name: RABBIT_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: ilbuy-l5-secrets
+                  key: RABBIT_PASS
+
+          resources:
+            requests:
+              cpu: "200m"
+              memory: "256Mi"
+            limits:
+              cpu: "400m"
+              memory: "512Mi"
+
+          livenessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8040
+            initialDelaySeconds: 45
+            periodSeconds: 30
+            failureThreshold: 3
+
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 8040
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 3
+
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1001
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+            capabilities:
+              drop: ["ALL"]
+
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: logs
+              mountPath: /app/logs
+
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        - name: logs
+          emptyDir: {}

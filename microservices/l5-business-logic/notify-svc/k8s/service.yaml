@@ -1,0 +1,24 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: notify-svc
+  namespace: ilbuy-l5
+  labels:
+    app: notify-svc
+    layer: l5
+spec:
+  type: ClusterIP
+  selector:
+    app: notify-svc
+  ports:
+    - port: 8040
+      targetPort: 8040
+      name: http
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: notify-svc
+  namespace: ilbuy-l5

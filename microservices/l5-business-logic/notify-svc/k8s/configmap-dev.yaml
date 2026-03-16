@@ -1,0 +1,24 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: notify-svc-config
+  namespace: ilbuy-l5
+  labels:
+    app: notify-svc
+    layer: l5
+    env: development
+data:
+  ENV: "development"
+  SERVER_PORT: "8040"
+  DB_HOST: "localhost"
+  DB_PORT: "3306"
+  DB_NAME: "ilbuy_notify"
+  DB_URL: "jdbc:mysql://localhost:3306/ilbuy_notify?useSSL=false&characterEncoding=UTF-8&serverTimezone=UTC"
+  REDIS_HOST: "localhost"
+  REDIS_PORT: "6379"
+  REDIS_DB: "6"
+  RABBIT_HOST: "localhost"
+  RABBIT_PORT: "5672"
+  RABBIT_VHOST: "/ilbuy"
+  LOG_LEVEL: "DEBUG"
+  JAVA_OPTS: "-Xms128m -Xmx256m"

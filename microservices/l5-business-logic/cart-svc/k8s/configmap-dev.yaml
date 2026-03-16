@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cart-svc-config
+  namespace: ilbuy-l5
+  labels:
+    app: cart-svc
+    layer: l5
+    env: development
+data:
+  ENV: "development"
+  GIN_MODE: "debug"
+  SERVER_PORT: "8025"
+  REDIS_HOST: "localhost"
+  REDIS_PORT: "6379"
+  REDIS_DB: "5"
+  CART_TTL: "86400"
+  LOG_LEVEL: "DEBUG"
+  JWT_EXPIRATION_MS: "86400000"

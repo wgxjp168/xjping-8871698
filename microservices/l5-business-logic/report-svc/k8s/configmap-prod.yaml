@@ -1,0 +1,26 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: report-svc-config
+  namespace: ilbuy-l5
+  labels:
+    app: report-svc
+    layer: l5
+    env: production
+# prod replicas_hint: 1
+data:
+  ENV: "production"
+  SERVER_PORT: "8024"
+  DB_HOST: "mysql.ilbuy-infra.svc.cluster.local"
+  DB_PORT: "3306"
+  DB_NAME: "ilbuy_report"
+  DB_URL: "jdbc:mysql://mysql.ilbuy-infra.svc.cluster.local:3306/ilbuy_report?useSSL=true&characterEncoding=UTF-8&serverTimezone=UTC"
+  REDIS_HOST: "redis.ilbuy-infra.svc.cluster.local"
+  REDIS_PORT: "6379"
+  REDIS_DB: "4"
+  RABBIT_HOST: "rabbitmq.ilbuy-infra.svc.cluster.local"
+  RABBIT_PORT: "5672"
+  RABBIT_VHOST: "/ilbuy"
+  LOG_LEVEL: "INFO"
+  JWT_EXPIRATION_MS: "86400000"
+  JAVA_OPTS: "-Xms256m -Xmx512m"

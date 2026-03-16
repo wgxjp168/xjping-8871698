@@ -1,0 +1,119 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: price-svc
+  namespace: ilbuy-l5
+  labels:
+    app: price-svc
+    layer: l5
+    version: "1.0.0"
+spec:
+  replicas: 1  # prod: 2
+  selector:
+    matchLabels:
+      app: price-svc
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: price-svc
+        layer: l5
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8033"
+        prometheus.io/path: "/actuator/prometheus"
+    spec:
+      serviceAccountName: price-svc
+      terminationGracePeriodSeconds: 60
+
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels:
+              app: price-svc
+
+      containers:
+        - name: price-svc
+          image: ilbuy/price-svc:1.0.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8033
+              name: http
+
+          # Environment variables from ConfigMap
+          envFrom:
+            - configMapRef:
+                name: price-svc-config
+
+          # Sensitive config from Secret
+          env:
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: ilbuy-l5-secrets
+                  key: DB_USER
+            - name: DB_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: ilbuy-l5-secrets
+                  key: DB_PASS
+            - name: REDIS_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: ilbuy-l5-secrets
+                  key: REDIS_PASS
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: ilbuy-l5-secrets
+                  key: JWT_SECRET
+
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "384Mi"
+            limits:
+              cpu: "500m"
+              memory: "768Mi"
+
+          livenessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8033
+            initialDelaySeconds: 45
+            periodSeconds: 30
+            failureThreshold: 3
+
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 8033
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 3
+
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1001
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+            capabilities:
+              drop: ["ALL"]
+
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: logs
+              mountPath: /app/logs
+
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        - name: logs
+          emptyDir: {}
