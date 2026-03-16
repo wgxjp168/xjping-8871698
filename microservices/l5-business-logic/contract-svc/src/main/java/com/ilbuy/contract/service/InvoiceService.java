@@ -46,7 +46,12 @@ public class InvoiceService {
         BigDecimal amount = contract.getTotalAmount();
         BigDecimal taxAmount = amount.multiply(DEFAULT_TAX_RATE).setScale(2, RoundingMode.HALF_UP);
 
+        // Pre-assign an invoiceNo so the resource can be referenced before formal issuance.
+        // On issue(), this placeholder is replaced with the official INV-prefixed number.
+        String pendingInvoiceNo = generateInvoiceNo();
+
         Invoice invoice = Invoice.builder()
+            .invoiceNo(pendingInvoiceNo)
             .contractId(request.getContractId())
             .userId(userId)
             .type(request.getType())
@@ -63,7 +68,7 @@ public class InvoiceService {
             .build();
 
         invoice = invoiceRepository.save(invoice);
-        log.info("Invoice request created for contractId={}, userId={}", request.getContractId(), userId);
+        log.info("Invoice request created for contractId={}, userId={}, invoiceNo={}", request.getContractId(), userId, pendingInvoiceNo);
         return toDTO(invoice);
     }
 
@@ -99,13 +104,14 @@ public class InvoiceService {
             throw new IllegalStateException("发票状态不允许开具，当前状态: " + invoice.getStatus());
         }
 
-        String generatedInvoiceNo = generateInvoiceNo();
-        invoice.setInvoiceNo(generatedInvoiceNo);
+        // Replace the pending invoiceNo with the official INV-prefixed number
+        String officialInvoiceNo = generateInvoiceNo();
+        invoice.setInvoiceNo(officialInvoiceNo);
         invoice.setStatus(InvoiceStatus.ISSUED);
         invoice.setIssueDate(LocalDate.now());
 
         invoice = invoiceRepository.save(invoice);
-        log.info("Invoice issued: {}", generatedInvoiceNo);
+        log.info("Invoice issued: {}", officialInvoiceNo);
         return toDTO(invoice);
     }
 
