@@ -1,0 +1,231 @@
+version: "3.9"
+
+# ============================================================
+# L6 Report Output Layer — Local Development Environment
+# ============================================================
+# Usage:
+#   docker-compose up -d infra          # Start infra only
+#   docker-compose up -d                # Start everything
+#   docker-compose logs -f report-generator-svc
+#   docker-compose down -v              # Remove volumes too
+
+networks:
+  ilbuy-l6:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
+  minio_data:
+  rabbitmq_data:
+
+# ── Shared environment for all services ──
+x-db-env: &db-env
+  DB_URL: jdbc:postgresql://postgres:5432/ilbuy_l6
+  DB_HOST: postgres
+  DB_PORT: "5432"
+  DB_NAME: ilbuy_l6
+  DB_USERNAME: ilbuy
+  DB_PASSWORD: ilbuy123
+
+x-redis-env: &redis-env
+  REDIS_HOST: redis
+  REDIS_PORT: "6379"
+  REDIS_PASSWORD: ""
+
+x-rabbit-env: &rabbitmq-env
+  RABBITMQ_HOST: rabbitmq
+  RABBITMQ_PORT: "5672"
+  RABBITMQ_USERNAME: guest
+  RABBITMQ_PASSWORD: guest
+
+x-minio-env: &minio-env
+  MINIO_ENDPOINT: http://minio:9000
+  MINIO_ACCESS_KEY: minioadmin
+  MINIO_SECRET_KEY: minioadmin
+
+x-jwt-env: &jwt-env
+  JWT_SECRET: ilbuy-jwt-secret-key-2024-dev-only-change-in-prod
+
+services:
+
+  # ─────────────────────────────────────────────
+  # Infrastructure
+  # ─────────────────────────────────────────────
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: ilbuy-l6-postgres
+    environment:
+      POSTGRES_DB: ilbuy_l6
+      POSTGRES_USER: ilbuy
+      POSTGRES_PASSWORD: ilbuy123
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks: [ilbuy-l6]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ilbuy -d ilbuy_l6"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: ilbuy-l6-redis
+    command: redis-server --save 60 1 --loglevel warning
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks: [ilbuy-l6]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: ilbuy-l6-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    ports:
+      - "5672:5672"
+      - "15672:15672"    # Management UI
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks: [ilbuy-l6]
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+
+  minio:
+    image: quay.io/minio/minio:latest
+    container_name: ilbuy-l6-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "9000:9000"
+      - "9001:9001"    # MinIO Console
+    volumes:
+      - minio_data:/data
+    networks: [ilbuy-l6]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+
+  # ─────────────────────────────────────────────
+  # L5 Report Service stub (for local L6 dev)
+  # ─────────────────────────────────────────────
+
+  l5-report-stub:
+    image: mockserver/mockserver:5.15.0
+    container_name: ilbuy-l5-report-stub
+    environment:
+      MOCKSERVER_SERVER_PORT: 8051
+      MOCKSERVER_LOG_LEVEL: WARN
+    ports:
+      - "8051:8051"
+    networks: [ilbuy-l6]
+
+  # ─────────────────────────────────────────────
+  # L6 Services
+  # ─────────────────────────────────────────────
+
+  report-generator-svc:
+    build:
+      context: ./report-generator-svc
+      dockerfile: Dockerfile
+    container_name: ilbuy-l6-report-generator
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      <<: [*db-env, *redis-env, *rabbit-env, *jwt-env]
+      L5_REPORT_SVC_URL: http://l5-report-stub:8051
+      L6_FORMAT_OUTPUT_SVC_URL: http://format-output-svc:8062
+    ports:
+      - "8061:8061"
+    networks: [ilbuy-l6]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: on-failure
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8061/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      start_period: 90s
+      retries: 3
+
+  format-output-svc:
+    build:
+      context: ./format-output-svc
+      dockerfile: Dockerfile
+    container_name: ilbuy-l6-format-output
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      <<: [*db-env, *redis-env, *minio-env, *jwt-env]
+      L6_CHANNEL_DELIVERY_SVC_URL: http://channel-delivery-svc:8063
+    ports:
+      - "8062:8062"
+    networks: [ilbuy-l6]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    restart: on-failure
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8062/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      start_period: 90s
+      retries: 3
+
+  channel-delivery-svc:
+    build:
+      context: ./channel-delivery-svc
+      dockerfile: Dockerfile
+    container_name: ilbuy-l6-channel-delivery
+    env_file:
+      - ./channel-delivery-svc/.env.example
+    environment:
+      NODE_ENV: development
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: ilbuy_l6
+      DB_USERNAME: ilbuy
+      DB_PASSWORD: ilbuy123
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      L6_FORMAT_OUTPUT_SVC_URL: http://format-output-svc:8062
+      WEB_PORTAL_URL: http://localhost:3000
+    ports:
+      - "8063:8063"
+    networks: [ilbuy-l6]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: on-failure
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8063/actuator/health/liveness"]
+      interval: 20s
+      timeout: 5s
+      start_period: 30s
+      retries: 3

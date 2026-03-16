@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ilbuy-l6
+  labels:
+    app.kubernetes.io/part-of: ilbuy
+    layer: l6

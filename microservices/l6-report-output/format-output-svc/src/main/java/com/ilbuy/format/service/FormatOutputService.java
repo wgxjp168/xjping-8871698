@@ -3,8 +3,11 @@ package com.ilbuy.format.service;
 import com.ilbuy.format.client.ChannelDeliveryClient;
 import com.ilbuy.format.model.dto.FormatJobRequest;
 import com.ilbuy.format.model.dto.FormatJobResponse;
+import com.ilbuy.format.model.entity.FormatAccessLog;
 import com.ilbuy.format.model.entity.FormatJob;
 import com.ilbuy.format.model.enums.FormatJobStatus;
+import com.ilbuy.format.model.enums.FormatType;
+import com.ilbuy.format.repository.FormatAccessLogRepository;
 import com.ilbuy.format.repository.FormatJobRepository;
 import com.ilbuy.format.service.formatter.ExcelFormatter;
 import com.ilbuy.format.service.formatter.HtmlFormatter;
@@ -25,6 +28,7 @@ import java.util.UUID;
 public class FormatOutputService {
 
     private final FormatJobRepository jobRepository;
+    private final FormatAccessLogRepository accessLogRepository;
     private final HtmlFormatter htmlFormatter;
     private final PdfFormatter pdfFormatter;
     private final ExcelFormatter excelFormatter;
@@ -32,14 +36,14 @@ public class FormatOutputService {
     private final ChannelDeliveryClient channelDeliveryClient;
 
     /**
-     * Create format job record and start async processing.
+     * Create format job record (synchronous + transactional) then kick off async rendering.
+     * Idempotent: returns existing job if already submitted.
      */
     @Transactional
     public FormatJobResponse submitFormatJob(FormatJobRequest request) {
-        // Idempotency: check if we already have a job for this generatorJobNo
-        return jobRepository.findByGeneratorJobNo(request.getJobNo()).map(existingJob -> {
+        return jobRepository.findByGeneratorJobNo(request.getJobNo()).map(existing -> {
             log.warn("[FormatOutput] Duplicate request for generatorJobNo={}", request.getJobNo());
-            return toResponse(existingJob);
+            return toResponse(existing);
         }).orElseGet(() -> {
             String formatJobNo = "FMT-" + UUID.randomUUID().toString().replace("-", "").substring(0, 16).toUpperCase();
             FormatJob job = FormatJob.builder()
@@ -55,13 +59,17 @@ public class FormatOutputService {
             job = jobRepository.save(job);
             log.info("[FormatOutput] Created format job: {}", formatJobNo);
 
-            // Kick off async processing
+            // Kick off async rendering (separate thread, separate transaction)
             processAsync(job.getId(), request);
 
             return toResponse(job);
         });
     }
 
+    /**
+     * Async rendering pipeline: PDF → Excel → HTML → channel delivery.
+     * Separate from the @Transactional submit to avoid long-held connections.
+     */
     @Async("formatOutputExecutor")
     public void processAsync(Long jobId, FormatJobRequest request) {
         FormatJob job = jobRepository.findById(jobId).orElseThrow();
@@ -71,12 +79,9 @@ public class FormatOutputService {
 
         try {
             String baseKey = request.getL5ReportNo() + "/" + request.getJobNo();
+            String pdfUrl = null, excelUrl = null, htmlUrl = null;
 
-            String pdfUrl = null;
-            String excelUrl = null;
-            String htmlUrl = null;
-
-            // Step 1: PDF
+            // PDF (generate first so HTML can link to it)
             if (request.isGeneratePdf()) {
                 log.info("[FormatOutput] Generating PDF for {}", request.getJobNo());
                 byte[] pdfBytes = pdfFormatter.format(request);
@@ -85,7 +90,7 @@ public class FormatOutputService {
                 job.setPdfSize((long) pdfBytes.length);
             }
 
-            // Step 2: Excel
+            // Excel
             if (request.isGenerateExcel()) {
                 log.info("[FormatOutput] Generating Excel for {}", request.getJobNo());
                 byte[] excelBytes = excelFormatter.format(request);
@@ -94,7 +99,7 @@ public class FormatOutputService {
                 job.setExcelSize((long) excelBytes.length);
             }
 
-            // Step 3: HTML (with links to PDF/Excel)
+            // HTML (with embedded links to PDF + Excel)
             if (request.isGenerateHtml()) {
                 log.info("[FormatOutput] Generating HTML for {}", request.getJobNo());
                 byte[] htmlBytes = htmlFormatter.format(request, pdfUrl, excelUrl);
@@ -107,16 +112,16 @@ public class FormatOutputService {
             job.setCompletedAt(OffsetDateTime.now());
             jobRepository.save(job);
 
-            log.info("[FormatOutput] Job {} completed. HTML={}, PDF={}, Excel={}",
+            log.info("[FormatOutput] Job {} completed. html={} pdf={} excel={}",
                     job.getFormatJobNo(), htmlUrl != null, pdfUrl != null, excelUrl != null);
 
-            // Step 4: Trigger channel delivery
+            // Trigger multi-channel delivery
             channelDeliveryClient.triggerDelivery(job, request);
 
         } catch (Exception e) {
             log.error("[FormatOutput] Job {} failed: {}", job.getFormatJobNo(), e.getMessage(), e);
             job.setStatus(FormatJobStatus.FAILED);
-            job.setErrorMessage(e.getMessage());
+            job.setErrorMessage(e.getMessage() != null ? e.getMessage().substring(0, Math.min(e.getMessage().length(), 500)) : "Unknown error");
             jobRepository.save(job);
         }
     }
@@ -134,12 +139,50 @@ public class FormatOutputService {
     }
 
     /**
-     * Generate JSON representation directly (no storage, inline response).
+     * Record a file access event (download/view) and return the pre-signed URL.
+     * Used by the download endpoint for audit + analytics.
      */
-    public Object getJsonOutput(String l5ReportNo) {
-        FormatJob job = jobRepository.findAll().stream()
-                .filter(j -> l5ReportNo.equals(j.getL5ReportNo()))
-                .findFirst()
+    @Transactional
+    public String recordAccessAndGetUrl(String formatJobNo, Long userId,
+                                        FormatType formatType, String ipAddress, String userAgent) {
+        FormatJob job = jobRepository.findByFormatJobNo(formatJobNo)
+                .orElseThrow(() -> new RuntimeException("Format job not found: " + formatJobNo));
+
+        if (job.getStatus() != FormatJobStatus.COMPLETED) {
+            throw new RuntimeException("Report not ready yet. Status: " + job.getStatus());
+        }
+        if (OffsetDateTime.now().isAfter(job.getExpiresAt())) {
+            throw new RuntimeException("Report has expired");
+        }
+        // Access control: only the owner can download
+        if (!job.getUserId().equals(userId)) {
+            throw new SecurityException("Access denied to format job " + formatJobNo);
+        }
+
+        // Log the access
+        FormatAccessLog logEntry = FormatAccessLog.builder()
+                .formatJob(job)
+                .userId(userId)
+                .format(formatType)
+                .ipAddress(ipAddress)
+                .userAgent(userAgent)
+                .build();
+        accessLogRepository.save(logEntry);
+
+        return switch (formatType) {
+            case HTML  -> job.getHtmlUrl();
+            case PDF   -> job.getPdfUrl();
+            case EXCEL -> job.getExcelUrl();
+            default    -> throw new RuntimeException("Unsupported format type: " + formatType);
+        };
+    }
+
+    /**
+     * JSON API output: returns the full format job response as structured JSON.
+     * For enterprise API integration – no file download required.
+     */
+    public FormatJobResponse getJsonOutput(String l5ReportNo) {
+        FormatJob job = jobRepository.findByL5ReportNo(l5ReportNo)
                 .orElseThrow(() -> new RuntimeException("No format job for report: " + l5ReportNo));
         return toResponse(job);
     }

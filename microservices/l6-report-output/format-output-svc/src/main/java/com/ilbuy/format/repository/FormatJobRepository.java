@@ -16,4 +16,6 @@ public interface FormatJobRepository extends JpaRepository<FormatJob, Long> {
     List<FormatJob> findByUserId(Long userId);
 
     List<FormatJob> findByStatus(FormatJobStatus status);
+
+    Optional<FormatJob> findByL5ReportNo(String l5ReportNo);
 }

@@ -55,6 +55,8 @@ spec:
                 configMapKeyRef:
                   name: ilbuy-l6-config
                   key: minio.endpoint
+            - name: MINIO_URL_EXPIRY_HOURS
+              value: "72"
             - name: MINIO_ACCESS_KEY
               valueFrom:
                 secretKeyRef:

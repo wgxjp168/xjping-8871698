@@ -1,6 +1,5 @@
 package com.ilbuy.reportgen.service.generator;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ilbuy.reportgen.client.L5ReportClient;
 import com.ilbuy.reportgen.model.dto.*;
 import com.ilbuy.reportgen.model.enums.ClientType;
@@ -22,7 +21,6 @@ import java.util.*;
 public class B2BReportGenerator implements ReportGeneratorStrategy {
 
     private final L5ReportClient l5ReportClient;
-    private final ObjectMapper objectMapper;
 
     @Override
     public ClientType supports() {

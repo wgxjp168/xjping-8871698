@@ -35,6 +35,11 @@ spec:
                 configMapKeyRef:
                   name: ilbuy-l6-config
                   key: db.host
+            - name: DB_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: ilbuy-l6-config
+                  key: db.port
             - name: DB_NAME
               value: "ilbuy_l6"
             - name: DB_USERNAME
@@ -62,6 +67,21 @@ spec:
                 configMapKeyRef:
                   name: ilbuy-l6-config
                   key: email.host
+            - name: EMAIL_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: ilbuy-l6-config
+                  key: email.port
+            - name: EMAIL_SECURE
+              valueFrom:
+                configMapKeyRef:
+                  name: ilbuy-l6-config
+                  key: email.secure
+            - name: EMAIL_FROM
+              valueFrom:
+                configMapKeyRef:
+                  name: ilbuy-l6-config
+                  key: email.from
             - name: EMAIL_USER
               valueFrom:
                 secretKeyRef:
@@ -92,6 +112,21 @@ spec:
                 configMapKeyRef:
                   name: ilbuy-l6-config
                   key: push.gateway.url
+            - name: WEB_PORTAL_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: ilbuy-l6-config
+                  key: web.portal.url
+            - name: CORS_ORIGINS
+              valueFrom:
+                configMapKeyRef:
+                  name: ilbuy-l6-config
+                  key: cors.origins
+            - name: MINIO_ENDPOINT
+              valueFrom:
+                configMapKeyRef:
+                  name: ilbuy-l6-config
+                  key: minio.endpoint
             - name: PUSH_API_KEY
               valueFrom:
                 secretKeyRef:
