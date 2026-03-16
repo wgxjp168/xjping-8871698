@@ -328,15 +328,12 @@ public class RecommendService {
     @Transactional(readOnly = true)
     public List<String> recommendSuppliers(Long userId) {
         // Derive suppliers from the user's ORDER events and their categories
-        List<BehaviorEvent> orderEvents = behaviorEventRepository
-            .findByUserIdAndEventTypeOrderByCreatedAtDesc(userId, EventType.ORDER,
-                PageRequest.of(0, 20));
+        List<String> categories = behaviorEventRepository
+            .findDistinctCategoriesByUserIdAndEventType(userId, EventType.ORDER);
 
-        List<String> suppliers = orderEvents.stream()
-            .map(BehaviorEvent::getCategory)
-            .filter(Objects::nonNull)
-            .distinct()
+        List<String> suppliers = categories.stream()
             .map(category -> "SUP" + (Math.abs(category.hashCode()) % 1000))
+            .distinct()
             .limit(5)
             .collect(Collectors.toList());
 
