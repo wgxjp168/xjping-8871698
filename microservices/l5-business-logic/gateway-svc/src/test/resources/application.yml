@@ -1,0 +1,19 @@
+spring:
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.redis.RedisReactiveAutoConfiguration
+  cloud:
+    gateway:
+      routes: []
+
+jwt:
+  secret: ilbuy-user-svc-secret-key-must-be-at-least-32-chars
+
+gateway:
+  whitelist:
+    - /api/v1/auth/**
+    - /actuator/**
+  cors:
+    allowed-origins:
+      - "*"

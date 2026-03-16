@@ -1,0 +1,147 @@
+server:
+  port: 8010
+
+spring:
+  application:
+    name: gateway-svc
+
+  # ── Redis（令牌桶限流状态存储）────────────────────────────────
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASS:}
+      lettuce:
+        pool:
+          max-active: 16
+          min-idle: 2
+
+  # ── Spring Cloud Gateway 路由表 ──────────────────────────────
+  cloud:
+    gateway:
+      # 全局超时
+      httpclient:
+        connect-timeout: 3000
+        response-timeout: 10s
+
+      # 全局默认过滤器
+      default-filters:
+        - DedupeResponseHeader=Access-Control-Allow-Credentials Access-Control-Allow-Origin
+        - name: RequestRateLimiter
+          args:
+            redis-rate-limiter.replenishRate: 20
+            redis-rate-limiter.burstCapacity: 40
+            redis-rate-limiter.requestedTokens: 1
+            key-resolver: "#{@userKeyResolver}"
+
+      routes:
+
+        # ── user-svc ──────────────────────────────────────────
+        - id: user-auth
+          uri: http://${USER_SVC_HOST:localhost}:${USER_SVC_PORT:8020}
+          predicates:
+            - Path=/api/v1/auth/**
+          filters:
+            - StripPrefix=0
+            # 登录/注册不限流
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 5
+                redis-rate-limiter.burstCapacity: 10
+                redis-rate-limiter.requestedTokens: 1
+                key-resolver: "#{@userKeyResolver}"
+
+        - id: user-profile
+          uri: http://${USER_SVC_HOST:localhost}:${USER_SVC_PORT:8020}
+          predicates:
+            - Path=/api/v1/users/**
+          filters:
+            - StripPrefix=0
+
+        # ── product-svc ───────────────────────────────────────
+        - id: product-svc
+          uri: http://${PRODUCT_SVC_HOST:localhost}:${PRODUCT_SVC_PORT:8021}
+          predicates:
+            - Path=/api/v1/products/**
+          filters:
+            - StripPrefix=0
+
+        # ── cart-svc ──────────────────────────────────────────
+        - id: cart-svc
+          uri: http://${CART_SVC_HOST:localhost}:${CART_SVC_PORT:8025}
+          predicates:
+            - Path=/api/v1/cart/**
+          filters:
+            - StripPrefix=0
+
+        # ── order-svc ─────────────────────────────────────────
+        - id: order-svc
+          uri: http://${ORDER_SVC_HOST:localhost}:${ORDER_SVC_PORT:8022}
+          predicates:
+            - Path=/api/v1/orders/**
+          filters:
+            - StripPrefix=0
+
+        # ── report-svc ────────────────────────────────────────
+        - id: report-svc
+          uri: http://${REPORT_SVC_HOST:localhost}:${REPORT_SVC_PORT:8024}
+          predicates:
+            - Path=/api/v1/reports/**
+          filters:
+            - StripPrefix=0
+
+        # ── notification-svc ──────────────────────────────────
+        - id: notification-svc
+          uri: http://${NOTIFICATION_SVC_HOST:localhost}:${NOTIFICATION_SVC_PORT:8040}
+          predicates:
+            - Path=/api/v1/notifications/**
+          filters:
+            - StripPrefix=0
+
+        # ── file-svc ──────────────────────────────────────────
+        - id: file-svc
+          uri: http://${FILE_SVC_HOST:localhost}:${FILE_SVC_PORT:8041}
+          predicates:
+            - Path=/api/v1/files/**
+          filters:
+            - StripPrefix=0
+            # 文件上传允许更大请求体
+            - name: RequestSize
+              args:
+                maxSize: 100MB
+
+# ── JWT ──────────────────────────────────────────────────────
+jwt:
+  secret: ${JWT_SECRET:ilbuy-user-svc-secret-key-must-be-at-least-32-chars}
+
+# ── 白名单（无需 JWT 的路径）────────────────────────────────
+gateway:
+  whitelist:
+    - /api/v1/auth/register
+    - /api/v1/auth/login
+    - /api/v1/products/search   # 商品搜索允许匿名
+    - /api/v1/products/*/detail # 商品详情允许匿名
+    - /actuator/**
+  cors:
+    allowed-origins:
+      - "http://localhost:3000"
+      - "http://localhost:8080"
+      - "https://*.ilbuy.com"
+
+# ── Actuator ─────────────────────────────────────────────────
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,gateway
+  endpoint:
+    health:
+      show-details: when-authorized
+    gateway:
+      enabled: true
+
+logging:
+  level:
+    com.ilbuy.gateway: DEBUG
+    org.springframework.cloud.gateway: INFO
+    org.springframework.cloud.gateway.filter.ratelimit: DEBUG
