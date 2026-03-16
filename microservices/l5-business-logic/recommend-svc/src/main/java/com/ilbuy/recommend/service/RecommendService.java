@@ -38,8 +38,9 @@ import java.util.stream.Collectors;
 @Slf4j
 public class RecommendService {
 
-    private static final String CACHE_HOMEPAGE_PREFIX = "recommend:homepage:";
-    private static final String CACHE_SIMILAR_PREFIX  = "recommend:similar:";
+    private static final String CACHE_HOMEPAGE_PREFIX    = "recommend:homepage:";
+    private static final String CACHE_SIMILAR_PREFIX     = "recommend:similar:";
+    private static final String CACHE_B2B_HOMEPAGE_PREFIX = "recommend:b2b:";
 
     private final UserProfileRepository       userProfileRepository;
     private final BehaviorEventRepository     behaviorEventRepository;
