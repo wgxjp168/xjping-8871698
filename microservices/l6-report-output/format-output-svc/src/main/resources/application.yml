@@ -1,0 +1,85 @@
+server:
+  port: 8062
+  servlet:
+    context-path: /
+
+spring:
+  application:
+    name: format-output-svc
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:dev}
+
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/ilbuy_l6}
+    username: ${DB_USERNAME:ilbuy}
+    password: ${DB_PASSWORD:ilbuy123}
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      timeout: 5000ms
+
+  thymeleaf:
+    cache: false
+    prefix: classpath:/templates/
+    suffix: .html
+    encoding: UTF-8
+    mode: HTML
+
+# MinIO / S3 Object Storage
+minio:
+  endpoint: ${MINIO_ENDPOINT:http://localhost:9000}
+  access-key: ${MINIO_ACCESS_KEY:minioadmin}
+  secret-key: ${MINIO_SECRET_KEY:minioadmin}
+  bucket:
+    html: ilbuy-reports-html
+    pdf: ilbuy-reports-pdf
+    excel: ilbuy-reports-excel
+  url-expiry-hours: 72
+
+# Channel Delivery Service
+l6:
+  channel-delivery-svc:
+    base-url: ${L6_CHANNEL_DELIVERY_SVC_URL:http://localhost:8063}
+    timeout: 30000
+
+# Format job settings
+format:
+  output:
+    thread-pool-size: 8
+    pdf:
+      font-path: classpath:/fonts/NotoSansSC-Regular.ttf
+      page-size: A4
+    excel:
+      max-rows-per-sheet: 10000
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: when_authorized
+
+logging:
+  level:
+    com.ilbuy: INFO
+    org.springframework.security: WARN

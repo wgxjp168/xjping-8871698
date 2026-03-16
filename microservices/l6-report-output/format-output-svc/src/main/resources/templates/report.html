@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="zh-CN">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title th:text="${report.title} + ' — 我来购ILbuy'">报告 — 我来购ILbuy</title>
+  <style>
+    :root {
+      --primary: #1a56db;
+      --accent:  #ff6b35;
+      --bg:      #f8f9fc;
+      --card-bg: #ffffff;
+      --text:    #1f2937;
+      --muted:   #6b7280;
+      --border:  #e5e7eb;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Helvetica Neue', Arial, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+           background: var(--bg); color: var(--text); line-height: 1.6; }
+    .header { background: var(--primary); color: #fff; padding: 32px 48px; display: flex; justify-content: space-between; align-items: center; }
+    .header h1 { font-size: 24px; font-weight: 700; }
+    .header .meta { font-size: 13px; opacity: .8; text-align: right; }
+    .badge { display: inline-block; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 600; background: var(--accent); color: #fff; }
+    .container { max-width: 1100px; margin: 0 auto; padding: 32px 24px; }
+    .toc { background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 24px; margin-bottom: 32px; }
+    .toc h2 { font-size: 16px; font-weight: 600; margin-bottom: 12px; color: var(--primary); }
+    .toc ol { padding-left: 20px; }
+    .toc li { padding: 4px 0; }
+    .toc a { color: var(--primary); text-decoration: none; }
+    .toc a:hover { text-decoration: underline; }
+    .section { background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 28px; margin-bottom: 24px; }
+    .section h2 { font-size: 20px; font-weight: 700; color: var(--primary); border-bottom: 2px solid var(--primary); padding-bottom: 10px; margin-bottom: 20px; }
+    .kv-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; margin-bottom: 16px; }
+    .kv-item { background: var(--bg); border-radius: 6px; padding: 14px; }
+    .kv-item .label { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+    .kv-item .value { font-size: 16px; font-weight: 600; }
+    .findings { background: #eff6ff; border-left: 4px solid var(--primary); padding: 16px; border-radius: 4px; margin: 16px 0; }
+    .findings ul { padding-left: 18px; }
+    .findings li { padding: 4px 0; font-size: 14px; }
+    .chart-container { background: var(--bg); border-radius: 8px; padding: 20px; margin: 20px 0; min-height: 300px; }
+    .chart-container h3 { font-size: 14px; color: var(--muted); margin-bottom: 12px; }
+    table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 14px; }
+    th { background: var(--primary); color: #fff; padding: 10px 14px; text-align: left; }
+    td { padding: 10px 14px; border-bottom: 1px solid var(--border); }
+    tr:hover td { background: #f0f4ff; }
+    .footer { text-align: center; color: var(--muted); font-size: 12px; padding: 32px; border-top: 1px solid var(--border); margin-top: 40px; }
+    .download-bar { background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 20px 24px; margin-bottom: 24px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+    .btn { padding: 8px 18px; border-radius: 6px; border: none; cursor: pointer; font-size: 14px; font-weight: 600; text-decoration: none; display: inline-block; }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-outline { background: transparent; color: var(--primary); border: 2px solid var(--primary); }
+    @media (max-width: 768px) { .header { flex-direction: column; gap: 12px; } .kv-grid { grid-template-columns: 1fr 1fr; } }
+  </style>
+  <!-- Chart.js for interactive charts -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+</head>
+<body>
+
+<header class="header">
+  <div>
+    <div style="font-size:13px;opacity:.7;margin-bottom:6px;">我来购 ILbuy · 智能采购报告平台</div>
+    <h1 th:text="${report.title}">报告标题</h1>
+    <div style="margin-top:8px;">
+      <span class="badge" th:text="${report.clientType}">B2B</span>
+      <span style="margin-left:12px;font-size:13px;opacity:.7;" th:text="${report.businessType}">业务类型</span>
+    </div>
+  </div>
+  <div class="meta">
+    <div>报告编号：<strong th:text="${report.l5ReportNo}">RPT-XXXX</strong></div>
+    <div>生成时间：<span th:text="${#temporals.format(report.generatedAt,'yyyy-MM-dd HH:mm')}">2024-01-01</span></div>
+    <div>用户ID：<span th:text="${report.userId}">N/A</span></div>
+  </div>
+</header>
+
+<div class="container">
+
+  <!-- Download Bar -->
+  <div class="download-bar">
+    <span style="font-weight:600;color:#374151;">下载报告：</span>
+    <a th:if="${pdfUrl != null}" th:href="${pdfUrl}" class="btn btn-primary" target="_blank">📄 PDF版本</a>
+    <a th:if="${excelUrl != null}" th:href="${excelUrl}" class="btn btn-outline" target="_blank">📊 Excel数据</a>
+    <a th:href="'#'" onclick="window.print()" class="btn btn-outline">🖨️ 打印</a>
+    <span style="margin-left:auto;font-size:13px;color:#9ca3af;">
+      数据截止：<span th:text="${report.metadata?.dataAsOf}">N/A</span>
+    </span>
+  </div>
+
+  <!-- Table of Contents -->
+  <div class="toc">
+    <h2>目录 Table of Contents</h2>
+    <ol>
+      <li th:each="section : ${report.sections}">
+        <a th:href="'#section-' + ${section.sectionKey}" th:text="${section.title}">Section</a>
+      </li>
+    </ol>
+  </div>
+
+  <!-- Report Sections -->
+  <div th:each="section, iter : ${report.sections}"
+       th:id="'section-' + ${section.sectionKey}"
+       class="section">
+    <h2 th:text="${section.title}">Section Title</h2>
+
+    <!-- Key-Value Grid for simple content -->
+    <div class="kv-grid" th:if="${section.content != null}">
+      <div class="kv-item" th:each="entry : ${section.content.entrySet()}"
+           th:if="${!(entry.value instanceof T(java.util.List)) and !(entry.value instanceof T(java.util.Map))}">
+        <div class="label" th:text="${entry.key}">Key</div>
+        <div class="value" th:text="${entry.value}">Value</div>
+      </div>
+    </div>
+
+    <!-- Key Findings List -->
+    <div class="findings" th:if="${section.content?.keyFindings != null}">
+      <strong>关键发现 Key Findings:</strong>
+      <ul>
+        <li th:each="finding : ${section.content.keyFindings}" th:text="${finding}">finding</li>
+      </ul>
+    </div>
+
+    <!-- Charts (rendered by Chart.js) -->
+    <div th:if="${section.charts != null and !section.charts.isEmpty()}">
+      <div th:each="chart : ${section.charts}" class="chart-container">
+        <h3 th:text="${chart.title}">Chart Title</h3>
+        <canvas th:id="${chart.chartId}" style="max-height:300px;"></canvas>
+        <script th:inline="javascript">
+          (function() {
+            const ctx = document.getElementById([[${chart.chartId}]]).getContext('2d');
+            new Chart(ctx, {
+              type: [[${chart.type}]],
+              data: {
+                labels: [[${chart.labels}]],
+                datasets: [[${chart.datasets}]]
+              },
+              options: { responsive: true, maintainAspectRatio: true,
+                         plugins: { legend: { position: 'bottom' } } }
+            });
+          })();
+        </script>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<footer class="footer">
+  <p>本报告由 <strong>我来购ILbuy智能采购平台</strong> 自动生成 · 数据来源于公开市场数据及平台自有数据</p>
+  <p style="margin-top:4px;">报告仅供参考，不构成投资建议 · © 2024 ILbuy All Rights Reserved</p>
+</footer>
+
+</body>
+</html>

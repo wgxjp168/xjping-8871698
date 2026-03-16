@@ -1,0 +1,131 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: format-output-svc
+  namespace: ilbuy-l6
+  labels:
+    app: format-output-svc
+    layer: l6
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: format-output-svc
+  template:
+    metadata:
+      labels:
+        app: format-output-svc
+        layer: l6
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: "/actuator/prometheus"
+        prometheus.io/port: "8062"
+    spec:
+      serviceAccountName: ilbuy-svc
+      containers:
+        - name: format-output-svc
+          image: ilbuy/format-output-svc:latest
+          ports:
+            - containerPort: 8062
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: "prod"
+            - name: DB_URL
+              valueFrom:
+                secretKeyRef:
+                  name: ilbuy-l6-db-secret
+                  key: url
+            - name: DB_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: ilbuy-l6-db-secret
+                  key: username
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: ilbuy-l6-db-secret
+                  key: password
+            - name: REDIS_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: ilbuy-l6-config
+                  key: redis.host
+            - name: MINIO_ENDPOINT
+              valueFrom:
+                configMapKeyRef:
+                  name: ilbuy-l6-config
+                  key: minio.endpoint
+            - name: MINIO_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: ilbuy-minio-secret
+                  key: access-key
+            - name: MINIO_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: ilbuy-minio-secret
+                  key: secret-key
+            - name: L6_CHANNEL_DELIVERY_SVC_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: ilbuy-l6-config
+                  key: l6.channel-delivery-svc.url
+          resources:
+            requests:
+              memory: "1Gi"
+              cpu: "500m"
+            limits:
+              memory: "2Gi"
+              cpu: "2000m"
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 8062
+            initialDelaySeconds: 60
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 8062
+            initialDelaySeconds: 90
+            periodSeconds: 20
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: format-output-svc
+  namespace: ilbuy-l6
+spec:
+  type: ClusterIP
+  selector:
+    app: format-output-svc
+  ports:
+    - name: http
+      port: 8062
+      targetPort: 8062
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: format-output-svc-hpa
+  namespace: ilbuy-l6
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: format-output-svc
+  minReplicas: 2
+  maxReplicas: 6
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80

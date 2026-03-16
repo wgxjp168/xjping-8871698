@@ -1,0 +1,24 @@
+spring:
+  datasource:
+    hikari:
+      maximum-pool-size: 50
+      minimum-idle: 10
+  jpa:
+    show-sql: false
+  data:
+    redis:
+      lettuce:
+        pool:
+          max-active: 50
+          max-idle: 20
+
+report:
+  generator:
+    thread-pool-size: 30
+
+logging:
+  level:
+    com.ilbuy: WARN
+    root: ERROR
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level [traceId=%X{traceId}] %logger{36} - %msg%n"

@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ilbuy-l6-config
+  namespace: ilbuy-l6
+data:
+  redis.host: "redis-master.ilbuy-infra.svc.cluster.local"
+  redis.port: "6379"
+  rabbitmq.host: "rabbitmq.ilbuy-infra.svc.cluster.local"
+  rabbitmq.port: "5672"
+  l5.report-svc.url: "http://report-svc.ilbuy-l5.svc.cluster.local:8051"
+  l6.format-output-svc.url: "http://format-output-svc.ilbuy-l6.svc.cluster.local:8062"
+  l6.channel-delivery-svc.url: "http://channel-delivery-svc.ilbuy-l6.svc.cluster.local:8063"

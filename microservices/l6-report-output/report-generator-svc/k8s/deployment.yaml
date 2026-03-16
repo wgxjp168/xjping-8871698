@@ -1,0 +1,159 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: report-generator-svc
+  namespace: ilbuy-l6
+  labels:
+    app: report-generator-svc
+    layer: l6
+    component: report-output
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: report-generator-svc
+  template:
+    metadata:
+      labels:
+        app: report-generator-svc
+        layer: l6
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: "/actuator/prometheus"
+        prometheus.io/port: "8061"
+    spec:
+      serviceAccountName: ilbuy-svc
+      containers:
+        - name: report-generator-svc
+          image: ilbuy/report-generator-svc:latest
+          ports:
+            - containerPort: 8061
+              name: http
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: "prod"
+            - name: DB_URL
+              valueFrom:
+                secretKeyRef:
+                  name: ilbuy-l6-db-secret
+                  key: url
+            - name: DB_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: ilbuy-l6-db-secret
+                  key: username
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: ilbuy-l6-db-secret
+                  key: password
+            - name: REDIS_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: ilbuy-l6-config
+                  key: redis.host
+            - name: RABBITMQ_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: ilbuy-l6-config
+                  key: rabbitmq.host
+            - name: RABBITMQ_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: ilbuy-rabbitmq-secret
+                  key: username
+            - name: RABBITMQ_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: ilbuy-rabbitmq-secret
+                  key: password
+            - name: L5_REPORT_SVC_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: ilbuy-l6-config
+                  key: l5.report-svc.url
+            - name: L6_FORMAT_OUTPUT_SVC_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: ilbuy-l6-config
+                  key: l6.format-output-svc.url
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: ilbuy-jwt-secret
+                  key: secret
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "250m"
+            limits:
+              memory: "1Gi"
+              cpu: "1000m"
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 8061
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 8061
+            initialDelaySeconds: 60
+            periodSeconds: 15
+            failureThreshold: 3
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app
+                      operator: In
+                      values:
+                        - report-generator-svc
+                topologyKey: kubernetes.io/hostname
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: report-generator-svc
+  namespace: ilbuy-l6
+  labels:
+    app: report-generator-svc
+spec:
+  type: ClusterIP
+  selector:
+    app: report-generator-svc
+  ports:
+    - name: http
+      port: 8061
+      targetPort: 8061
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: report-generator-svc-hpa
+  namespace: ilbuy-l6
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: report-generator-svc
+  minReplicas: 2
+  maxReplicas: 8
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80

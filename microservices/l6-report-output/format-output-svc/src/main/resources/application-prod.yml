@@ -1,0 +1,15 @@
+spring:
+  datasource:
+    hikari:
+      maximum-pool-size: 50
+  thymeleaf:
+    cache: true
+
+format:
+  output:
+    thread-pool-size: 20
+
+logging:
+  level:
+    com.ilbuy: WARN
+    root: ERROR
