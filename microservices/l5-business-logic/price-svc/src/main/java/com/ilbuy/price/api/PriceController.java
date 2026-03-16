@@ -117,4 +117,56 @@ public class PriceController {
         priceService.deleteAlert(id, userId);
         return ResponseEntity.noContent().build();
     }
+
+    // -------------------------------------------------------------------------
+    // B2B Bulk Price Tier endpoints
+    // -------------------------------------------------------------------------
+
+    /**
+     * GET /api/v1/prices/{canonicalId}/bulk-tiers
+     * Returns all bulk price tiers for a product. Public endpoint.
+     * B2B scene: buyers can inspect quantity discount tiers before placing bulk orders.
+     *
+     * @param canonicalId canonical product ID
+     * @param platform    optional platform filter
+     */
+    @GetMapping("/{canonicalId}/bulk-tiers")
+    public ResponseEntity<List<BulkPriceTierDTO>> getBulkPriceTiers(
+        @PathVariable String canonicalId,
+        @RequestParam(required = false) String platform) {
+
+        log.debug("GET /prices/{}/bulk-tiers platform={}", canonicalId, platform);
+        List<BulkPriceTierDTO> tiers = priceService.getBulkPriceTiers(canonicalId, platform);
+        return ResponseEntity.ok(tiers);
+    }
+
+    /**
+     * POST /api/v1/prices/bulk-query
+     * Queries the applicable bulk unit price and total amount for a given quantity. Public endpoint.
+     * B2B scene: buyers submit desired quantity to get the exact price before confirming purchase.
+     */
+    @PostMapping("/bulk-query")
+    public ResponseEntity<BulkPriceQueryResult> queryBulkPrice(
+        @Valid @RequestBody BulkPriceQueryRequest request) {
+
+        log.debug("POST /prices/bulk-query canonicalId={} platform={} quantity={}",
+            request.getCanonicalId(), request.getPlatform(), request.getQuantity());
+        BulkPriceQueryResult result = priceService.queryBulkPrice(request);
+        return ResponseEntity.ok(result);
+    }
+
+    /**
+     * POST /api/v1/prices/bulk-tiers
+     * Creates a bulk price tier. ADMIN only.
+     * B2B scene: platform admins configure quantity-based discount tiers for B2B buyers.
+     */
+    @PostMapping("/bulk-tiers")
+    public ResponseEntity<BulkPriceTierDTO> createBulkPriceTier(
+        @Valid @RequestBody CreateBulkPriceTierRequest request) {
+
+        log.debug("POST /prices/bulk-tiers canonicalId={} platform={} minQty={}",
+            request.getCanonicalId(), request.getPlatform(), request.getMinQuantity());
+        BulkPriceTierDTO dto = priceService.createBulkPriceTier(request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(dto);
+    }
 }

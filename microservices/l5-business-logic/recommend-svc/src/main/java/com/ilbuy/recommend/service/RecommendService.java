@@ -3,6 +3,8 @@ package com.ilbuy.recommend.service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ilbuy.recommend.dto.B2BRecommendDTO;
+import com.ilbuy.recommend.dto.B2BTrackEventRequest;
 import com.ilbuy.recommend.dto.HomepageRecommendDTO;
 import com.ilbuy.recommend.dto.RecommendItemDTO;
 import com.ilbuy.recommend.dto.TrackEventRequest;

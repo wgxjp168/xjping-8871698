@@ -1,9 +1,11 @@
 package com.ilbuy.price.service;
 
 import com.ilbuy.price.dto.*;
+import com.ilbuy.price.model.entity.BulkPriceTier;
 import com.ilbuy.price.model.entity.PriceAlert;
 import com.ilbuy.price.model.entity.PriceRecord;
 import com.ilbuy.price.model.entity.PriceTrend;
+import com.ilbuy.price.repository.BulkPriceTierRepository;
 import com.ilbuy.price.repository.PriceAlertRepository;
 import com.ilbuy.price.repository.PriceRecordRepository;
 import com.ilbuy.price.repository.PriceTrendRepository;
@@ -16,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.*;
@@ -27,13 +30,15 @@ import java.util.stream.Collectors;
 @Slf4j
 public class PriceService {
 
-    private static final String CACHE_HISTORY_PREFIX = "price:history:";
-    private static final String CACHE_TREND_PREFIX   = "price:trend:";
-    private static final String CACHE_COMPARE_PREFIX = "price:compare:";
+    private static final String CACHE_HISTORY_PREFIX    = "price:history:";
+    private static final String CACHE_TREND_PREFIX      = "price:trend:";
+    private static final String CACHE_COMPARE_PREFIX    = "price:compare:";
+    private static final String CACHE_BULK_TIERS_PREFIX = "price:bulk-tiers:";
 
-    private final PriceRecordRepository priceRecordRepository;
-    private final PriceAlertRepository  priceAlertRepository;
-    private final PriceTrendRepository  priceTrendRepository;
+    private final PriceRecordRepository    priceRecordRepository;
+    private final PriceAlertRepository     priceAlertRepository;
+    private final PriceTrendRepository     priceTrendRepository;
+    private final BulkPriceTierRepository  bulkPriceTierRepository;
     private final RedisTemplate<String, Object> redisTemplate;
 
     @Value("${price.cache.history-ttl-minutes:5}")
@@ -292,6 +297,155 @@ public class PriceService {
     }
 
     // -------------------------------------------------------------------------
+    // B2B Bulk Price Tiers
+    // -------------------------------------------------------------------------
+
+    /**
+     * Get all bulk price tiers for a product (optionally filtered by platform).
+     * B2B scene: bulk buyers query tiered pricing before placing large orders.
+     */
+    @Transactional(readOnly = true)
+    public List<BulkPriceTierDTO> getBulkPriceTiers(String canonicalId, String platform) {
+        String cacheKey = CACHE_BULK_TIERS_PREFIX + canonicalId + ":" + (platform != null ? platform : "all");
+
+        Object cached = redisTemplate.opsForValue().get(cacheKey);
+        if (cached instanceof List<?> list) {
+            log.debug("Cache hit for bulk price tiers: {}", cacheKey);
+            //noinspection unchecked
+            return (List<BulkPriceTierDTO>) list;
+        }
+
+        log.debug("Cache miss for bulk price tiers: {}", cacheKey);
+
+        List<BulkPriceTier> tiers;
+        if (platform != null && !platform.isBlank()) {
+            tiers = bulkPriceTierRepository
+                .findByCanonicalIdAndPlatformOrderByMinQuantityAsc(canonicalId, platform);
+        } else {
+            tiers = bulkPriceTierRepository
+                .findByCanonicalIdOrderByMinQuantityAsc(canonicalId);
+        }
+
+        List<BulkPriceTierDTO> result = tiers.stream()
+            .map(this::toBulkTierDto)
+            .collect(Collectors.toList());
+
+        redisTemplate.opsForValue().set(cacheKey, result, historyTtlMinutes, TimeUnit.MINUTES);
+
+        return result;
+    }
+
+    /**
+     * Query the applicable bulk price for a specific quantity.
+     * B2B scene: finds the matching tier and computes totalAmount = unitPrice * quantity.
+     * If no tier matches, returns null in tierApplied and uses standard retail price as fallback.
+     */
+    @Transactional(readOnly = true)
+    public BulkPriceQueryResult queryBulkPrice(BulkPriceQueryRequest req) {
+        List<BulkPriceTier> tiers;
+        if (req.getPlatform() != null && !req.getPlatform().isBlank()) {
+            tiers = bulkPriceTierRepository
+                .findByCanonicalIdAndPlatformOrderByMinQuantityAsc(req.getCanonicalId(), req.getPlatform());
+        } else {
+            tiers = bulkPriceTierRepository
+                .findByCanonicalIdOrderByMinQuantityAsc(req.getCanonicalId());
+        }
+
+        LocalDate today = LocalDate.now();
+
+        // Find the matching tier: minQuantity <= quantity <= maxQuantity (null means unlimited)
+        // Also filter by validity dates
+        BulkPriceTier matched = tiers.stream()
+            .filter(t -> t.getMinQuantity() <= req.getQuantity()
+                && (t.getMaxQuantity() == null || t.getMaxQuantity() >= req.getQuantity())
+                && (t.getValidFrom() == null || !t.getValidFrom().isAfter(today))
+                && (t.getValidUntil() == null || !t.getValidUntil().isBefore(today)))
+            .reduce((first, second) -> second) // take the last (highest minQuantity) matching tier
+            .orElse(null);
+
+        List<BulkPriceTierDTO> allTiers = tiers.stream()
+            .map(this::toBulkTierDto)
+            .collect(Collectors.toList());
+
+        BigDecimal unitPrice;
+        String currency;
+        String unit;
+        BulkPriceTierDTO tierApplied = null;
+
+        if (matched != null) {
+            unitPrice   = matched.getUnitPrice();
+            currency    = matched.getCurrency();
+            unit        = matched.getUnit();
+            tierApplied = toBulkTierDto(matched);
+        } else {
+            // Fall back to standard retail price from the most recent PriceRecord
+            String effectivePlatform = (req.getPlatform() != null && !req.getPlatform().isBlank())
+                ? req.getPlatform() : null;
+            BigDecimal retailPrice = null;
+            if (effectivePlatform != null) {
+                retailPrice = priceRecordRepository
+                    .findFirstByCanonicalIdAndPlatformOrderByRecordedAtDesc(
+                        Long.valueOf(req.getCanonicalId()), effectivePlatform)
+                    .map(PriceRecord::getPrice)
+                    .orElse(null);
+            }
+            unitPrice = retailPrice;
+            currency  = "CNY";
+            unit      = null;
+        }
+
+        BigDecimal totalAmount = (unitPrice != null)
+            ? unitPrice.multiply(BigDecimal.valueOf(req.getQuantity())).setScale(2, RoundingMode.HALF_UP)
+            : null;
+
+        log.debug("B2B bulk price query: canonicalId={} platform={} quantity={} tierApplied={}",
+            req.getCanonicalId(), req.getPlatform(), req.getQuantity(),
+            matched != null ? matched.getId() : "none");
+
+        return BulkPriceQueryResult.builder()
+            .canonicalId(req.getCanonicalId())
+            .platform(req.getPlatform())
+            .quantity(req.getQuantity())
+            .unitPrice(unitPrice)
+            .totalAmount(totalAmount)
+            .currency(currency)
+            .unit(unit)
+            .tierApplied(tierApplied)
+            .allTiers(allTiers)
+            .build();
+    }
+
+    /**
+     * Create a bulk price tier. ADMIN only.
+     * B2B scene: platform admins configure tiered pricing for B2B buyers.
+     */
+    @Transactional
+    public BulkPriceTierDTO createBulkPriceTier(CreateBulkPriceTierRequest req) {
+        BulkPriceTier tier = BulkPriceTier.builder()
+            .canonicalId(req.getCanonicalId())
+            .platform(req.getPlatform())
+            .minQuantity(req.getMinQuantity())
+            .maxQuantity(req.getMaxQuantity())
+            .unitPrice(req.getUnitPrice())
+            .currency(req.getCurrency() != null ? req.getCurrency() : "CNY")
+            .unit(req.getUnit())
+            .validFrom(req.getValidFrom())
+            .validUntil(req.getValidUntil())
+            .build();
+
+        tier = bulkPriceTierRepository.save(tier);
+        log.info("Created bulk price tier id={} canonicalId={} platform={} minQty={} unitPrice={}",
+            tier.getId(), req.getCanonicalId(), req.getPlatform(),
+            req.getMinQuantity(), req.getUnitPrice());
+
+        // Invalidate cache for affected product/platform
+        redisTemplate.delete(CACHE_BULK_TIERS_PREFIX + req.getCanonicalId() + ":" + req.getPlatform());
+        redisTemplate.delete(CACHE_BULK_TIERS_PREFIX + req.getCanonicalId() + ":all");
+
+        return toBulkTierDto(tier);
+    }
+
+    // -------------------------------------------------------------------------
     // Helpers
     // -------------------------------------------------------------------------
 
@@ -305,6 +459,20 @@ public class PriceService {
             .triggered(alert.getTriggered())
             .createdAt(alert.getCreatedAt())
             .triggeredAt(alert.getTriggeredAt())
+            .build();
+    }
+
+    private BulkPriceTierDTO toBulkTierDto(BulkPriceTier tier) {
+        return BulkPriceTierDTO.builder()
+            .canonicalId(tier.getCanonicalId())
+            .platform(tier.getPlatform())
+            .minQuantity(tier.getMinQuantity())
+            .maxQuantity(tier.getMaxQuantity())
+            .unitPrice(tier.getUnitPrice())
+            .currency(tier.getCurrency())
+            .unit(tier.getUnit())
+            .validFrom(tier.getValidFrom())
+            .validUntil(tier.getValidUntil())
             .build();
     }
 }
