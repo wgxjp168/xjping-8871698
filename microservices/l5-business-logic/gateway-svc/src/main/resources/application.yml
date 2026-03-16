@@ -110,6 +110,38 @@ spring:
               args:
                 maxSize: 100MB
 
+        # ── B2B: supplier-svc ─────────────────────────────────
+        - id: supplier-svc
+          uri: http://${SUPPLIER_SVC_HOST:localhost}:${SUPPLIER_SVC_PORT:8030}
+          predicates:
+            - Path=/api/v1/suppliers/**
+          filters:
+            - StripPrefix=0
+
+        # ── B2B: contract-svc ─────────────────────────────────
+        - id: contract-svc
+          uri: http://${CONTRACT_SVC_HOST:localhost}:${CONTRACT_SVC_PORT:8031}
+          predicates:
+            - Path=/api/v1/contracts/**,/api/v1/invoices/**
+          filters:
+            - StripPrefix=0
+
+        # ── B2C: recommend-svc ────────────────────────────────
+        - id: recommend-svc
+          uri: http://${RECOMMEND_SVC_HOST:localhost}:${RECOMMEND_SVC_PORT:8032}
+          predicates:
+            - Path=/api/v1/recommendations/**
+          filters:
+            - StripPrefix=0
+
+        # ── B2C: price-svc ────────────────────────────────────
+        - id: price-svc
+          uri: http://${PRICE_SVC_HOST:localhost}:${PRICE_SVC_PORT:8033}
+          predicates:
+            - Path=/api/v1/prices/**
+          filters:
+            - StripPrefix=0
+
 # ── JWT ──────────────────────────────────────────────────────
 jwt:
   secret: ${JWT_SECRET:ilbuy-user-svc-secret-key-must-be-at-least-32-chars}
@@ -119,8 +151,14 @@ gateway:
   whitelist:
     - /api/v1/auth/register
     - /api/v1/auth/login
-    - /api/v1/products/search   # 商品搜索允许匿名
-    - /api/v1/products/*/detail # 商品详情允许匿名
+    - /api/v1/products/search           # 商品搜索允许匿名
+    - /api/v1/products/*/detail         # 商品详情允许匿名
+    - /api/v1/products/categories       # 分类浏览允许匿名
+    - /api/v1/products/categories/**    # 分类下商品允许匿名
+    - /api/v1/prices/*/history          # 历史价格允许匿名
+    - /api/v1/prices/*/trend            # 价格走势允许匿名
+    - /api/v1/prices/*/compare          # 跨平台比价允许匿名
+    - /api/v1/recommendations/similar/* # 相似商品允许匿名
     - /actuator/**
   cors:
     allowed-origins:

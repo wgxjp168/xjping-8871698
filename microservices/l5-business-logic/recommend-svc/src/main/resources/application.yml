@@ -1,0 +1,54 @@
+server:
+  port: 8032
+
+spring:
+  application:
+    name: recommend-svc
+  datasource:
+    url: jdbc:mysql://localhost:3306/ilbuy_recommend?useSSL=false&serverTimezone=UTC&characterEncoding=UTF-8
+    username: ${DB_USER:root}
+    password: ${DB_PASS:root}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQLDialect
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASS:}
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 0
+
+jwt:
+  secret: ${JWT_SECRET:ilbuy-user-svc-secret-key-must-be-at-least-32-chars}
+
+recommend:
+  cache:
+    homepage-ttl-minutes: 30
+    similar-ttl-minutes: 10
+  engine:
+    cf-limit: 20
+    content-limit: 20
+    hot-limit: 10
+    new-limit: 10
+    foryou-limit: 20
+    cf-top-users: 5
+    recent-views: 20
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+
+logging:
+  level:
+    com.ilbuy: DEBUG

@@ -1,0 +1,48 @@
+server:
+  port: 8024
+
+spring:
+  application:
+    name: report-svc
+  datasource:
+    url: jdbc:mysql://${DB_HOST:localhost}:3306/ilbuy_report?useSSL=false&serverTimezone=UTC&characterEncoding=UTF-8
+    username: ${DB_USER:root}
+    password: ${DB_PASS:root}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQLDialect
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASS:}
+  rabbitmq:
+    host: ${RABBIT_HOST:localhost}
+    port: ${RABBIT_PORT:5672}
+    username: ${RABBIT_USER:guest}
+    password: ${RABBIT_PASS:guest}
+    virtual-host: /
+
+jwt:
+  secret: ${JWT_SECRET:ilbuy-user-svc-secret-key-must-be-at-least-32-chars}
+
+rabbitmq:
+  report:
+    exchange: report.topic
+    queue: report.generate
+    routing-key: report.generate
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+
+logging:
+  level:
+    com.ilbuy: DEBUG

@@ -1,0 +1,54 @@
+server:
+  port: 8021
+
+spring:
+  application:
+    name: product-svc
+  datasource:
+    url: jdbc:mysql://${DB_HOST:localhost}:3306/ilbuy_product?useSSL=false&serverTimezone=UTC&characterEncoding=UTF-8
+    username: ${DB_USER:root}
+    password: ${DB_PASS:root}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQLDialect
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASS:}
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 2
+  elasticsearch:
+    uris: ${ES_HOST:http://localhost:9200}
+  cache:
+    type: redis
+    redis:
+      time-to-live: 600000  # default 10 min (ms), overridden per cache name via CacheConfig
+
+jwt:
+  secret: ${JWT_SECRET:ilbuy-user-svc-secret-key-must-be-at-least-32-chars}
+
+feign:
+  client:
+    config:
+      default:
+        connect-timeout: 3000
+        read-timeout: 5000
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+
+logging:
+  level:
+    com.ilbuy: DEBUG
