@@ -1,0 +1,52 @@
+server:
+  port: 8033
+
+spring:
+  application:
+    name: price-svc
+  datasource:
+    url: jdbc:mysql://localhost:3306/ilbuy_price?useSSL=false&serverTimezone=UTC&characterEncoding=UTF-8
+    username: ${DB_USER:root}
+    password: ${DB_PASS:root}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQLDialect
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASS:}
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 0
+
+jwt:
+  secret: ${JWT_SECRET:ilbuy-user-svc-secret-key-must-be-at-least-32-chars}
+
+price:
+  cache:
+    history-ttl-minutes: 5
+    trend-ttl-hours: 1
+    compare-ttl-minutes: 5
+  scheduler:
+    alert-check-cron: "0 */5 * * * *"
+
+scheduling:
+  enabled: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+
+logging:
+  level:
+    com.ilbuy: DEBUG

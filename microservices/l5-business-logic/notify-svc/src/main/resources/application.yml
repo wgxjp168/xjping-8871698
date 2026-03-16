@@ -1,0 +1,51 @@
+server:
+  port: 8040
+
+spring:
+  application:
+    name: notify-svc
+  datasource:
+    url: jdbc:mysql://${DB_HOST:localhost}:3306/ilbuy_notify?useSSL=false&serverTimezone=UTC&characterEncoding=UTF-8
+    username: ${DB_USER:root}
+    password: ${DB_PASS:root}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQLDialect
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASS:}
+  rabbitmq:
+    host: ${RABBIT_HOST:localhost}
+    port: ${RABBIT_PORT:5672}
+    username: ${RABBIT_USER:guest}
+    password: ${RABBIT_PASS:guest}
+    virtual-host: /
+
+jwt:
+  secret: ${JWT_SECRET:ilbuy-user-svc-secret-key-must-be-at-least-32-chars}
+
+rabbitmq:
+  order:
+    exchange: order.topic
+    queue: order.events
+  report:
+    exchange: report.topic
+    queue: report.ready
+    routing-key: report.ready
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+
+logging:
+  level:
+    com.ilbuy: DEBUG
