@@ -1,0 +1,36 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/ilbuy_billing_dev
+    username: ilbuy
+    password: ilbuy
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password:
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: guest
+    password: guest
+
+ilbuy:
+  gateway:
+    url: http://localhost:8071
+  jwt:
+    secret: changeme-jwt-secret-key-for-dev
+
+logging:
+  level:
+    root: DEBUG
+    com.ilbuy.billing: DEBUG
+    org.springframework.security: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql: TRACE
