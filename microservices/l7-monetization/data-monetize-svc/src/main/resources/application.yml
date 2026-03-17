@@ -1,0 +1,53 @@
+spring:
+  application:
+    name: data-monetize-svc
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:dev}
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/ilbuy_l7}
+    username: ${DB_USERNAME:ilbuy}
+    password: ${DB_PASSWORD:ilbuy123}
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    open-in-view: false
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+
+server:
+  port: 8074
+
+ilbuy:
+  gateway:
+    url: ${MONETIZE_GATEWAY_URL:http://monetize-gateway-svc:8071}
+  l6:
+    report:
+      url: ${L6_REPORT_URL:http://report-generator-svc:8061}
+  jwt:
+    secret: ${JWT_SECRET:changeme-jwt-secret-key-for-dev}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+logging:
+  level:
+    com.ilbuy: INFO

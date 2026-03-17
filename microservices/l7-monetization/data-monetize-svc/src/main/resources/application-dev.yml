@@ -1,0 +1,20 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/ilbuy_l7_dev
+    username: ilbuy_dev
+    password: ilbuy_dev
+  jpa:
+    show-sql: true
+    hibernate:
+      ddl-auto: create-drop
+
+ilbuy:
+  gateway:
+    url: http://localhost:8071
+  l6:
+    report:
+      url: http://localhost:8061
+
+logging:
+  level:
+    com.ilbuy: DEBUG
