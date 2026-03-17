@@ -49,6 +49,13 @@ public class CMonetizeService {
             .build();
         orderRepository.save(order);
 
+        // Auto-renewal orders are fulfilled by the scheduled job; no gateway payment needed here.
+        // The subscription will be extended when a real payment confirmation arrives.
+        if ("AUTO_RENEWAL".equalsIgnoreCase(req.getPaymentChannel())) {
+            log.info("[CMonetize] Auto-renewal order created (gateway call skipped): orderNo={}", orderNo);
+            return buildResponse(order, null);
+        }
+
         // Call payment gateway to create payment
         Map<String, Object> gatewayReq = new HashMap<>();
         gatewayReq.put("bizOrderNo", orderNo);

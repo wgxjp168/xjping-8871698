@@ -10,4 +10,6 @@ public interface MembershipSubscriptionRepository extends JpaRepository<Membersh
     Optional<MembershipSubscription> findBySubscriptionNo(String subscriptionNo);
     Optional<MembershipSubscription> findByUserIdAndStatus(Long userId, SubscriptionStatus status);
     List<MembershipSubscription> findByUserIdOrderByCreatedAtDesc(Long userId);
+    /** Find all active subscriptions expiring within the next N days with autoRenew=true */
+    List<MembershipSubscription> findByStatusAndAutoRenewTrue(SubscriptionStatus status);
 }

@@ -35,6 +35,10 @@ public class BSaasContract {
     @Column(name = "api_calls_used") @Builder.Default
     private Long apiCallsUsed = 0L;
 
+    /** Maximum team seats (sub-accounts). null = unlimited. */
+    @Column(name = "max_seats")
+    private Integer maxSeats;
+
     @Column(name = "start_date", nullable = false)
     private LocalDate startDate;
 

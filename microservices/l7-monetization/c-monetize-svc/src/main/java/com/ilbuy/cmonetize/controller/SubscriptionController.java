@@ -31,4 +31,12 @@ public class SubscriptionController {
     public ResponseEntity<Boolean> hasValidSubscription(@PathVariable Long userId) {
         return ResponseEntity.ok(subscriptionService.hasValidSubscription(userId));
     }
+
+    /** Enable or disable auto-renewal for the user's active subscription. */
+    @PatchMapping("/api/v1/subscriptions/user/{userId}/auto-renew")
+    public ResponseEntity<MembershipSubscription> toggleAutoRenew(
+            @PathVariable Long userId,
+            @RequestParam boolean enabled) {
+        return ResponseEntity.ok(subscriptionService.toggleAutoRenew(userId, enabled));
+    }
 }

@@ -36,13 +36,21 @@ ilbuy:
     wechat:
       app-id: ${WECHAT_APP_ID:}
       mch-id: ${WECHAT_MCH_ID:}
-      api-key: ${WECHAT_API_KEY:}
+      # V3 API: mount PKCS#8 RSA private key as K8s secret volume
+      private-key-path: ${WECHAT_PRIVATE_KEY_PATH:/run/secrets/wxpay_apiclient_key.pem}
+      # V3 API: merchant certificate serial number (from WeChat merchant console)
+      merchant-serial-number: ${WECHAT_MERCHANT_SERIAL_NUMBER:}
+      # V3 API: 32-byte key for AES-256-GCM callback resource decryption
+      api-v3-key: ${WECHAT_API_V3_KEY:}
       notify-url: ${WECHAT_NOTIFY_URL:http://api.ilbuy.com/api/v1/payments/wechat/notify}
     alipay:
       app-id: ${ALIPAY_APP_ID:}
+      # PKCS#8 RSA2 private key (no header/footer, no newlines) from K8s secret
       private-key: ${ALIPAY_PRIVATE_KEY:}
+      # Alipay platform public key for callback RSA2 signature verification
       alipay-public-key: ${ALIPAY_PUBLIC_KEY:}
       notify-url: ${ALIPAY_NOTIFY_URL:http://api.ilbuy.com/api/v1/payments/alipay/notify}
+      return-url: ${ALIPAY_RETURN_URL:}
     unionpay:
       mer-id: ${UNIONPAY_MER_ID:}
       notify-url: ${UNIONPAY_NOTIFY_URL:http://api.ilbuy.com/api/v1/payments/unionpay/notify}
