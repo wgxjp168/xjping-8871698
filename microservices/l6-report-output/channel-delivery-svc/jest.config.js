@@ -7,6 +7,7 @@ module.exports = {
     'src/**/*.js',
     '!src/migrations/**',
     '!src/app.js',          // Integration bootstrap excluded from unit coverage
+    '!src/config/**',       // Infrastructure config (always mocked; covered by integration tests)
   ],
   coverageThreshold: {
     global: {

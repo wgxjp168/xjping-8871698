@@ -123,6 +123,16 @@ describe('GET /actuator/health', () => {
     expect(resp.body.service).toBe('channel-delivery-svc');
     expect(resp.body.status).toBeDefined();
   });
+
+  test('GET /actuator/health/liveness returns UP', async () => {
+    const resp = await request(app).get('/actuator/health/liveness').expect(200);
+    expect(resp.body.status).toBe('UP');
+  });
+
+  test('GET /actuator/health/readiness returns UP when DB is healthy', async () => {
+    const resp = await request(app).get('/actuator/health/readiness').expect(200);
+    expect(resp.body.status).toBe('UP');
+  });
 });
 
 describe('L7/L8 hooks', () => {

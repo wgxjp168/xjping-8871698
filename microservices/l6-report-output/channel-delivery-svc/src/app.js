@@ -65,6 +65,9 @@ async function bootstrap() {
   }
 }
 
-bootstrap();
+// Only start server when executed directly, not when required by tests
+if (require.main === module) {
+  bootstrap();
+}
 
 module.exports = app;
