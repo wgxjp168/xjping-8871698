@@ -95,23 +95,29 @@ class PaymentGatewayServiceTest {
 
     @Test
     void handleCallback_wechat_success_publishes_event() {
+        // WeChat Pay V3: signature already verified in CallbackController before handleCallback is called.
+        // handleCallback receives pre-verified, decrypted params — no verifySignature call inside.
         PaymentOrder order = PaymentOrder.builder()
             .paymentNo("PAY-001").bizOrderNo("BIZ-001")
             .amount(new BigDecimal("99.00"))
             .channel(PaymentChannel.WECHAT).bizType(BizType.C_SINGLE)
             .status(PaymentStatus.PAYING).build();
         when(paymentOrderRepository.findByBizOrderNo("BIZ-001")).thenReturn(Optional.of(order));
-        when(wechatPayGateway.verifySignature(anyMap())).thenReturn(true);
         when(paymentOrderRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
+        // V3 notification maps trade_state (not result_code)
         Map<String, String> params = Map.of(
             "transaction_id", "wx_txn_001",
-            "out_trade_no", "BIZ-001",
-            "result_code", "SUCCESS"
+            "out_trade_no",   "BIZ-001",
+            "trade_state",    "SUCCESS",
+            "result_code",    "SUCCESS"
         );
-        String result = paymentService.handleCallback("WECHAT", params, "<xml/>");
+        String result = paymentService.handleCallback("WECHAT", params, "{}");
         assertThat(result).isEqualTo("SUCCESS");
+        assertThat(order.getStatus()).isEqualTo(PaymentStatus.SUCCESS);
         verify(rabbitTemplate).convertAndSend(anyString(), contains("payment.success"), anyMap());
+        // verifySignature is NOT called for WECHAT — verification done upstream in CallbackController
+        verify(wechatPayGateway, never()).verifySignature(anyMap());
     }
 
     @Test

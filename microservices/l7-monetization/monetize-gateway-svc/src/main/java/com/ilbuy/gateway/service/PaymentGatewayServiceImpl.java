@@ -156,10 +156,12 @@ public class PaymentGatewayServiceImpl implements PaymentGatewayService {
 
             switch (channel.toUpperCase()) {
                 case "WECHAT" -> {
+                    // WeChat Pay V3: signature + AES-GCM decryption already verified in CallbackController
+                    // before handleCallback() is called — no re-verification here.
                     channelOrderNo = params.get("transaction_id");
                     bizOrderNo = params.get("out_trade_no");
-                    paymentStatus = params.get("result_code");
-                    if (!wechatPayGateway.verifySignature(params)) return "FAIL";
+                    // V3 TradeState: SUCCESS | NOTPAY | CLOSED etc.
+                    paymentStatus = params.getOrDefault("trade_state", params.get("result_code"));
                 }
                 case "ALIPAY" -> {
                     channelOrderNo = params.get("trade_no");

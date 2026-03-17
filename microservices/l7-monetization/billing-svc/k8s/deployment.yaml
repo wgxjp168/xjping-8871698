@@ -20,7 +20,12 @@ spec:
       labels:
         app: billing-svc
         layer: l7-monetization
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: "/actuator/prometheus"
+        prometheus.io/port: "8075"
     spec:
+      serviceAccountName: ilbuy-svc
       containers:
         - name: billing-svc
           image: ilbuy/billing-svc:latest
@@ -42,6 +47,8 @@ spec:
                 configMapKeyRef:
                   name: ilbuy-l7-config
                   key: db.port
+            - name: DB_NAME
+              value: "ilbuy_l7"
             - name: DB_USERNAME
               valueFrom:
                 secretKeyRef:

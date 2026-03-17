@@ -75,17 +75,17 @@ spec:
               valueFrom:
                 configMapKeyRef:
                   name: ilbuy-l7-config
-                  key: l7.gateway-svc.url
+                  key: monetize.gateway.url
             - name: L5_ORDER_SVC_URL
               valueFrom:
                 configMapKeyRef:
                   name: ilbuy-l7-config
-                  key: l5.order-svc.url
+                  key: l5.order.url
             - name: L6_REPORT_SVC_URL
               valueFrom:
                 configMapKeyRef:
                   name: ilbuy-l7-config
-                  key: l6.report-svc.url
+                  key: l6.report.url
             - name: JWT_SECRET
               valueFrom:
                 secretKeyRef:

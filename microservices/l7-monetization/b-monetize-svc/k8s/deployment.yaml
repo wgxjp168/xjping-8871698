@@ -75,7 +75,7 @@ spec:
               valueFrom:
                 configMapKeyRef:
                   name: ilbuy-l7-config
-                  key: l7.gateway-svc.url
+                  key: monetize.gateway.url
             - name: JWT_SECRET
               valueFrom:
                 secretKeyRef:

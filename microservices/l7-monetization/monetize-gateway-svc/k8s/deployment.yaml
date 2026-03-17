@@ -81,11 +81,20 @@ spec:
                 secretKeyRef:
                   name: ilbuy-wechat-pay-secret
                   key: mch-id
-            - name: WECHAT_API_KEY
+            # WeChat Pay V3 — RSA private key mounted as file via secret volume
+            - name: WECHAT_PRIVATE_KEY_PATH
+              value: "/run/secrets/wxpay/apiclient_key.pem"
+            - name: WECHAT_MERCHANT_SERIAL_NUMBER
               valueFrom:
                 secretKeyRef:
                   name: ilbuy-wechat-pay-secret
-                  key: api-key
+                  key: merchant-serial-number
+            # 32-byte API v3 key for AES-256-GCM callback decryption
+            - name: WECHAT_API_V3_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: ilbuy-wechat-pay-secret
+                  key: api-v3-key
             - name: ALIPAY_APP_ID
               valueFrom:
                 secretKeyRef:
@@ -101,6 +110,11 @@ spec:
                 secretKeyRef:
                   name: ilbuy-alipay-secret
                   key: public-key
+            - name: ALIPAY_RETURN_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: ilbuy-l7-config
+                  key: alipay.notify.url
             - name: JWT_SECRET
               valueFrom:
                 secretKeyRef:
@@ -127,6 +141,17 @@ spec:
             initialDelaySeconds: 60
             periodSeconds: 15
             failureThreshold: 3
+          volumeMounts:
+            - name: wxpay-private-key
+              mountPath: /run/secrets/wxpay
+              readOnly: true
+      volumes:
+        - name: wxpay-private-key
+          secret:
+            secretName: ilbuy-wechat-pay-secret
+            items:
+              - key: private-key-pem
+                path: apiclient_key.pem
       affinity:
         podAntiAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:
