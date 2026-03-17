@@ -1,0 +1,165 @@
+---
+# ============================================================
+# Deployment
+# ============================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: billing-svc
+  namespace: ilbuy-l7
+  labels:
+    app: billing-svc
+    layer: l7-monetization
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: billing-svc
+  template:
+    metadata:
+      labels:
+        app: billing-svc
+        layer: l7-monetization
+    spec:
+      containers:
+        - name: billing-svc
+          image: ilbuy/billing-svc:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8075
+              protocol: TCP
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: prod
+            # DB
+            - name: DB_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: ilbuy-l7-config
+                  key: db.host
+            - name: DB_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: ilbuy-l7-config
+                  key: db.port
+            - name: DB_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: ilbuy-l7-db-secret
+                  key: username
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: ilbuy-l7-db-secret
+                  key: password
+            # Redis
+            - name: REDIS_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: ilbuy-l7-config
+                  key: redis.host
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: ilbuy-redis-secret
+                  key: password
+            # RabbitMQ
+            - name: RABBITMQ_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: ilbuy-l7-config
+                  key: rabbitmq.host
+            - name: RABBITMQ_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: ilbuy-rabbitmq-secret
+                  key: username
+            - name: RABBITMQ_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: ilbuy-rabbitmq-secret
+                  key: password
+            # Gateway URL
+            - name: MONETIZE_GATEWAY_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: ilbuy-l7-config
+                  key: monetize.gateway.url
+            # JWT
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: ilbuy-jwt-secret
+                  key: secret
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "200m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 8075
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 8075
+            initialDelaySeconds: 60
+            periodSeconds: 15
+            failureThreshold: 3
+
+---
+# ============================================================
+# Service (ClusterIP)
+# ============================================================
+apiVersion: v1
+kind: Service
+metadata:
+  name: billing-svc
+  namespace: ilbuy-l7
+  labels:
+    app: billing-svc
+spec:
+  type: ClusterIP
+  selector:
+    app: billing-svc
+  ports:
+    - port: 8075
+      targetPort: 8075
+      protocol: TCP
+      name: http
+
+---
+# ============================================================
+# HorizontalPodAutoscaler
+# ============================================================
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: billing-svc-hpa
+  namespace: ilbuy-l7
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: billing-svc
+  minReplicas: 2
+  maxReplicas: 4
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80
