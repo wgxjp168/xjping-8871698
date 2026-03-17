@@ -1,0 +1,64 @@
+spring:
+  application:
+    name: monetize-gateway-svc
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:dev}
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/ilbuy_l7}
+    username: ${DB_USERNAME:ilbuy}
+    password: ${DB_PASSWORD:ilbuy123}
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    open-in-view: false
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+
+server:
+  port: 8071
+  servlet:
+    context-path: /
+
+ilbuy:
+  payment:
+    wechat:
+      app-id: ${WECHAT_APP_ID:}
+      mch-id: ${WECHAT_MCH_ID:}
+      api-key: ${WECHAT_API_KEY:}
+      notify-url: ${WECHAT_NOTIFY_URL:http://api.ilbuy.com/api/v1/payments/wechat/notify}
+    alipay:
+      app-id: ${ALIPAY_APP_ID:}
+      private-key: ${ALIPAY_PRIVATE_KEY:}
+      alipay-public-key: ${ALIPAY_PUBLIC_KEY:}
+      notify-url: ${ALIPAY_NOTIFY_URL:http://api.ilbuy.com/api/v1/payments/alipay/notify}
+    unionpay:
+      mer-id: ${UNIONPAY_MER_ID:}
+      notify-url: ${UNIONPAY_NOTIFY_URL:http://api.ilbuy.com/api/v1/payments/unionpay/notify}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      show-details: when_authorized
+      probes:
+        enabled: true
+
+logging:
+  level:
+    com.ilbuy: INFO
+    org.springframework.security: WARN

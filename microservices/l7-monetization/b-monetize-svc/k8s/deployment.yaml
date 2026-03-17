@@ -1,0 +1,144 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: b-monetize-svc
+  namespace: ilbuy-l7
+  labels:
+    app: b-monetize-svc
+    layer: l7
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: b-monetize-svc
+  template:
+    metadata:
+      labels:
+        app: b-monetize-svc
+        layer: l7
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: "/actuator/prometheus"
+        prometheus.io/port: "8073"
+    spec:
+      serviceAccountName: ilbuy-svc
+      containers:
+        - name: b-monetize-svc
+          image: ilbuy/b-monetize-svc:latest
+          ports:
+            - containerPort: 8073
+              name: http
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: "prod"
+            - name: DB_URL
+              valueFrom:
+                secretKeyRef:
+                  name: ilbuy-l7-db-secret
+                  key: url
+            - name: DB_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: ilbuy-l7-db-secret
+                  key: username
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: ilbuy-l7-db-secret
+                  key: password
+            - name: REDIS_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: ilbuy-l7-config
+                  key: redis.host
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: ilbuy-redis-secret
+                  key: password
+            - name: RABBITMQ_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: ilbuy-l7-config
+                  key: rabbitmq.host
+            - name: RABBITMQ_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: ilbuy-rabbitmq-secret
+                  key: username
+            - name: RABBITMQ_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: ilbuy-rabbitmq-secret
+                  key: password
+            - name: GATEWAY_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: ilbuy-l7-config
+                  key: l7.gateway-svc.url
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: ilbuy-jwt-secret
+                  key: secret
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "200m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 8073
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 8073
+            initialDelaySeconds: 60
+            periodSeconds: 15
+            failureThreshold: 3
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: b-monetize-svc
+  namespace: ilbuy-l7
+spec:
+  type: ClusterIP
+  selector:
+    app: b-monetize-svc
+  ports:
+    - name: http
+      port: 8073
+      targetPort: 8073
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: b-monetize-svc-hpa
+  namespace: ilbuy-l7
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: b-monetize-svc
+  minReplicas: 2
+  maxReplicas: 6
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80

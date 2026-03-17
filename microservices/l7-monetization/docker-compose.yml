@@ -1,0 +1,188 @@
+version: '3.9'
+
+services:
+  # ─── Infrastructure ────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:15-alpine
+    container_name: ilbuy-l7-postgres
+    environment:
+      POSTGRES_DB: ilbuy_l7
+      POSTGRES_USER: ilbuy
+      POSTGRES_PASSWORD: ilbuy123
+    ports:
+      - "5433:5432"
+    volumes:
+      - l7-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ilbuy -d ilbuy_l7"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: ilbuy-l7-redis
+    command: redis-server --requirepass redis123
+    ports:
+      - "6380:6379"
+    volumes:
+      - l7-redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "redis123", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: ilbuy-l7-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: ilbuy
+      RABBITMQ_DEFAULT_PASS: ilbuy123
+      RABBITMQ_DEFAULT_VHOST: /
+    ports:
+      - "5673:5672"
+      - "15673:15672"   # Management UI
+    volumes:
+      - l7-rabbitmq-data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+
+  # ─── L7 Services ───────────────────────────────────────────────────────────
+  monetize-gateway-svc:
+    build:
+      context: ./monetize-gateway-svc
+    container_name: ilbuy-monetize-gateway
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ilbuy_l7
+      DB_USERNAME: ilbuy
+      DB_PASSWORD: ilbuy123
+      REDIS_HOST: redis
+      REDIS_PASSWORD: redis123
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_USERNAME: ilbuy
+      RABBITMQ_PASSWORD: ilbuy123
+      JWT_SECRET: dev-jwt-secret-key-32-chars-minimum
+      WECHAT_MCH_ID: "mock_mch_id"
+      WECHAT_API_KEY: "mock_api_key"
+      ALIPAY_APP_ID: "mock_app_id"
+      ALIPAY_PRIVATE_KEY: "mock_private_key"
+      ALIPAY_PUBLIC_KEY: "mock_public_key"
+      UNIONPAY_MERCHANT_ID: "mock_merchant_id"
+    ports:
+      - "8071:8071"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  c-monetize-svc:
+    build:
+      context: ./c-monetize-svc
+    container_name: ilbuy-c-monetize
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ilbuy_l7
+      DB_USERNAME: ilbuy
+      DB_PASSWORD: ilbuy123
+      REDIS_HOST: redis
+      REDIS_PASSWORD: redis123
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_USERNAME: ilbuy
+      RABBITMQ_PASSWORD: ilbuy123
+      MONETIZE_GATEWAY_URL: http://monetize-gateway-svc:8071
+      JWT_SECRET: dev-jwt-secret-key-32-chars-minimum
+    ports:
+      - "8072:8072"
+    depends_on:
+      - monetize-gateway-svc
+
+  b-monetize-svc:
+    build:
+      context: ./b-monetize-svc
+    container_name: ilbuy-b-monetize
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ilbuy_l7
+      DB_USERNAME: ilbuy
+      DB_PASSWORD: ilbuy123
+      REDIS_HOST: redis
+      REDIS_PASSWORD: redis123
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_USERNAME: ilbuy
+      RABBITMQ_PASSWORD: ilbuy123
+      MONETIZE_GATEWAY_URL: http://monetize-gateway-svc:8071
+      JWT_SECRET: dev-jwt-secret-key-32-chars-minimum
+    ports:
+      - "8073:8073"
+    depends_on:
+      - monetize-gateway-svc
+
+  data-monetize-svc:
+    build:
+      context: ./data-monetize-svc
+    container_name: ilbuy-data-monetize
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ilbuy_l7
+      DB_USERNAME: ilbuy
+      DB_PASSWORD: ilbuy123
+      REDIS_HOST: redis
+      REDIS_PASSWORD: redis123
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_USERNAME: ilbuy
+      RABBITMQ_PASSWORD: ilbuy123
+      MONETIZE_GATEWAY_URL: http://monetize-gateway-svc:8071
+      L6_REPORT_URL: http://host.docker.internal:8061
+      JWT_SECRET: dev-jwt-secret-key-32-chars-minimum
+    ports:
+      - "8074:8074"
+    depends_on:
+      - monetize-gateway-svc
+
+  billing-svc:
+    build:
+      context: ./billing-svc
+    container_name: ilbuy-billing
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ilbuy_l7
+      DB_USERNAME: ilbuy
+      DB_PASSWORD: ilbuy123
+      REDIS_HOST: redis
+      REDIS_PASSWORD: redis123
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_USERNAME: ilbuy
+      RABBITMQ_PASSWORD: ilbuy123
+      MONETIZE_GATEWAY_URL: http://monetize-gateway-svc:8071
+      JWT_SECRET: dev-jwt-secret-key-32-chars-minimum
+    ports:
+      - "8075:8075"
+    depends_on:
+      - monetize-gateway-svc
+
+volumes:
+  l7-postgres-data:
+  l7-redis-data:
+  l7-rabbitmq-data:
+
+networks:
+  default:
+    name: ilbuy-l7-network

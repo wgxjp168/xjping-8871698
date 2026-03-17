@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ilbuy-l7
+  labels:
+    name: ilbuy-l7
+    layer: l7

@@ -1,0 +1,46 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ilbuy-l7-config
+  namespace: ilbuy-l7
+  labels:
+    layer: l7
+data:
+  # Database
+  db.host: "postgres-svc"
+  db.port: "5432"
+
+  # Redis
+  redis.host: "redis-svc"
+  redis.port: "6379"
+
+  # RabbitMQ
+  rabbitmq.host: "rabbitmq-svc"
+  rabbitmq.port: "5672"
+  rabbitmq.vhost: "/"
+
+  # Internal service URLs (within ilbuy-l7 namespace)
+  monetize.gateway.url: "http://monetize-gateway-svc:8071"
+  c-monetize.url: "http://c-monetize-svc:8072"
+  b-monetize.url: "http://b-monetize-svc:8073"
+  data-monetize.url: "http://data-monetize-svc:8074"
+  billing.url: "http://billing-svc:8075"
+
+  # Cross-layer service URLs
+  l5.order.url: "http://order-svc.ilbuy-l5:8051"
+  l6.report.url: "http://report-generator-svc.ilbuy-l6:8061"
+
+  # WeChat Pay
+  wechat.pay.api.url: "https://api.mch.weixin.qq.com"
+  wechat.pay.notify.url: "https://api.ilbuy.com/api/v1/payments/wechat/notify"
+
+  # Alipay
+  alipay.gateway.url: "https://openapi.alipay.com/gateway.do"
+  alipay.notify.url: "https://api.ilbuy.com/api/v1/payments/alipay/notify"
+
+  # UnionPay
+  unionpay.gateway.url: "https://gateway.95516.com"
+  unionpay.notify.url: "https://api.ilbuy.com/api/v1/payments/unionpay/notify"
+
+  # CORS
+  cors.origins: "https://www.ilbuy.com,https://b.ilbuy.com"

@@ -1,0 +1,28 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/ilbuy_l7_dev
+    username: ilbuy_dev
+    password: ilbuy_dev
+  jpa:
+    show-sql: true
+    hibernate:
+      ddl-auto: create-drop
+  data:
+    redis:
+      host: localhost
+      port: 6379
+  rabbitmq:
+    host: localhost
+    port: 5672
+
+ilbuy:
+  payment:
+    wechat:
+      notify-url: http://dev-tunnel.ilbuy.com/api/v1/payments/wechat/notify
+    alipay:
+      notify-url: http://dev-tunnel.ilbuy.com/api/v1/payments/alipay/notify
+
+logging:
+  level:
+    com.ilbuy: DEBUG
+    org.springframework.web: DEBUG
