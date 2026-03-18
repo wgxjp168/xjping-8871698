@@ -26,7 +26,11 @@ metadata:
     app: model-iteration-svc
     layer: l8-feedback-optimize
 spec:
-  replicas: 2
+  # replicas=1: behavior consumer uses an in-memory sample buffer; multiple
+  # replicas would split the buffer across pods preventing the training
+  # threshold from being reached. Scale the API layer via HPA once the buffer
+  # is migrated to a persistent store (Redis / DB).
+  replicas: 1
   selector:
     matchLabels:
       app: model-iteration-svc
@@ -35,6 +39,10 @@ spec:
       labels:
         app: model-iteration-svc
         layer: l8-feedback-optimize
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: "/actuator/prometheus"
+        prometheus.io/port: "8062"
     spec:
       securityContext:
         runAsNonRoot: true
@@ -129,7 +137,8 @@ spec:
               mountPath: /app/model_store
       volumes:
         - name: model-store
-          emptyDir: {}
+          persistentVolumeClaim:
+            claimName: ilbuy-model-store-pvc
 
 ---
 apiVersion: v1
@@ -160,8 +169,8 @@ spec:
     apiVersion: apps/v1
     kind: Deployment
     name: model-iteration-svc
-  minReplicas: 2
-  maxReplicas: 6
+  minReplicas: 1
+  maxReplicas: 4
   metrics:
     - type: Resource
       resource:
