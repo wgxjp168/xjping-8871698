@@ -1,0 +1,131 @@
+# Jenkins Configuration as Code (JCasC)
+jenkins:
+  systemMessage: "ILbuy 我来购 — CI/CD 平台 (Jenkins 2.460)"
+  numExecutors: 0  # Master 不执行构建，使用 Agent
+  mode: EXCLUSIVE
+  scmCheckoutRetryCount: 2
+
+  securityRealm:
+    ldap:
+      configurations:
+        - server: ldap://ldap.ilbuy.internal:389
+          rootDN: "dc=ilbuy,dc=internal"
+          userSearchBase: "ou=users"
+          userSearch: "uid={0}"
+          groupSearchBase: "ou=groups"
+          managerDN: "cn=jenkins,ou=service-accounts,dc=ilbuy,dc=internal"
+          managerPasswordSecret: "${LDAP_MANAGER_PASSWORD}"
+
+  authorizationStrategy:
+    roleBased:
+      roles:
+        global:
+          - name: "admin"
+            description: "CI/CD 管理员"
+            permissions:
+              - "Overall/Administer"
+            assignments:
+              - "ops-team"
+          - name: "developer"
+            description: "开发人员"
+            permissions:
+              - "Overall/Read"
+              - "Job/Build"
+              - "Job/Read"
+              - "Job/Workspace"
+              - "View/Read"
+            assignments:
+              - "dev-team"
+          - name: "readonly"
+            permissions:
+              - "Overall/Read"
+              - "Job/Read"
+              - "View/Read"
+            assignments:
+              - "authenticated"
+
+  clouds:
+    - kubernetes:
+        name: "k8s-agents"
+        serverUrl: "https://kubernetes.default.svc"
+        namespace: "ilbuy-ops"
+        credentialsId: "k8s-service-account"
+        maxRequestsPerHost: 32
+        templates:
+          # Python/FastAPI 构建 Agent
+          - name: "python-agent"
+            label: "python"
+            containers:
+              - name: "python"
+                image: "python:3.11-slim"
+                command: "cat"
+                ttyEnabled: true
+                resourceRequestCpu: "500m"
+                resourceRequestMemory: "512Mi"
+                resourceLimitCpu: "1000m"
+                resourceLimitMemory: "1Gi"
+              - name: "docker"
+                image: "docker:25-dind"
+                privileged: true
+                resourceRequestCpu: "500m"
+                resourceRequestMemory: "256Mi"
+          # Java/Spring 构建 Agent
+          - name: "java-agent"
+            label: "java"
+            containers:
+              - name: "maven"
+                image: "maven:3.9-eclipse-temurin-21"
+                command: "cat"
+                ttyEnabled: true
+                resourceRequestCpu: "1000m"
+                resourceRequestMemory: "2Gi"
+              - name: "docker"
+                image: "docker:25-dind"
+                privileged: true
+                resourceRequestCpu: "500m"
+                resourceRequestMemory: "256Mi"
+
+credentials:
+  system:
+    domainCredentials:
+      - credentials:
+          - string:
+              scope: GLOBAL
+              id: "sonar-token"
+              secret: "${SONAR_TOKEN}"
+              description: "SonarQube 访问 Token"
+          - usernamePassword:
+              scope: GLOBAL
+              id: "harbor-registry"
+              username: "${HARBOR_USER}"
+              password: "${HARBOR_PASSWORD}"
+              description: "Harbor 镜像仓库凭据"
+          - string:
+              scope: GLOBAL
+              id: "k8s-service-account"
+              secret: "${K8S_JENKINS_TOKEN}"
+              description: "K8s Jenkins ServiceAccount Token"
+          - string:
+              scope: GLOBAL
+              id: "dingtalk-webhook"
+              secret: "${DINGTALK_WEBHOOK_URL}"
+              description: "钉钉告警 Webhook"
+
+tool:
+  sonarRunnerInstallation:
+    installations:
+      - name: "SonarScanner-5"
+        home: "/opt/sonar-scanner"
+
+unclassified:
+  location:
+    url: "https://jenkins.ilbuy.internal"
+    adminAddress: "jenkins@ilbuy.internal"
+  sonarGlobalConfiguration:
+    buildWrapperEnabled: true
+    installations:
+      - name: "SonarQube-Server"
+        serverUrl: "http://sonarqube.ilbuy-ops.svc.cluster.local:9000"
+        credentialsId: "sonar-token"
+  timestamper:
+    allPipelines: true

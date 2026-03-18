@@ -1,0 +1,162 @@
+global:
+  # 告警解除等待时间
+  resolve_timeout: 5m
+  # SMTP 配置（邮件告警）
+  smtp_smarthost: "smtp.ilbuy.internal:587"
+  smtp_from: "alertmanager@ilbuy.internal"
+  smtp_auth_username: "alertmanager@ilbuy.internal"
+  smtp_auth_password_file: /etc/alertmanager/smtp-password
+  smtp_require_tls: true
+
+# 告警模板
+templates:
+  - /etc/alertmanager/templates/*.tmpl
+
+# ============================================================
+# 路由规则树
+# ============================================================
+route:
+  # 全局默认接收器
+  receiver: ops-default
+  # 分组策略
+  group_by: [alertname, namespace, service]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+
+  routes:
+    # P0 - 严重告警（数据库/支付/服务全部下线）→ 立即通知 + 电话
+    - match:
+        severity: critical
+      receiver: oncall-critical
+      group_wait: 10s
+      repeat_interval: 30m
+      continue: true  # 继续匹配后续路由（同时发送钉钉）
+
+    # P1 - 业务告警 → AI团队
+    - match_re:
+        alertname: (LowRecommendationAccuracy|ModelIterationJobFailed|FeedbackNegativeSurge)
+      receiver: team-ai
+      group_wait: 1m
+      repeat_interval: 2h
+
+    # P1 - 支付告警 → 支付团队
+    - match_re:
+        alertname: (PaymentGatewayError|.+Payment.+)
+      receiver: team-payment
+      group_wait: 30s
+      repeat_interval: 1h
+
+    # P1 - 数据库告警 → DBA
+    - match_re:
+        alertname: (PostgreSQL.+|Redis.+|Elasticsearch.+)
+      receiver: team-dba
+      group_wait: 30s
+      repeat_interval: 1h
+
+    # P2 - 平台告警 → 运维团队
+    - match:
+        team: platform
+      receiver: team-ops
+      group_wait: 2m
+      repeat_interval: 4h
+
+    # 所有告警同时发到钉钉群
+    - match_re:
+        severity: (critical|warning)
+      receiver: dingtalk-ops
+      group_wait: 30s
+      repeat_interval: 2h
+
+# ============================================================
+# 告警抑制规则（防止告警风暴）
+# ============================================================
+inhibit_rules:
+  # 服务下线时，抑制该服务的延迟/错误率告警
+  - source_match:
+      alertname: ServiceDown
+    target_match_re:
+      alertname: (HighHTTP5xxRate|HighP99Latency|CriticalP99Latency)
+    equal: [namespace, service]
+
+  # critical 告警存在时，抑制同来源的 warning
+  - source_match:
+      severity: critical
+    target_match:
+      severity: warning
+    equal: [namespace, service, alertname]
+
+# ============================================================
+# 接收器配置
+# ============================================================
+receivers:
+
+  - name: ops-default
+    email_configs:
+      - to: "ops@ilbuy.internal"
+        send_resolved: true
+        headers:
+          subject: '[ILbuy {{ .Status | toUpper }}] {{ .CommonLabels.alertname }}'
+        html: '{{ template "email.default.html" . }}'
+
+  - name: oncall-critical
+    email_configs:
+      - to: "oncall@ilbuy.internal"
+        send_resolved: true
+    webhook_configs:
+      # PagerDuty 或内部电话通知
+      - url: "http://oncall-webhook.ilbuy-ops.svc.cluster.local:8080/alert"
+        send_resolved: true
+        http_config:
+          bearer_token_file: /etc/alertmanager/pagerduty-token
+    dingtalk_configs:
+      - url: "http://dingtalk-webhook.ilbuy-ops.svc.cluster.local:8060/dingtalk/ops-critical/send"
+        send_resolved: true
+        message: |
+          🚨 **严重告警 - 需立即处理**
+          - 告警: {{ .CommonLabels.alertname }}
+          - 服务: {{ .CommonLabels.service }}
+          - 命名空间: {{ .CommonLabels.namespace }}
+          - 状态: {{ .Status }}
+          - 时间: {{ .CommonAnnotations.description }}
+
+  - name: dingtalk-ops
+    webhook_configs:
+      - url: "http://dingtalk-webhook.ilbuy-ops.svc.cluster.local:8060/dingtalk/ops-channel/send"
+        send_resolved: true
+        http_config:
+          basic_auth:
+            username: alertmanager
+            password_file: /etc/alertmanager/dingtalk-secret
+
+  - name: team-ai
+    email_configs:
+      - to: "ai-team@ilbuy.internal"
+        send_resolved: true
+    webhook_configs:
+      - url: "http://dingtalk-webhook.ilbuy-ops.svc.cluster.local:8060/dingtalk/ai-team/send"
+        send_resolved: true
+
+  - name: team-payment
+    email_configs:
+      - to: "payment-team@ilbuy.internal"
+        send_resolved: true
+    webhook_configs:
+      - url: "http://dingtalk-webhook.ilbuy-ops.svc.cluster.local:8060/dingtalk/payment-team/send"
+        send_resolved: true
+
+  - name: team-dba
+    email_configs:
+      - to: "dba@ilbuy.internal"
+        send_resolved: true
+    webhook_configs:
+      - url: "http://dingtalk-webhook.ilbuy-ops.svc.cluster.local:8060/dingtalk/dba-team/send"
+        send_resolved: true
+
+  - name: team-ops
+    email_configs:
+      - to: "ops@ilbuy.internal"
+        send_resolved: true
+    webhook_configs:
+      - url: "http://dingtalk-webhook.ilbuy-ops.svc.cluster.local:8060/dingtalk/ops-team/send"
+        send_resolved: true

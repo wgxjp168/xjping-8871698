@@ -1,0 +1,164 @@
+# 默认拒绝所有流量，再按需允许
+# 适用所有 ilbuy-l* 命名空间
+
+---
+# L1 命名空间网络策略
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all
+  namespace: ilbuy-l1
+spec:
+  podSelector: {}  # 匹配所有 Pod
+  policyTypes: [Ingress, Egress]
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-internal-traffic
+  namespace: ilbuy-l1
+spec:
+  podSelector: {}
+  policyTypes: [Ingress, Egress]
+  ingress:
+    # 允许来自 Ingress Controller 的流量
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+    # 允许同层内部通信
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ilbuy-l1
+    # 允许 Prometheus 采集
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ilbuy-ops
+      ports:
+        - protocol: TCP
+          port: 8011
+  egress:
+    # 允许访问基础设施（DB/MQ/Redis）
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ilbuy-infra
+    # 允许访问 Nacos 配置中心
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ilbuy-ops
+      ports:
+        - protocol: TCP
+          port: 8848
+        - protocol: TCP
+          port: 9848
+    # 允许访问 Jaeger（追踪）
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ilbuy-ops
+      ports:
+        - protocol: TCP
+          port: 4317
+    # 允许 DNS
+    - to: []
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    # 允许 HTTPS 外网访问（支付网关等）
+    - to: []
+      ports:
+        - protocol: TCP
+          port: 443
+
+---
+# L8 网络策略（包含额外的 L2 调用路径）
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all
+  namespace: ilbuy-l8
+spec:
+  podSelector: {}
+  policyTypes: [Ingress, Egress]
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-internal-traffic
+  namespace: ilbuy-l8
+spec:
+  podSelector: {}
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ilbuy-l8
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ilbuy-ops
+      ports:
+        - protocol: TCP
+          port: 8060
+        - protocol: TCP
+          port: 8061
+        - protocol: TCP
+          port: 8062
+        - protocol: TCP
+          port: 8063
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ilbuy-l6  # L6 交付层触发反馈
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ilbuy-infra
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ilbuy-l2  # 通知 AI决策层更新模型
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ilbuy-ops
+    - to: []
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+
+---
+# Ops 命名空间（允许访问所有 ilbuy-* 命名空间以监控）
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: ops-allow-monitoring
+  namespace: ilbuy-ops
+spec:
+  podSelector:
+    matchLabels:
+      app: prometheus
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchExpressions:
+              - key: kubernetes.io/metadata.name
+                operator: In
+                values: [ilbuy-l1, ilbuy-l2, ilbuy-l3, ilbuy-l4, ilbuy-l5, ilbuy-l6, ilbuy-l7, ilbuy-l8, ilbuy-infra]

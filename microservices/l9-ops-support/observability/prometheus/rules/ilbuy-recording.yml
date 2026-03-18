@@ -1,0 +1,115 @@
+groups:
+
+  # ============================================================
+  # HTTP 请求速率预计算
+  # ============================================================
+  - name: ilbuy.http.recording
+    interval: 30s
+    rules:
+
+      # 各服务请求速率（5m 窗口）
+      - record: job:http_requests:rate5m
+        expr: sum(rate(http_requests_total[5m])) by (job, namespace, service)
+
+      # 各服务错误率（5xx）
+      - record: job:http_errors_5xx:rate5m
+        expr: |
+          sum(rate(http_requests_total{status=~"5.."}[5m])) by (job, namespace, service)
+          /
+          sum(rate(http_requests_total[5m])) by (job, namespace, service)
+
+      # 各服务 P99 延迟
+      - record: job:http_latency_p99:5m
+        expr: |
+          histogram_quantile(0.99,
+            sum(rate(http_request_duration_seconds_bucket[5m]))
+            by (le, job, namespace, service)
+          )
+
+      # 各服务 P95 延迟
+      - record: job:http_latency_p95:5m
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(http_request_duration_seconds_bucket[5m]))
+            by (le, job, namespace, service)
+          )
+
+      # 各服务 P50 延迟
+      - record: job:http_latency_p50:5m
+        expr: |
+          histogram_quantile(0.50,
+            sum(rate(http_request_duration_seconds_bucket[5m]))
+            by (le, job, namespace, service)
+          )
+
+  # ============================================================
+  # 资源使用预计算
+  # ============================================================
+  - name: ilbuy.resource.recording
+    interval: 60s
+    rules:
+
+      # Pod CPU 使用率
+      - record: namespace_pod:cpu_usage:rate5m
+        expr: |
+          sum(rate(container_cpu_usage_seconds_total{container!=""}[5m]))
+          by (namespace, pod)
+
+      # Pod 内存使用量
+      - record: namespace_pod:memory_working_set_bytes:sum
+        expr: |
+          sum(container_memory_working_set_bytes{container!=""})
+          by (namespace, pod)
+
+      # Namespace 级 CPU 总使用
+      - record: namespace:cpu_usage:rate5m
+        expr: |
+          sum(rate(container_cpu_usage_seconds_total{container!=""}[5m]))
+          by (namespace)
+
+      # Namespace 级内存总使用
+      - record: namespace:memory_usage:bytes
+        expr: |
+          sum(container_memory_working_set_bytes{container!=""})
+          by (namespace)
+
+  # ============================================================
+  # 业务指标预计算
+  # ============================================================
+  - name: ilbuy.business.recording
+    interval: 60s
+    rules:
+
+      # L2 AI决策层 — 推荐请求速率
+      - record: ilbuy:l2:recommendation_rate5m
+        expr: sum(rate(http_requests_total{namespace="ilbuy-l2"}[5m])) by (service)
+
+      # L6 交付层 — 交付成功率
+      - record: ilbuy:l6:delivery_success_rate5m
+        expr: |
+          1 - (
+            sum(rate(ilbuy_delivery_failed_total{namespace="ilbuy-l6"}[5m]))
+            /
+            (sum(rate(ilbuy_delivery_total{namespace="ilbuy-l6"}[5m])) + 0.001)
+          )
+
+      # L7 商业层 — 支付成功率
+      - record: ilbuy:l7:payment_success_rate5m
+        expr: |
+          1 - (
+            sum(rate(ilbuy_payment_error_total{namespace="ilbuy-l7"}[5m]))
+            /
+            (sum(rate(ilbuy_payment_total{namespace="ilbuy-l7"}[5m])) + 0.001)
+          )
+
+      # L8 反馈层 — 正面反馈率
+      - record: ilbuy:l8:feedback_positive_rate30m
+        expr: |
+          sum(rate(ilbuy_feedback_positive_total{namespace="ilbuy-l8"}[30m]))
+          /
+          (sum(rate(ilbuy_feedback_total{namespace="ilbuy-l8"}[30m])) + 0.001)
+
+      # L8 模型层 — 模型版本年龄（天）
+      - record: ilbuy:l8:model_age_days
+        expr: |
+          (time() - ilbuy_model_deployed_timestamp{namespace="ilbuy-l8"}) / 86400

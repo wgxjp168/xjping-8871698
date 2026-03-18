@@ -1,0 +1,200 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nacos-config
+  namespace: ilbuy-ops
+data:
+  application.properties: |
+    # Nacos 2.3 集群配置
+    spring.datasource.platform=mysql
+    db.num=1
+    db.url.0=jdbc:mysql://mysql.ilbuy-infra.svc.cluster.local:3306/nacos_config?characterEncoding=utf8&connectTimeout=5000&socketTimeout=3000&autoReconnect=true&useUnicode=true&useSSL=false&serverTimezone=UTC
+    db.user.0=nacos
+    db.password.0=${NACOS_DB_PASSWORD}
+
+    # 安全配置
+    nacos.core.auth.enabled=true
+    nacos.core.auth.plugin.nacos.token.secret.key=${NACOS_TOKEN_SECRET}
+    nacos.core.auth.server.identity.key=serverIdentity
+    nacos.core.auth.server.identity.value=${NACOS_IDENTITY_VALUE}
+
+    # 集群通信端口偏移
+    nacos.server.ip=${POD_IP}
+    server.port=8848
+
+    # 日志
+    nacos.logs.path=/home/nacos/logs
+
+    # 性能参数
+    nacos.inetutils.timeout=5
+    nacos.core.auth.caching.enabled=true
+
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: nacos
+  namespace: ilbuy-ops
+  labels:
+    app: nacos
+spec:
+  replicas: 3
+  serviceName: nacos
+  selector:
+    matchLabels:
+      app: nacos
+  podManagementPolicy: Parallel
+  template:
+    metadata:
+      labels:
+        app: nacos
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: "/nacos/actuator/prometheus"
+        prometheus.io/port: "8848"
+    spec:
+      securityContext:
+        runAsNonRoot: false  # Nacos 官方镜像使用 nacos 用户（非 root）
+      initContainers:
+        - name: init-cluster-conf
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - |
+              # 生成集群配置
+              cat > /nacos-data/cluster.conf << EOF
+              nacos-0.nacos.ilbuy-ops.svc.cluster.local:8848
+              nacos-1.nacos.ilbuy-ops.svc.cluster.local:8848
+              nacos-2.nacos.ilbuy-ops.svc.cluster.local:8848
+              EOF
+          volumeMounts:
+            - name: data
+              mountPath: /nacos-data
+      containers:
+        - name: nacos
+          image: nacos/nacos-server:v2.3.2
+          env:
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: NACOS_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: nacos-secrets
+                  key: db-password
+            - name: NACOS_TOKEN_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: nacos-secrets
+                  key: token-secret
+            - name: NACOS_IDENTITY_VALUE
+              valueFrom:
+                secretKeyRef:
+                  name: nacos-secrets
+                  key: identity-value
+            - name: MODE
+              value: cluster
+            - name: PREFER_HOST_MODE
+              value: hostname
+            - name: NACOS_SERVERS
+              value: "nacos-0.nacos.ilbuy-ops.svc.cluster.local:8848 nacos-1.nacos.ilbuy-ops.svc.cluster.local:8848 nacos-2.nacos.ilbuy-ops.svc.cluster.local:8848"
+            - name: JVM_XMS
+              value: "512m"
+            - name: JVM_XMX
+              value: "512m"
+          ports:
+            - containerPort: 8848
+              name: client
+            - containerPort: 9848
+              name: client-rpc
+            - containerPort: 9849
+              name: raft-rpc
+          resources:
+            requests:
+              memory: "768Mi"
+              cpu: "300m"
+            limits:
+              memory: "1Gi"
+              cpu: "1000m"
+          volumeMounts:
+            - name: data
+              mountPath: /home/nacos/data
+            - name: logs
+              mountPath: /home/nacos/logs
+            - name: config
+              mountPath: /home/nacos/conf/application.properties
+              subPath: application.properties
+          livenessProbe:
+            httpGet:
+              path: /nacos/actuator/health/liveness
+              port: 8848
+            initialDelaySeconds: 60
+            periodSeconds: 20
+            failureThreshold: 5
+          readinessProbe:
+            httpGet:
+              path: /nacos/actuator/health/readiness
+              port: 8848
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 3
+      volumes:
+        - name: config
+          configMap:
+            name: nacos-config
+        - name: logs
+          emptyDir: {}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: [ReadWriteOnce]
+        storageClassName: ilbuy-ssd
+        resources:
+          requests:
+            storage: 20Gi
+
+---
+# Headless Service（集群内部通信）
+apiVersion: v1
+kind: Service
+metadata:
+  name: nacos
+  namespace: ilbuy-ops
+  labels:
+    app: nacos
+spec:
+  selector:
+    app: nacos
+  ports:
+    - name: client
+      port: 8848
+    - name: client-rpc
+      port: 9848
+    - name: raft-rpc
+      port: 9849
+  clusterIP: None
+
+---
+# ClusterIP Service（客户端访问）
+apiVersion: v1
+kind: Service
+metadata:
+  name: nacos-client
+  namespace: ilbuy-ops
+  labels:
+    app: nacos
+spec:
+  selector:
+    app: nacos
+  ports:
+    - name: client
+      port: 8848
+      targetPort: 8848
+    - name: client-rpc
+      port: 9848
+      targetPort: 9848
+  type: ClusterIP

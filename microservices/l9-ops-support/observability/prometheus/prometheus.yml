@@ -1,0 +1,287 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: ilbuy-prod
+    env: production
+
+# Alertmanager 集成
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - alertmanager.ilbuy-ops.svc.cluster.local:9093
+      timeout: 10s
+
+# 告警规则文件
+rule_files:
+  - /etc/prometheus/rules/ilbuy-alerts.yml
+  - /etc/prometheus/rules/ilbuy-recording.yml
+
+# ============================================================
+# Scrape 配置 — 覆盖 L1-L8 所有微服务 + 基础设施
+# ============================================================
+scrape_configs:
+
+  # ── Prometheus 自监控 ──────────────────────────────────────
+  - job_name: prometheus
+    static_configs:
+      - targets: [localhost:9090]
+
+  # ── K8s 节点指标（kube-state-metrics + node-exporter）─────
+  - job_name: kube-state-metrics
+    kubernetes_sd_configs:
+      - role: endpoints
+        namespaces:
+          names: [monitoring]
+    relabel_configs:
+      - source_labels: [__meta_kubernetes_service_label_app_kubernetes_io_name]
+        regex: kube-state-metrics
+        action: keep
+
+  - job_name: node-exporter
+    kubernetes_sd_configs:
+      - role: node
+    relabel_configs:
+      - action: labelmap
+        regex: __meta_kubernetes_node_label_(.+)
+      - target_label: __address__
+        replacement: kubernetes.default.svc:443
+      - source_labels: [__meta_kubernetes_node_name]
+        regex: (.+)
+        target_label: __metrics_path__
+        replacement: /api/v1/nodes/$1/proxy/metrics
+
+  # ── L1 用户权益层 ─────────────────────────────────────────
+  - job_name: l1-user-profile
+    kubernetes_sd_configs:
+      - role: endpoints
+        namespaces:
+          names: [ilbuy-l1]
+    relabel_configs:
+      - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_scrape]
+        regex: "true"
+        action: keep
+      - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_path]
+        target_label: __metrics_path__
+        regex: (.+)
+      - source_labels: [__address__, __meta_kubernetes_service_annotation_prometheus_io_port]
+        regex: ([^:]+)(?::\d+)?;(\d+)
+        replacement: $1:$2
+        target_label: __address__
+      - source_labels: [__meta_kubernetes_namespace]
+        target_label: namespace
+      - source_labels: [__meta_kubernetes_service_name]
+        target_label: service
+      - source_labels: [__meta_kubernetes_pod_name]
+        target_label: pod
+
+  # ── L2 AI决策层 ───────────────────────────────────────────
+  - job_name: l2-ai-decision
+    kubernetes_sd_configs:
+      - role: endpoints
+        namespaces:
+          names: [ilbuy-l2]
+    relabel_configs:
+      - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_scrape]
+        regex: "true"
+        action: keep
+      - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_path]
+        target_label: __metrics_path__
+        regex: (.+)
+      - source_labels: [__address__, __meta_kubernetes_service_annotation_prometheus_io_port]
+        regex: ([^:]+)(?::\d+)?;(\d+)
+        replacement: $1:$2
+        target_label: __address__
+      - source_labels: [__meta_kubernetes_namespace]
+        target_label: namespace
+      - source_labels: [__meta_kubernetes_service_name]
+        target_label: service
+      - source_labels: [__meta_kubernetes_pod_name]
+        target_label: pod
+
+  # ── L3 数据处理层 ─────────────────────────────────────────
+  - job_name: l3-data-process
+    kubernetes_sd_configs:
+      - role: endpoints
+        namespaces:
+          names: [ilbuy-l3]
+    relabel_configs:
+      - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_scrape]
+        regex: "true"
+        action: keep
+      - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_path]
+        target_label: __metrics_path__
+        regex: (.+)
+      - source_labels: [__address__, __meta_kubernetes_service_annotation_prometheus_io_port]
+        regex: ([^:]+)(?::\d+)?;(\d+)
+        replacement: $1:$2
+        target_label: __address__
+      - source_labels: [__meta_kubernetes_namespace]
+        target_label: namespace
+      - source_labels: [__meta_kubernetes_service_name]
+        target_label: service
+      - source_labels: [__meta_kubernetes_pod_name]
+        target_label: pod
+
+  # ── L4 数据存储层 ─────────────────────────────────────────
+  - job_name: l4-data-storage
+    kubernetes_sd_configs:
+      - role: endpoints
+        namespaces:
+          names: [ilbuy-l4]
+    relabel_configs:
+      - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_scrape]
+        regex: "true"
+        action: keep
+      - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_path]
+        target_label: __metrics_path__
+        regex: (.+)
+      - source_labels: [__address__, __meta_kubernetes_service_annotation_prometheus_io_port]
+        regex: ([^:]+)(?::\d+)?;(\d+)
+        replacement: $1:$2
+        target_label: __address__
+      - source_labels: [__meta_kubernetes_namespace]
+        target_label: namespace
+      - source_labels: [__meta_kubernetes_service_name]
+        target_label: service
+      - source_labels: [__meta_kubernetes_pod_name]
+        target_label: pod
+
+  # ── L5 报告生成层 ─────────────────────────────────────────
+  - job_name: l5-report-generation
+    kubernetes_sd_configs:
+      - role: endpoints
+        namespaces:
+          names: [ilbuy-l5]
+    relabel_configs:
+      - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_scrape]
+        regex: "true"
+        action: keep
+      - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_path]
+        target_label: __metrics_path__
+        regex: (.+)
+      - source_labels: [__address__, __meta_kubernetes_service_annotation_prometheus_io_port]
+        regex: ([^:]+)(?::\d+)?;(\d+)
+        replacement: $1:$2
+        target_label: __address__
+      - source_labels: [__meta_kubernetes_namespace]
+        target_label: namespace
+      - source_labels: [__meta_kubernetes_service_name]
+        target_label: service
+      - source_labels: [__meta_kubernetes_pod_name]
+        target_label: pod
+
+  # ── L6 交付履约层 ─────────────────────────────────────────
+  - job_name: l6-delivery
+    kubernetes_sd_configs:
+      - role: endpoints
+        namespaces:
+          names: [ilbuy-l6]
+    relabel_configs:
+      - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_scrape]
+        regex: "true"
+        action: keep
+      - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_path]
+        target_label: __metrics_path__
+        regex: (.+)
+      - source_labels: [__address__, __meta_kubernetes_service_annotation_prometheus_io_port]
+        regex: ([^:]+)(?::\d+)?;(\d+)
+        replacement: $1:$2
+        target_label: __address__
+      - source_labels: [__meta_kubernetes_namespace]
+        target_label: namespace
+      - source_labels: [__meta_kubernetes_service_name]
+        target_label: service
+      - source_labels: [__meta_kubernetes_pod_name]
+        target_label: pod
+
+  # ── L7 商业变现层 ─────────────────────────────────────────
+  - job_name: l7-monetization
+    kubernetes_sd_configs:
+      - role: endpoints
+        namespaces:
+          names: [ilbuy-l7]
+    relabel_configs:
+      - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_scrape]
+        regex: "true"
+        action: keep
+      - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_path]
+        target_label: __metrics_path__
+        regex: (.+)
+      - source_labels: [__address__, __meta_kubernetes_service_annotation_prometheus_io_port]
+        regex: ([^:]+)(?::\d+)?;(\d+)
+        replacement: $1:$2
+        target_label: __address__
+      - source_labels: [__meta_kubernetes_namespace]
+        target_label: namespace
+      - source_labels: [__meta_kubernetes_service_name]
+        target_label: service
+      - source_labels: [__meta_kubernetes_pod_name]
+        target_label: pod
+
+  # ── L8 反馈优化层 ─────────────────────────────────────────
+  - job_name: l8-feedback-optimize
+    kubernetes_sd_configs:
+      - role: endpoints
+        namespaces:
+          names: [ilbuy-l8]
+    relabel_configs:
+      - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_scrape]
+        regex: "true"
+        action: keep
+      - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_path]
+        target_label: __metrics_path__
+        regex: (.+)
+      - source_labels: [__address__, __meta_kubernetes_service_annotation_prometheus_io_port]
+        regex: ([^:]+)(?::\d+)?;(\d+)
+        replacement: $1:$2
+        target_label: __address__
+      - source_labels: [__meta_kubernetes_namespace]
+        target_label: namespace
+      - source_labels: [__meta_kubernetes_service_name]
+        target_label: service
+      - source_labels: [__meta_kubernetes_pod_name]
+        target_label: pod
+
+  # ── 基础设施：PostgreSQL ──────────────────────────────────
+  - job_name: postgresql
+    static_configs:
+      - targets:
+          - postgres-exporter.ilbuy-infra.svc.cluster.local:9187
+    relabel_configs:
+      - target_label: job
+        replacement: postgresql
+
+  # ── 基础设施：Redis ───────────────────────────────────────
+  - job_name: redis
+    static_configs:
+      - targets:
+          - redis-exporter.ilbuy-infra.svc.cluster.local:9121
+
+  # ── 基础设施：RabbitMQ ────────────────────────────────────
+  - job_name: rabbitmq
+    static_configs:
+      - targets:
+          - rabbitmq.ilbuy-infra.svc.cluster.local:15692
+
+  # ── 基础设施：ClickHouse ──────────────────────────────────
+  - job_name: clickhouse
+    static_configs:
+      - targets:
+          - clickhouse-exporter.ilbuy-infra.svc.cluster.local:9116
+
+  # ── 基础设施：Elasticsearch ───────────────────────────────
+  - job_name: elasticsearch
+    static_configs:
+      - targets:
+          - elasticsearch-exporter.ilbuy-ops.svc.cluster.local:9114
+
+  # ── Nacos 配置中心 ────────────────────────────────────────
+  - job_name: nacos
+    static_configs:
+      - targets:
+          - nacos-0.nacos.ilbuy-ops.svc.cluster.local:8848
+          - nacos-1.nacos.ilbuy-ops.svc.cluster.local:8848
+          - nacos-2.nacos.ilbuy-ops.svc.cluster.local:8848
+    metrics_path: /nacos/actuator/prometheus

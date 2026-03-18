@@ -1,0 +1,390 @@
+// ILbuy 微服务标准化 CI/CD Jenkinsfile
+// 适用于所有 L1-L8 Python(FastAPI)/Java(Spring) 微服务
+//
+// 参数化构建，在 Jenkins Job 配置中设置以下参数：
+//   SERVICE_NAME   : 服务名称（如 feedback-svc）
+//   SERVICE_LAYER  : 层级（如 l8-feedback-optimize）
+//   SERVICE_LANG   : python | java
+//   TARGET_ENV     : dev | staging | prod
+//   IMAGE_TAG      : 镜像标签（默认使用 git commit hash）
+//   SKIP_TESTS     : 是否跳过测试（默认 false）
+//   SKIP_SCAN      : 是否跳过安全扫描（默认 false）
+
+pipeline {
+    agent none  // 由每个 stage 指定 agent
+
+    options {
+        timeout(time: 45, unit: 'MINUTES')
+        buildDiscarder(logRotator(numToKeepStr: '20'))
+        disableConcurrentBuilds(abortPrevious: true)
+        timestamps()
+        ansiColor('xterm')
+    }
+
+    environment {
+        HARBOR_REGISTRY  = 'harbor.ilbuy.internal'
+        IMAGE_NAME       = "${HARBOR_REGISTRY}/ilbuy/${SERVICE_NAME}"
+        IMAGE_TAG        = "${params.IMAGE_TAG ?: env.GIT_COMMIT?.take(8) ?: 'latest'}"
+        FULL_IMAGE       = "${IMAGE_NAME}:${IMAGE_TAG}"
+        SONAR_PROJECT    = "ilbuy-${SERVICE_NAME}"
+        NAMESPACE        = "ilbuy-${params.TARGET_ENV == 'prod' ? params.SERVICE_LAYER?.split('-')[0] : params.TARGET_ENV}"
+        K8S_MANIFEST     = "microservices/${SERVICE_LAYER}/${SERVICE_NAME}/k8s/deployment.yaml"
+    }
+
+    parameters {
+        string(name: 'SERVICE_NAME',  defaultValue: '',        description: '微服务名称')
+        string(name: 'SERVICE_LAYER', defaultValue: '',        description: '层级目录名')
+        choice(name: 'SERVICE_LANG',  choices: ['python', 'java'], description: '技术栈')
+        choice(name: 'TARGET_ENV',    choices: ['dev', 'staging', 'prod'], description: '部署环境')
+        string(name: 'IMAGE_TAG',     defaultValue: '',        description: '镜像 Tag（空=git hash）')
+        booleanParam(name: 'SKIP_TESTS', defaultValue: false,  description: '跳过测试')
+        booleanParam(name: 'SKIP_SCAN',  defaultValue: false,  description: '跳过安全扫描')
+    }
+
+    stages {
+
+        // ── Stage 1: 代码检出 + 环境信息 ─────────────────────────────────
+        stage('Checkout') {
+            agent { label 'python || java' }
+            steps {
+                checkout scm
+                script {
+                    env.GIT_COMMIT_SHORT = sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
+                    env.GIT_BRANCH_NAME  = env.BRANCH_NAME ?: sh(script: 'git rev-parse --abbrev-ref HEAD', returnStdout: true).trim()
+                    if (!env.IMAGE_TAG || env.IMAGE_TAG == '') {
+                        env.IMAGE_TAG = env.GIT_COMMIT_SHORT
+                        env.FULL_IMAGE = "${env.IMAGE_NAME}:${env.IMAGE_TAG}"
+                    }
+                    echo """
+=== 构建信息 ===
+服务: ${params.SERVICE_NAME}
+层级: ${params.SERVICE_LAYER}
+技术栈: ${params.SERVICE_LANG}
+分支: ${env.GIT_BRANCH_NAME}
+Commit: ${env.GIT_COMMIT_SHORT}
+镜像: ${env.FULL_IMAGE}
+目标环境: ${params.TARGET_ENV}
+"""
+                }
+            }
+        }
+
+        // ── Stage 2: 单元测试 + 代码覆盖率 ─────────────────────────────────
+        stage('Test') {
+            when {
+                not { expression { params.SKIP_TESTS } }
+            }
+            parallel {
+                stage('Unit Tests (Python)') {
+                    when { expression { params.SERVICE_LANG == 'python' } }
+                    agent {
+                        kubernetes {
+                            label 'python'
+                            yaml """
+apiVersion: v1
+kind: Pod
+spec:
+  containers:
+  - name: python
+    image: python:3.11-slim
+    command: ['cat']
+    tty: true
+    resources:
+      requests:
+        memory: "512Mi"
+        cpu: "500m"
+"""
+                        }
+                    }
+                    steps {
+                        container('python') {
+                            dir("microservices/${params.SERVICE_LAYER}/${params.SERVICE_NAME}") {
+                                sh '''
+pip install --no-cache-dir -r requirements.txt
+python -m pytest tests/ -v \
+    --tb=short \
+    --junit-xml=test-results.xml \
+    --cov=app \
+    --cov-report=xml:coverage.xml \
+    --cov-report=term-missing \
+    --cov-fail-under=70
+'''
+                            }
+                        }
+                    }
+                    post {
+                        always {
+                            dir("microservices/${params.SERVICE_LAYER}/${params.SERVICE_NAME}") {
+                                junit 'test-results.xml'
+                                publishCoverage(
+                                    adapters: [coberturaAdapter('coverage.xml')],
+                                    sourceFileResolver: sourceFiles('STORE_LAST_BUILD')
+                                )
+                            }
+                        }
+                    }
+                }
+
+                stage('Unit Tests (Java)') {
+                    when { expression { params.SERVICE_LANG == 'java' } }
+                    agent {
+                        kubernetes {
+                            label 'java'
+                            yaml """
+apiVersion: v1
+kind: Pod
+spec:
+  containers:
+  - name: maven
+    image: maven:3.9-eclipse-temurin-21
+    command: ['cat']
+    tty: true
+    resources:
+      requests:
+        memory: "2Gi"
+        cpu: "1000m"
+"""
+                        }
+                    }
+                    steps {
+                        container('maven') {
+                            dir("microservices/${params.SERVICE_LAYER}/${params.SERVICE_NAME}") {
+                                sh 'mvn test -B --no-transfer-progress'
+                            }
+                        }
+                    }
+                    post {
+                        always {
+                            dir("microservices/${params.SERVICE_LAYER}/${params.SERVICE_NAME}") {
+                                junit '**/target/surefire-reports/*.xml'
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // ── Stage 3: SonarQube 代码质量扫描 ────────────────────────────────
+        stage('SonarQube Scan') {
+            when {
+                not { expression { params.SKIP_SCAN } }
+            }
+            agent { label 'python' }
+            steps {
+                withSonarQubeEnv('SonarQube-Server') {
+                    dir("microservices/${params.SERVICE_LAYER}/${params.SERVICE_NAME}") {
+                        sh """
+sonar-scanner \
+    -Dsonar.projectKey=${env.SONAR_PROJECT} \
+    -Dsonar.projectName="ILbuy ${params.SERVICE_NAME}" \
+    -Dsonar.projectVersion=${env.IMAGE_TAG} \
+    -Dsonar.sources=app \
+    -Dsonar.tests=tests \
+    -Dsonar.python.coverage.reportPaths=coverage.xml \
+    -Dsonar.python.version=3.11 \
+    -Dsonar.qualitygate.wait=true \
+    -Dsonar.qualitygate.timeout=300
+"""
+                    }
+                }
+            }
+        }
+
+        // ── Stage 4: 构建 + 推送 Docker 镜像 ────────────────────────────────
+        stage('Build & Push Image') {
+            agent {
+                kubernetes {
+                    label 'python'
+                    yaml """
+apiVersion: v1
+kind: Pod
+spec:
+  containers:
+  - name: docker
+    image: docker:25-dind
+    securityContext:
+      privileged: true
+    env:
+    - name: DOCKER_TLS_CERTDIR
+      value: ""
+    resources:
+      requests:
+        memory: "1Gi"
+        cpu: "1000m"
+      limits:
+        memory: "2Gi"
+        cpu: "2000m"
+"""
+                }
+            }
+            steps {
+                container('docker') {
+                    withCredentials([usernamePassword(
+                        credentialsId: 'harbor-registry',
+                        usernameVariable: 'HARBOR_USER',
+                        passwordVariable: 'HARBOR_PASS'
+                    )]) {
+                        sh """
+docker login ${env.HARBOR_REGISTRY} -u \${HARBOR_USER} -p \${HARBOR_PASS}
+
+cd microservices/${params.SERVICE_LAYER}/${params.SERVICE_NAME}
+
+# 构建（使用 BuildKit 加速）
+DOCKER_BUILDKIT=1 docker build \
+    --cache-from ${env.IMAGE_NAME}:latest \
+    --build-arg BUILDKIT_INLINE_CACHE=1 \
+    --label "git.commit=${env.GIT_COMMIT_SHORT}" \
+    --label "build.number=${env.BUILD_NUMBER}" \
+    --label "build.timestamp=\$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+    -t ${env.FULL_IMAGE} \
+    -t ${env.IMAGE_NAME}:latest \
+    .
+
+# 推送
+docker push ${env.FULL_IMAGE}
+docker push ${env.IMAGE_NAME}:latest
+"""
+                    }
+                }
+            }
+        }
+
+        // ── Stage 5: Trivy 镜像安全扫描 ─────────────────────────────────────
+        stage('Security Scan') {
+            when {
+                not { expression { params.SKIP_SCAN } }
+            }
+            agent {
+                kubernetes {
+                    label 'python'
+                    yaml """
+apiVersion: v1
+kind: Pod
+spec:
+  containers:
+  - name: trivy
+    image: aquasec/trivy:0.51.4
+    command: ['cat']
+    tty: true
+    resources:
+      requests:
+        memory: "512Mi"
+        cpu: "200m"
+"""
+                }
+            }
+            steps {
+                container('trivy') {
+                    sh """
+trivy image \
+    --exit-code 0 \
+    --severity HIGH,CRITICAL \
+    --format sarif \
+    --output trivy-results.sarif \
+    ${env.FULL_IMAGE}
+
+# 如果有 CRITICAL 漏洞则失败
+trivy image \
+    --exit-code 1 \
+    --severity CRITICAL \
+    --ignore-unfixed \
+    ${env.FULL_IMAGE} || echo "⚠️ 发现 CRITICAL 漏洞，请尽快修复！"
+"""
+                    archiveArtifacts artifacts: 'trivy-results.sarif', allowEmptyArchive: true
+                }
+            }
+        }
+
+        // ── Stage 6: 部署到目标环境 ──────────────────────────────────────────
+        stage('Deploy') {
+            agent { label 'python' }
+            steps {
+                script {
+                    // prod 环境需要确认
+                    if (params.TARGET_ENV == 'prod') {
+                        input message: "确认部署到生产环境？\n服务: ${params.SERVICE_NAME}\n镜像: ${env.FULL_IMAGE}",
+                              ok: '确认部署',
+                              submitter: 'ops-team'
+                    }
+                }
+                sh """
+# 更新 K8s deployment 镜像
+kubectl set image deployment/${params.SERVICE_NAME} \
+    ${params.SERVICE_NAME}=${env.FULL_IMAGE} \
+    -n ${env.NAMESPACE} \
+    --record=false
+
+# 等待滚动更新完成
+kubectl rollout status deployment/${params.SERVICE_NAME} \
+    -n ${env.NAMESPACE} \
+    --timeout=10m
+"""
+            }
+        }
+
+        // ── Stage 7: 部署后健康检查 ──────────────────────────────────────────
+        stage('Health Check') {
+            agent { label 'python' }
+            steps {
+                sh """
+# 等待 Pod 完全就绪
+sleep 15
+kubectl get pods -n ${env.NAMESPACE} -l app=${params.SERVICE_NAME}
+
+# 检查所有 Pod 的就绪状态
+READY=\$(kubectl get deployment ${params.SERVICE_NAME} -n ${env.NAMESPACE} \
+    -o jsonpath='{.status.readyReplicas}')
+DESIRED=\$(kubectl get deployment ${params.SERVICE_NAME} -n ${env.NAMESPACE} \
+    -o jsonpath='{.spec.replicas}')
+
+echo "就绪副本: \${READY} / \${DESIRED}"
+if [ "\${READY}" != "\${DESIRED}" ]; then
+    echo "❌ 部分 Pod 未就绪"
+    exit 1
+fi
+echo "✅ 部署成功"
+"""
+            }
+        }
+    }
+
+    post {
+        success {
+            script {
+                def msg = """✅ **部署成功**
+- 服务: ${params.SERVICE_NAME}
+- 环境: ${params.TARGET_ENV}
+- 镜像: ${env.FULL_IMAGE}
+- 分支: ${env.GIT_BRANCH_NAME}
+- 耗时: ${currentBuild.durationString}"""
+                // 发送钉钉通知
+                withCredentials([string(credentialsId: 'dingtalk-webhook', variable: 'WEBHOOK')]) {
+                    sh """
+curl -sf -X POST "\${WEBHOOK}" \
+    -H 'Content-Type: application/json' \
+    -d '{"msgtype":"markdown","markdown":{"title":"部署成功","text":"${msg.replace('"', '\\"')}"}}'
+"""
+                }
+            }
+        }
+        failure {
+            script {
+                def msg = """❌ **部署失败**
+- 服务: ${params.SERVICE_NAME}
+- 环境: ${params.TARGET_ENV}
+- 分支: ${env.GIT_BRANCH_NAME}
+- 构建: ${env.BUILD_URL}"""
+                withCredentials([string(credentialsId: 'dingtalk-webhook', variable: 'WEBHOOK')]) {
+                    sh """
+curl -sf -X POST "\${WEBHOOK}" \
+    -H 'Content-Type: application/json' \
+    -d '{"msgtype":"markdown","markdown":{"title":"部署失败","text":"${msg.replace('"', '\\"')}"}}'
+"""
+                }
+            }
+        }
+        always {
+            cleanWs()
+        }
+    }
+}

@@ -1,0 +1,234 @@
+# ILbuy RBAC 配置 — 为所有微服务命名空间创建统一 ServiceAccount
+---
+# 通用微服务 ServiceAccount（每个命名空间一个）
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: ilbuy-svc
+  namespace: ilbuy-l1
+  labels:
+    managed-by: ops
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: ilbuy-svc
+  namespace: ilbuy-l2
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: ilbuy-svc
+  namespace: ilbuy-l3
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: ilbuy-svc
+  namespace: ilbuy-l4
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: ilbuy-svc
+  namespace: ilbuy-l5
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: ilbuy-svc
+  namespace: ilbuy-l6
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: ilbuy-svc
+  namespace: ilbuy-l7
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: ilbuy-svc
+  namespace: ilbuy-l8
+
+---
+# ClusterRole: 微服务只读 K8s 资源（用于服务发现等）
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: ilbuy-service-role
+  labels:
+    managed-by: ops
+rules:
+  - apiGroups: [""]
+    resources: [services, endpoints, configmaps]
+    verbs: [get, list, watch]
+  - apiGroups: [""]
+    resources: [pods]
+    verbs: [get, list]
+
+---
+# 为每个命名空间绑定 ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: ilbuy-svc-binding
+  namespace: ilbuy-l1
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: ilbuy-service-role
+subjects:
+  - kind: ServiceAccount
+    name: ilbuy-svc
+    namespace: ilbuy-l1
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: ilbuy-svc-binding
+  namespace: ilbuy-l2
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: ilbuy-service-role
+subjects:
+  - kind: ServiceAccount
+    name: ilbuy-svc
+    namespace: ilbuy-l2
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: ilbuy-svc-binding
+  namespace: ilbuy-l3
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: ilbuy-service-role
+subjects:
+  - kind: ServiceAccount
+    name: ilbuy-svc
+    namespace: ilbuy-l3
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: ilbuy-svc-binding
+  namespace: ilbuy-l4
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: ilbuy-service-role
+subjects:
+  - kind: ServiceAccount
+    name: ilbuy-svc
+    namespace: ilbuy-l4
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: ilbuy-svc-binding
+  namespace: ilbuy-l5
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: ilbuy-service-role
+subjects:
+  - kind: ServiceAccount
+    name: ilbuy-svc
+    namespace: ilbuy-l5
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: ilbuy-svc-binding
+  namespace: ilbuy-l6
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: ilbuy-service-role
+subjects:
+  - kind: ServiceAccount
+    name: ilbuy-svc
+    namespace: ilbuy-l6
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: ilbuy-svc-binding
+  namespace: ilbuy-l7
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: ilbuy-service-role
+subjects:
+  - kind: ServiceAccount
+    name: ilbuy-svc
+    namespace: ilbuy-l7
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: ilbuy-svc-binding
+  namespace: ilbuy-l8
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: ilbuy-service-role
+subjects:
+  - kind: ServiceAccount
+    name: ilbuy-svc
+    namespace: ilbuy-l8
+
+---
+# Jenkins 专用 ClusterRole（需要跨 Namespace 部署）
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: jenkins
+  namespace: ilbuy-ops
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: jenkins-deploy-role
+rules:
+  - apiGroups: ["apps"]
+    resources: [deployments, statefulsets, replicasets]
+    verbs: [get, list, watch, patch, update]
+  - apiGroups: [""]
+    resources: [pods, pods/log, services, configmaps]
+    verbs: [get, list, watch]
+  - apiGroups: [""]
+    resources: [pods/exec]
+    verbs: [create]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: jenkins-deploy
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: jenkins-deploy-role
+subjects:
+  - kind: ServiceAccount
+    name: jenkins
+    namespace: ilbuy-ops

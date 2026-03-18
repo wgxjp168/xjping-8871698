@@ -1,0 +1,243 @@
+---
+# Jaeger Collector — 接收 OTLP/Thrift Span
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jaeger-collector
+  namespace: ilbuy-ops
+  labels:
+    app: jaeger
+    component: collector
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: jaeger
+      component: collector
+  template:
+    metadata:
+      labels:
+        app: jaeger
+        component: collector
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+      containers:
+        - name: jaeger-collector
+          image: jaegertracing/jaeger-collector:1.57
+          env:
+            - name: SPAN_STORAGE_TYPE
+              value: elasticsearch
+            - name: ES_SERVER_URLS
+              value: "https://elasticsearch-client.ilbuy-ops.svc.cluster.local:9200"
+            - name: ES_USERNAME
+              value: "jaeger"
+            - name: ES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: elasticsearch-credentials
+                  key: jaeger-password
+            - name: ES_TLS_SKIP_HOST_VERIFY
+              value: "true"
+            - name: ES_INDEX_PREFIX
+              value: "ilbuy"
+            - name: ES_NUM_SHARDS
+              value: "3"
+            - name: ES_NUM_REPLICAS
+              value: "1"
+            - name: COLLECTOR_OTLP_ENABLED
+              value: "true"
+          ports:
+            - containerPort: 14250  # gRPC (Jaeger model)
+              name: grpc
+            - containerPort: 4317   # OTLP gRPC
+              name: otlp-grpc
+            - containerPort: 4318   # OTLP HTTP
+              name: otlp-http
+            - containerPort: 14269  # Health
+              name: health
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "200m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 14269
+            initialDelaySeconds: 20
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 14269
+            initialDelaySeconds: 10
+            periodSeconds: 10
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: jaeger-collector
+  namespace: ilbuy-ops
+  labels:
+    app: jaeger
+    component: collector
+spec:
+  selector:
+    app: jaeger
+    component: collector
+  ports:
+    - name: grpc
+      port: 14250
+      targetPort: 14250
+    - name: otlp-grpc
+      port: 4317
+      targetPort: 4317
+    - name: otlp-http
+      port: 4318
+      targetPort: 4318
+  type: ClusterIP
+
+---
+# Jaeger Query UI — 链路查询界面
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jaeger-query
+  namespace: ilbuy-ops
+  labels:
+    app: jaeger
+    component: query
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: jaeger
+      component: query
+  template:
+    metadata:
+      labels:
+        app: jaeger
+        component: query
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+      containers:
+        - name: jaeger-query
+          image: jaegertracing/jaeger-query:1.57
+          env:
+            - name: SPAN_STORAGE_TYPE
+              value: elasticsearch
+            - name: ES_SERVER_URLS
+              value: "https://elasticsearch-client.ilbuy-ops.svc.cluster.local:9200"
+            - name: ES_USERNAME
+              value: "jaeger"
+            - name: ES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: elasticsearch-credentials
+                  key: jaeger-password
+            - name: ES_TLS_SKIP_HOST_VERIFY
+              value: "true"
+            - name: ES_INDEX_PREFIX
+              value: "ilbuy"
+            - name: QUERY_BASE_PATH
+              value: "/"
+          ports:
+            - containerPort: 16686
+              name: http
+            - containerPort: 16687
+              name: health
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "300m"
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 16687
+            initialDelaySeconds: 20
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 16687
+            initialDelaySeconds: 10
+            periodSeconds: 10
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: jaeger-query
+  namespace: ilbuy-ops
+  labels:
+    app: jaeger
+    component: query
+spec:
+  selector:
+    app: jaeger
+    component: query
+  ports:
+    - name: http
+      port: 16686
+      targetPort: 16686
+  type: ClusterIP
+
+---
+# ConfigMap: OpenTelemetry Collector 配置（部署在各服务命名空间作为 Sidecar 或独立 DaemonSet）
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: otel-collector-config
+  namespace: ilbuy-ops
+data:
+  otel-collector-config.yaml: |
+    receivers:
+      otlp:
+        protocols:
+          grpc:
+            endpoint: 0.0.0.0:4317
+          http:
+            endpoint: 0.0.0.0:4318
+
+    processors:
+      batch:
+        timeout: 5s
+        send_batch_size: 1024
+      memory_limiter:
+        check_interval: 1s
+        limit_mib: 256
+        spike_limit_mib: 64
+      resource:
+        attributes:
+          - action: insert
+            key: deployment.environment
+            value: production
+
+    exporters:
+      otlp/jaeger:
+        endpoint: jaeger-collector.ilbuy-ops.svc.cluster.local:4317
+        tls:
+          insecure: true
+      prometheus:
+        endpoint: "0.0.0.0:8888"
+
+    service:
+      pipelines:
+        traces:
+          receivers: [otlp]
+          processors: [memory_limiter, batch, resource]
+          exporters: [otlp/jaeger]
+        metrics:
+          receivers: [otlp]
+          processors: [memory_limiter, batch]
+          exporters: [prometheus]

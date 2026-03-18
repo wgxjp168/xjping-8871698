@@ -1,0 +1,249 @@
+# ILbuy 全层命名空间 + 资源配额 + LimitRange
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ilbuy-l1
+  labels:
+    layer: l1-user-profile
+    team: platform
+    managed-by: ops
+
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: l1-quota
+  namespace: ilbuy-l1
+spec:
+  hard:
+    requests.cpu: "4"
+    requests.memory: 8Gi
+    limits.cpu: "8"
+    limits.memory: 16Gi
+    pods: "30"
+    persistentvolumeclaims: "10"
+
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: l1-limits
+  namespace: ilbuy-l1
+spec:
+  limits:
+    - type: Container
+      default:
+        cpu: 500m
+        memory: 512Mi
+      defaultRequest:
+        cpu: 100m
+        memory: 128Mi
+      max:
+        cpu: "2"
+        memory: 2Gi
+      min:
+        cpu: 50m
+        memory: 64Mi
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ilbuy-l2
+  labels:
+    layer: l2-ai-decision
+    team: ai
+
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: l2-quota
+  namespace: ilbuy-l2
+spec:
+  hard:
+    requests.cpu: "8"
+    requests.memory: 16Gi
+    limits.cpu: "16"
+    limits.memory: 32Gi
+    pods: "40"
+    persistentvolumeclaims: "10"
+
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: l2-limits
+  namespace: ilbuy-l2
+spec:
+  limits:
+    - type: Container
+      default:
+        cpu: 500m
+        memory: 1Gi
+      defaultRequest:
+        cpu: 250m
+        memory: 512Mi
+      max:
+        cpu: "4"
+        memory: 4Gi
+      min:
+        cpu: 100m
+        memory: 128Mi
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ilbuy-l3
+  labels:
+    layer: l3-data-process
+    team: data
+
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: l3-quota
+  namespace: ilbuy-l3
+spec:
+  hard:
+    requests.cpu: "4"
+    requests.memory: 8Gi
+    limits.cpu: "8"
+    limits.memory: 16Gi
+    pods: "20"
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ilbuy-l4
+  labels:
+    layer: l4-data-storage
+    team: data
+
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: l4-quota
+  namespace: ilbuy-l4
+spec:
+  hard:
+    requests.cpu: "4"
+    requests.memory: 8Gi
+    limits.cpu: "8"
+    limits.memory: 16Gi
+    pods: "20"
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ilbuy-l5
+  labels:
+    layer: l5-report-generation
+    team: backend
+
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: l5-quota
+  namespace: ilbuy-l5
+spec:
+  hard:
+    requests.cpu: "4"
+    requests.memory: 8Gi
+    limits.cpu: "8"
+    limits.memory: 16Gi
+    pods: "20"
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ilbuy-l6
+  labels:
+    layer: l6-delivery
+    team: ops
+
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: l6-quota
+  namespace: ilbuy-l6
+spec:
+  hard:
+    requests.cpu: "4"
+    requests.memory: 8Gi
+    limits.cpu: "8"
+    limits.memory: 16Gi
+    pods: "20"
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ilbuy-l7
+  labels:
+    layer: l7-monetization
+    team: payment
+
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: l7-quota
+  namespace: ilbuy-l7
+spec:
+  hard:
+    requests.cpu: "4"
+    requests.memory: 8Gi
+    limits.cpu: "8"
+    limits.memory: 16Gi
+    pods: "20"
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ilbuy-l8
+  labels:
+    layer: l8-feedback-optimize
+    team: ai
+
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: l8-quota
+  namespace: ilbuy-l8
+spec:
+  hard:
+    requests.cpu: "8"
+    requests.memory: 16Gi
+    limits.cpu: "16"
+    limits.memory: 32Gi
+    pods: "30"
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ilbuy-infra
+  labels:
+    layer: infrastructure
+    team: platform
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ilbuy-ops
+  labels:
+    layer: l9-ops
+    team: ops

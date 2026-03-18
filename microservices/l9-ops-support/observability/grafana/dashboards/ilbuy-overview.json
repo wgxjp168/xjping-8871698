@@ -1,0 +1,280 @@
+{
+  "__inputs": [
+    {
+      "name": "DS_PROMETHEUS",
+      "label": "Prometheus",
+      "type": "datasource",
+      "pluginId": "prometheus",
+      "pluginName": "Prometheus"
+    }
+  ],
+  "title": "ILbuy — 全平台总览",
+  "uid": "ilbuy-platform-overview",
+  "version": 1,
+  "schemaVersion": 38,
+  "refresh": "30s",
+  "time": { "from": "now-1h", "to": "now" },
+  "tags": ["ilbuy", "overview"],
+  "templating": {
+    "list": [
+      {
+        "name": "namespace",
+        "type": "query",
+        "datasource": { "uid": "prometheus-ilbuy" },
+        "query": "label_values(up{job=~\"l[1-8]-.+\"}, namespace)",
+        "multi": true,
+        "includeAll": true,
+        "current": { "text": "All", "value": "$__all" }
+      },
+      {
+        "name": "service",
+        "type": "query",
+        "datasource": { "uid": "prometheus-ilbuy" },
+        "query": "label_values(up{namespace=~\"$namespace\"}, service)",
+        "multi": true,
+        "includeAll": true,
+        "current": { "text": "All", "value": "$__all" }
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "服务在线率",
+      "gridPos": { "x": 0, "y": 0, "w": 4, "h": 4 },
+      "datasource": { "uid": "prometheus-ilbuy" },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "background",
+        "thresholds": {
+          "steps": [
+            { "color": "red", "value": null },
+            { "color": "yellow", "value": 0.8 },
+            { "color": "green", "value": 1.0 }
+          ]
+        }
+      },
+      "targets": [
+        {
+          "expr": "avg(up{job=~\"l[1-8]-.+\", namespace=~\"$namespace\"})",
+          "legendFormat": "在线率",
+          "datasource": { "uid": "prometheus-ilbuy" }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "percentunit", "decimals": 1 }
+      }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "总请求速率 (RPS)",
+      "gridPos": { "x": 4, "y": 0, "w": 4, "h": 4 },
+      "datasource": { "uid": "prometheus-ilbuy" },
+      "targets": [
+        {
+          "expr": "sum(job:http_requests:rate5m{namespace=~\"$namespace\"})",
+          "legendFormat": "RPS",
+          "datasource": { "uid": "prometheus-ilbuy" }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "reqps", "decimals": 1 }
+      }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "5xx 错误率",
+      "gridPos": { "x": 8, "y": 0, "w": 4, "h": 4 },
+      "datasource": { "uid": "prometheus-ilbuy" },
+      "options": {
+        "colorMode": "background",
+        "thresholds": {
+          "steps": [
+            { "color": "green", "value": null },
+            { "color": "yellow", "value": 0.01 },
+            { "color": "red", "value": 0.05 }
+          ]
+        }
+      },
+      "targets": [
+        {
+          "expr": "avg(job:http_errors_5xx:rate5m{namespace=~\"$namespace\"})",
+          "legendFormat": "5xx率",
+          "datasource": { "uid": "prometheus-ilbuy" }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "percentunit", "decimals": 2 }
+      }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "P99 延迟",
+      "gridPos": { "x": 12, "y": 0, "w": 4, "h": 4 },
+      "datasource": { "uid": "prometheus-ilbuy" },
+      "options": {
+        "colorMode": "background",
+        "thresholds": {
+          "steps": [
+            { "color": "green", "value": null },
+            { "color": "yellow", "value": 1.0 },
+            { "color": "red", "value": 2.0 }
+          ]
+        }
+      },
+      "targets": [
+        {
+          "expr": "max(job:http_latency_p99:5m{namespace=~\"$namespace\"})",
+          "legendFormat": "P99",
+          "datasource": { "uid": "prometheus-ilbuy" }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "s", "decimals": 3 }
+      }
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "活跃告警数",
+      "gridPos": { "x": 16, "y": 0, "w": 4, "h": 4 },
+      "datasource": { "uid": "prometheus-ilbuy" },
+      "options": {
+        "colorMode": "background",
+        "thresholds": {
+          "steps": [
+            { "color": "green", "value": null },
+            { "color": "yellow", "value": 1 },
+            { "color": "red", "value": 5 }
+          ]
+        }
+      },
+      "targets": [
+        {
+          "expr": "count(ALERTS{alertstate=\"firing\"}) or vector(0)",
+          "legendFormat": "告警数",
+          "datasource": { "uid": "prometheus-ilbuy" }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "short" }
+      }
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "各层服务请求速率 (RPS)",
+      "gridPos": { "x": 0, "y": 4, "w": 12, "h": 8 },
+      "datasource": { "uid": "prometheus-ilbuy" },
+      "fieldConfig": {
+        "defaults": { "unit": "reqps" }
+      },
+      "targets": [
+        {
+          "expr": "sum(job:http_requests:rate5m{namespace=~\"ilbuy-l[1-8]\"}) by (namespace)",
+          "legendFormat": "{{ namespace }}",
+          "datasource": { "uid": "prometheus-ilbuy" }
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "各层服务 P99 延迟",
+      "gridPos": { "x": 12, "y": 4, "w": 12, "h": 8 },
+      "datasource": { "uid": "prometheus-ilbuy" },
+      "fieldConfig": {
+        "defaults": { "unit": "s" }
+      },
+      "targets": [
+        {
+          "expr": "max(job:http_latency_p99:5m{namespace=~\"ilbuy-l[1-8]\"}) by (namespace)",
+          "legendFormat": "{{ namespace }}",
+          "datasource": { "uid": "prometheus-ilbuy" }
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "5xx 错误率趋势",
+      "gridPos": { "x": 0, "y": 12, "w": 12, "h": 8 },
+      "datasource": { "uid": "prometheus-ilbuy" },
+      "fieldConfig": {
+        "defaults": { "unit": "percentunit" }
+      },
+      "targets": [
+        {
+          "expr": "job:http_errors_5xx:rate5m{namespace=~\"$namespace\", service=~\"$service\"}",
+          "legendFormat": "{{ service }}",
+          "datasource": { "uid": "prometheus-ilbuy" }
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "type": "table",
+      "title": "当前活跃告警",
+      "gridPos": { "x": 12, "y": 12, "w": 12, "h": 8 },
+      "datasource": { "uid": "prometheus-ilbuy" },
+      "targets": [
+        {
+          "expr": "ALERTS{alertstate=\"firing\"}",
+          "legendFormat": "",
+          "instant": true,
+          "datasource": { "uid": "prometheus-ilbuy" }
+        }
+      ],
+      "transformations": [
+        { "id": "labelsToFields", "options": {} },
+        {
+          "id": "organize",
+          "options": {
+            "includeByName": {
+              "alertname": true, "namespace": true, "service": true,
+              "severity": true, "Time": true
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "CPU 使用率 by Namespace",
+      "gridPos": { "x": 0, "y": 20, "w": 12, "h": 8 },
+      "datasource": { "uid": "prometheus-ilbuy" },
+      "fieldConfig": {
+        "defaults": { "unit": "percentunit" }
+      },
+      "targets": [
+        {
+          "expr": "namespace:cpu_usage:rate5m{namespace=~\"ilbuy-.+\"} / sum(kube_node_status_allocatable{resource=\"cpu\"}) * 100",
+          "legendFormat": "{{ namespace }}",
+          "datasource": { "uid": "prometheus-ilbuy" }
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "type": "timeseries",
+      "title": "内存使用量 by Namespace",
+      "gridPos": { "x": 12, "y": 20, "w": 12, "h": 8 },
+      "datasource": { "uid": "prometheus-ilbuy" },
+      "fieldConfig": {
+        "defaults": { "unit": "bytes" }
+      },
+      "targets": [
+        {
+          "expr": "namespace:memory_usage:bytes{namespace=~\"ilbuy-.+\"}",
+          "legendFormat": "{{ namespace }}",
+          "datasource": { "uid": "prometheus-ilbuy" }
+        }
+      ]
+    }
+  ]
+}
