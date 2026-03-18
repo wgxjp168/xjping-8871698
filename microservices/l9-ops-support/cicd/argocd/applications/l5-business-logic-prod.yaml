@@ -1,0 +1,497 @@
+# L5 业务逻辑层 — 核心微服务 生产 Application
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: gateway-svc-prod
+  namespace: argocd
+  labels:
+    layer: l5
+    service: gateway-svc
+    env: prod
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  annotations:
+    notifications.argoproj.io/subscribe.on-sync-failed.dingtalk: backend-team
+    notifications.argoproj.io/subscribe.on-deployed.dingtalk: backend-team
+    notifications.argoproj.io/subscribe.on-health-degraded.dingtalk: oncall-critical
+spec:
+  project: ilbuy
+  source:
+    repoURL: https://gitlab.ilbuy.internal/ilbuy/ilbuy-platform
+    targetRevision: HEAD
+    path: microservices/l5-business-logic/gateway-svc/k8s
+    kustomize:
+      images:
+        - harbor.ilbuy.internal/ilbuy/gateway-svc:latest
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ilbuy-l5
+  syncPolicy:
+    automated: null
+    syncOptions:
+      - CreateNamespace=false
+      - ApplyOutOfSyncOnly=true
+      - PrunePropagationPolicy=foreground
+    retry:
+      limit: 3
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 5m
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        - /spec/replicas
+  revisionHistoryLimit: 10
+
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: user-svc-prod
+  namespace: argocd
+  labels:
+    layer: l5
+    service: user-svc
+    env: prod
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  annotations:
+    notifications.argoproj.io/subscribe.on-sync-failed.dingtalk: backend-team
+    notifications.argoproj.io/subscribe.on-health-degraded.dingtalk: oncall-critical
+spec:
+  project: ilbuy
+  source:
+    repoURL: https://gitlab.ilbuy.internal/ilbuy/ilbuy-platform
+    targetRevision: HEAD
+    path: microservices/l5-business-logic/user-svc/k8s
+    kustomize:
+      images:
+        - harbor.ilbuy.internal/ilbuy/user-svc:latest
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ilbuy-l5
+  syncPolicy:
+    automated: null
+    syncOptions:
+      - CreateNamespace=false
+      - ApplyOutOfSyncOnly=true
+    retry:
+      limit: 3
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 5m
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        - /spec/replicas
+  revisionHistoryLimit: 10
+
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: product-svc-prod
+  namespace: argocd
+  labels:
+    layer: l5
+    service: product-svc
+    env: prod
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  annotations:
+    notifications.argoproj.io/subscribe.on-sync-failed.dingtalk: backend-team
+    notifications.argoproj.io/subscribe.on-health-degraded.dingtalk: oncall-critical
+spec:
+  project: ilbuy
+  source:
+    repoURL: https://gitlab.ilbuy.internal/ilbuy/ilbuy-platform
+    targetRevision: HEAD
+    path: microservices/l5-business-logic/product-svc/k8s
+    kustomize:
+      images:
+        - harbor.ilbuy.internal/ilbuy/product-svc:latest
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ilbuy-l5
+  syncPolicy:
+    automated: null
+    syncOptions:
+      - CreateNamespace=false
+      - ApplyOutOfSyncOnly=true
+    retry:
+      limit: 3
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 5m
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        - /spec/replicas
+  revisionHistoryLimit: 10
+
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: order-svc-prod
+  namespace: argocd
+  labels:
+    layer: l5
+    service: order-svc
+    env: prod
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  annotations:
+    notifications.argoproj.io/subscribe.on-sync-failed.dingtalk: backend-team
+    notifications.argoproj.io/subscribe.on-health-degraded.dingtalk: oncall-critical
+spec:
+  project: ilbuy
+  source:
+    repoURL: https://gitlab.ilbuy.internal/ilbuy/ilbuy-platform
+    targetRevision: HEAD
+    path: microservices/l5-business-logic/order-svc/k8s
+    kustomize:
+      images:
+        - harbor.ilbuy.internal/ilbuy/order-svc:latest
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ilbuy-l5
+  syncPolicy:
+    automated: null
+    syncOptions:
+      - CreateNamespace=false
+      - ApplyOutOfSyncOnly=true
+    retry:
+      limit: 3
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 5m
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        - /spec/replicas
+  revisionHistoryLimit: 10
+
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: cart-svc-prod
+  namespace: argocd
+  labels:
+    layer: l5
+    service: cart-svc
+    env: prod
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  annotations:
+    notifications.argoproj.io/subscribe.on-sync-failed.dingtalk: backend-team
+    notifications.argoproj.io/subscribe.on-health-degraded.dingtalk: oncall-critical
+spec:
+  project: ilbuy
+  source:
+    repoURL: https://gitlab.ilbuy.internal/ilbuy/ilbuy-platform
+    targetRevision: HEAD
+    path: microservices/l5-business-logic/cart-svc/k8s
+    kustomize:
+      images:
+        - harbor.ilbuy.internal/ilbuy/cart-svc:latest
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ilbuy-l5
+  syncPolicy:
+    automated: null
+    syncOptions:
+      - CreateNamespace=false
+      - ApplyOutOfSyncOnly=true
+    retry:
+      limit: 3
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 5m
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        - /spec/replicas
+  revisionHistoryLimit: 10
+
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: price-svc-prod
+  namespace: argocd
+  labels:
+    layer: l5
+    service: price-svc
+    env: prod
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  annotations:
+    notifications.argoproj.io/subscribe.on-sync-failed.dingtalk: backend-team
+    notifications.argoproj.io/subscribe.on-health-degraded.dingtalk: oncall-critical
+spec:
+  project: ilbuy
+  source:
+    repoURL: https://gitlab.ilbuy.internal/ilbuy/ilbuy-platform
+    targetRevision: HEAD
+    path: microservices/l5-business-logic/price-svc/k8s
+    kustomize:
+      images:
+        - harbor.ilbuy.internal/ilbuy/price-svc:latest
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ilbuy-l5
+  syncPolicy:
+    automated: null
+    syncOptions:
+      - CreateNamespace=false
+      - ApplyOutOfSyncOnly=true
+    retry:
+      limit: 3
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 5m
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        - /spec/replicas
+  revisionHistoryLimit: 10
+
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: contract-svc-prod
+  namespace: argocd
+  labels:
+    layer: l5
+    service: contract-svc
+    env: prod
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  annotations:
+    notifications.argoproj.io/subscribe.on-sync-failed.dingtalk: backend-team
+    notifications.argoproj.io/subscribe.on-health-degraded.dingtalk: oncall-critical
+spec:
+  project: ilbuy
+  source:
+    repoURL: https://gitlab.ilbuy.internal/ilbuy/ilbuy-platform
+    targetRevision: HEAD
+    path: microservices/l5-business-logic/contract-svc/k8s
+    kustomize:
+      images:
+        - harbor.ilbuy.internal/ilbuy/contract-svc:latest
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ilbuy-l5
+  syncPolicy:
+    automated: null
+    syncOptions:
+      - CreateNamespace=false
+      - ApplyOutOfSyncOnly=true
+    retry:
+      limit: 3
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 5m
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        - /spec/replicas
+  revisionHistoryLimit: 10
+
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: supplier-svc-prod
+  namespace: argocd
+  labels:
+    layer: l5
+    service: supplier-svc
+    env: prod
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  annotations:
+    notifications.argoproj.io/subscribe.on-sync-failed.dingtalk: backend-team
+    notifications.argoproj.io/subscribe.on-health-degraded.dingtalk: oncall-critical
+spec:
+  project: ilbuy
+  source:
+    repoURL: https://gitlab.ilbuy.internal/ilbuy/ilbuy-platform
+    targetRevision: HEAD
+    path: microservices/l5-business-logic/supplier-svc/k8s
+    kustomize:
+      images:
+        - harbor.ilbuy.internal/ilbuy/supplier-svc:latest
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ilbuy-l5
+  syncPolicy:
+    automated: null
+    syncOptions:
+      - CreateNamespace=false
+      - ApplyOutOfSyncOnly=true
+    retry:
+      limit: 3
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 5m
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        - /spec/replicas
+  revisionHistoryLimit: 10
+
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: notify-svc-prod
+  namespace: argocd
+  labels:
+    layer: l5
+    service: notify-svc
+    env: prod
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  annotations:
+    notifications.argoproj.io/subscribe.on-sync-failed.dingtalk: backend-team
+    notifications.argoproj.io/subscribe.on-health-degraded.dingtalk: oncall-critical
+spec:
+  project: ilbuy
+  source:
+    repoURL: https://gitlab.ilbuy.internal/ilbuy/ilbuy-platform
+    targetRevision: HEAD
+    path: microservices/l5-business-logic/notify-svc/k8s
+    kustomize:
+      images:
+        - harbor.ilbuy.internal/ilbuy/notify-svc:latest
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ilbuy-l5
+  syncPolicy:
+    automated: null
+    syncOptions:
+      - CreateNamespace=false
+      - ApplyOutOfSyncOnly=true
+    retry:
+      limit: 3
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 5m
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        - /spec/replicas
+  revisionHistoryLimit: 10
+
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: recommend-svc-prod
+  namespace: argocd
+  labels:
+    layer: l5
+    service: recommend-svc
+    env: prod
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  annotations:
+    notifications.argoproj.io/subscribe.on-sync-failed.dingtalk: backend-team
+    notifications.argoproj.io/subscribe.on-health-degraded.dingtalk: oncall-critical
+spec:
+  project: ilbuy
+  source:
+    repoURL: https://gitlab.ilbuy.internal/ilbuy/ilbuy-platform
+    targetRevision: HEAD
+    path: microservices/l5-business-logic/recommend-svc/k8s
+    kustomize:
+      images:
+        - harbor.ilbuy.internal/ilbuy/recommend-svc:latest
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ilbuy-l5
+  syncPolicy:
+    automated: null
+    syncOptions:
+      - CreateNamespace=false
+      - ApplyOutOfSyncOnly=true
+    retry:
+      limit: 3
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 5m
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        - /spec/replicas
+  revisionHistoryLimit: 10
+
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: report-svc-prod
+  namespace: argocd
+  labels:
+    layer: l5
+    service: report-svc
+    env: prod
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  annotations:
+    notifications.argoproj.io/subscribe.on-sync-failed.dingtalk: backend-team
+    notifications.argoproj.io/subscribe.on-health-degraded.dingtalk: oncall-critical
+spec:
+  project: ilbuy
+  source:
+    repoURL: https://gitlab.ilbuy.internal/ilbuy/ilbuy-platform
+    targetRevision: HEAD
+    path: microservices/l5-business-logic/report-svc/k8s
+    kustomize:
+      images:
+        - harbor.ilbuy.internal/ilbuy/report-svc:latest
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ilbuy-l5
+  syncPolicy:
+    automated: null
+    syncOptions:
+      - CreateNamespace=false
+      - ApplyOutOfSyncOnly=true
+    retry:
+      limit: 3
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 5m
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        - /spec/replicas
+  revisionHistoryLimit: 10

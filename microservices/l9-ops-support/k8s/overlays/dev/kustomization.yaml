@@ -1,0 +1,97 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: ilbuy-ops
+
+# 引用 base 层所有资源
+resources:
+  - ../../namespaces.yaml
+  - ../../rbac.yaml
+  - ../../storage/pvcs.yaml
+  - ../../ingress/ingress.yaml
+  - ../../../observability/prometheus/k8s/deployment.yaml
+  - ../../../observability/grafana/k8s/deployment.yaml
+  - ../../../observability/alertmanager/k8s/deployment.yaml
+  - ../../../observability/elk/elasticsearch/k8s/statefulset.yaml
+  - ../../../observability/elk/logstash/k8s/deployment.yaml
+  - ../../../observability/elk/fluentbit/k8s/daemonset.yaml
+  - ../../../observability/elk/filebeat/k8s/daemonset.yaml
+  - ../../../observability/jaeger/k8s/deployment.yaml
+  - ../../../config-management/nacos/k8s/statefulset.yaml
+
+# 开发环境专用 patches
+patches:
+  # Prometheus: 开发环境降低资源、缩短保留时间
+  - patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/args
+        value:
+          - --config.file=/etc/prometheus/prometheus.yml
+          - --storage.tsdb.path=/prometheus
+          - --storage.tsdb.retention.time=7d
+          - --storage.tsdb.retention.size=10GB
+          - --web.enable-lifecycle
+          - --log.level=debug
+    target:
+      kind: Deployment
+      name: prometheus
+
+  - patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/resources
+        value:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+    target:
+      kind: Deployment
+      name: prometheus
+
+  # Elasticsearch: 开发单副本
+  - patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 1
+    target:
+      kind: StatefulSet
+      name: elasticsearch
+
+  - patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/env/1/value
+        value: "-Xms512m -Xmx512m"
+    target:
+      kind: StatefulSet
+      name: elasticsearch
+
+  # Nacos: 开发单副本
+  - patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 1
+    target:
+      kind: StatefulSet
+      name: nacos
+
+# 开发环境 ConfigMap（覆盖 Prometheus 日志级别为 debug）
+configMapGenerator:
+  - name: prometheus-env
+    literals:
+      - ENV=development
+      - LOG_LEVEL=debug
+      - RETENTION_TIME=7d
+
+# 开发环境命名后缀（可选）
+# nameSuffix: -dev
+
+# 镜像标签覆盖（开发使用 latest）
+images:
+  - name: prom/prometheus
+    newTag: v2.51.2
+  - name: grafana/grafana
+    newTag: "10.4.2"
+  - name: docker.elastic.co/elasticsearch/elasticsearch
+    newTag: 8.13.4

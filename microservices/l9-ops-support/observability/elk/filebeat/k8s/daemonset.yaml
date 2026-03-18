@@ -67,6 +67,26 @@ spec:
             limits:
               memory: "200Mi"
               cpu: "200m"
+          livenessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - |
+                  curl -sf http://localhost:5066/ || filebeat test output -c /etc/filebeat.yml
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            failureThreshold: 3
+          readinessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - |
+                  filebeat test config -c /etc/filebeat.yml
+            initialDelaySeconds: 10
+            periodSeconds: 15
+            failureThreshold: 3
           volumeMounts:
             - name: config
               mountPath: /etc/filebeat.yml

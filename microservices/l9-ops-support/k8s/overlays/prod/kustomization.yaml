@@ -1,0 +1,103 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: ilbuy-ops
+
+resources:
+  - ../../namespaces.yaml
+  - ../../rbac.yaml
+  - ../../storage/pvcs.yaml
+  - ../../ingress/ingress.yaml
+  - ../../hpa/ilbuy-hpa.yaml
+  - ../../network-policy/default-deny.yaml
+  - ../../../observability/prometheus/k8s/deployment.yaml
+  - ../../../observability/grafana/k8s/deployment.yaml
+  - ../../../observability/alertmanager/k8s/deployment.yaml
+  - ../../../observability/elk/elasticsearch/k8s/statefulset.yaml
+  - ../../../observability/elk/logstash/k8s/deployment.yaml
+  - ../../../observability/elk/fluentbit/k8s/daemonset.yaml
+  - ../../../observability/jaeger/k8s/deployment.yaml
+  - ../../../config-management/nacos/k8s/statefulset.yaml
+  - ../../../config-management/vault/k8s/deployment.yaml
+  - ../../../cicd/jenkins/k8s/deployment.yaml
+  - ../../../cicd/sonarqube/k8s/deployment.yaml
+
+patches:
+  # 生产 Prometheus：30天保留，存储45GB
+  - patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/args
+        value:
+          - --config.file=/etc/prometheus/prometheus.yml
+          - --storage.tsdb.path=/prometheus
+          - --storage.tsdb.retention.time=30d
+          - --storage.tsdb.retention.size=45GB
+          - --web.enable-lifecycle
+          - --web.enable-admin-api
+          - --log.level=info
+    target:
+      kind: Deployment
+      name: prometheus
+
+  # 生产 AlertManager: 2副本 HA
+  - patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 2
+    target:
+      kind: StatefulSet
+      name: alertmanager
+
+  # 生产 Elasticsearch: 3副本集群，2GB JVM
+  - patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 3
+    target:
+      kind: StatefulSet
+      name: elasticsearch
+
+  - patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/env/1/value
+        value: "-Xms2g -Xmx2g"
+    target:
+      kind: StatefulSet
+      name: elasticsearch
+
+  # 生产 Nacos: 3副本集群
+  - patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 3
+    target:
+      kind: StatefulSet
+      name: nacos
+
+  # 生产 Vault: 3副本 HA
+  - patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 3
+    target:
+      kind: StatefulSet
+      name: vault
+
+configMapGenerator:
+  - name: prometheus-env
+    literals:
+      - ENV=production
+      - LOG_LEVEL=info
+      - RETENTION_TIME=30d
+
+images:
+  - name: prom/prometheus
+    newTag: v2.51.2
+  - name: grafana/grafana
+    newTag: "10.4.2"
+  - name: docker.elastic.co/elasticsearch/elasticsearch
+    newTag: 8.13.4
+  - name: nacos/nacos-server
+    newTag: v2.3.2
+  - name: hashicorp/vault
+    newTag: 1.16.2

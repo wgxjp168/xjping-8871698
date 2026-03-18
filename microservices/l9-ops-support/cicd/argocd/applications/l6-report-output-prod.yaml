@@ -1,0 +1,137 @@
+# L6 报告输出层 — 生产 Application
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: format-output-svc-prod
+  namespace: argocd
+  labels:
+    layer: l6
+    service: format-output-svc
+    env: prod
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  annotations:
+    notifications.argoproj.io/subscribe.on-sync-failed.dingtalk: backend-team
+    notifications.argoproj.io/subscribe.on-deployed.dingtalk: backend-team
+    notifications.argoproj.io/subscribe.on-health-degraded.dingtalk: oncall-critical
+spec:
+  project: ilbuy
+  source:
+    repoURL: https://gitlab.ilbuy.internal/ilbuy/ilbuy-platform
+    targetRevision: HEAD
+    path: microservices/l6-report-output/format-output-svc/k8s
+    kustomize:
+      images:
+        - harbor.ilbuy.internal/ilbuy/format-output-svc:latest
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ilbuy-l6
+  syncPolicy:
+    automated: null
+    syncOptions:
+      - CreateNamespace=false
+      - ApplyOutOfSyncOnly=true
+      - PrunePropagationPolicy=foreground
+    retry:
+      limit: 3
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 5m
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        - /spec/replicas
+  revisionHistoryLimit: 10
+
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: channel-delivery-svc-prod
+  namespace: argocd
+  labels:
+    layer: l6
+    service: channel-delivery-svc
+    env: prod
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  annotations:
+    notifications.argoproj.io/subscribe.on-sync-failed.dingtalk: backend-team
+    notifications.argoproj.io/subscribe.on-health-degraded.dingtalk: oncall-critical
+spec:
+  project: ilbuy
+  source:
+    repoURL: https://gitlab.ilbuy.internal/ilbuy/ilbuy-platform
+    targetRevision: HEAD
+    path: microservices/l6-report-output/channel-delivery-svc/k8s
+    kustomize:
+      images:
+        - harbor.ilbuy.internal/ilbuy/channel-delivery-svc:latest
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ilbuy-l6
+  syncPolicy:
+    automated: null
+    syncOptions:
+      - CreateNamespace=false
+      - ApplyOutOfSyncOnly=true
+    retry:
+      limit: 3
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 5m
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        - /spec/replicas
+  revisionHistoryLimit: 10
+
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: report-generator-svc-prod
+  namespace: argocd
+  labels:
+    layer: l6
+    service: report-generator-svc
+    env: prod
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  annotations:
+    notifications.argoproj.io/subscribe.on-sync-failed.dingtalk: backend-team
+    notifications.argoproj.io/subscribe.on-health-degraded.dingtalk: oncall-critical
+spec:
+  project: ilbuy
+  source:
+    repoURL: https://gitlab.ilbuy.internal/ilbuy/ilbuy-platform
+    targetRevision: HEAD
+    path: microservices/l6-report-output/report-generator-svc/k8s
+    kustomize:
+      images:
+        - harbor.ilbuy.internal/ilbuy/report-generator-svc:latest
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ilbuy-l6
+  syncPolicy:
+    automated: null
+    syncOptions:
+      - CreateNamespace=false
+      - ApplyOutOfSyncOnly=true
+    retry:
+      limit: 3
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 5m
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        - /spec/replicas
+  revisionHistoryLimit: 10
