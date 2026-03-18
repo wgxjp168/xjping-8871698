@@ -1,1 +1,3 @@
 com.ilbuy.common.mybatis.config.MybatisPlusConfig
+com.ilbuy.common.mybatis.config.DynamicDataSourceConfig
+com.ilbuy.common.mybatis.config.DruidConfig

@@ -1,1 +1,2 @@
 com.ilbuy.common.openfeign.config.FeignConfig
+com.ilbuy.common.openfeign.config.SentinelFeignConfig

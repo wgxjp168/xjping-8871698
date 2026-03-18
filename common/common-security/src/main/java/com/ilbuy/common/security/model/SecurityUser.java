@@ -38,24 +38,36 @@ public final class SecurityUser {
     }
 
     /**
-     * 获取当前用户 ID
+     * 获取当前登录用户（未认证返回 null，不抛异常）
+     */
+    public static LoginUser getLoginUserOrNull() {
+        Authentication auth = getAuthentication();
+        if (auth != null && auth.getPrincipal() instanceof LoginUser lu) return lu;
+        return null;
+    }
+
+    /**
+     * 获取当前用户 ID（未认证返回 null）
      */
     public static Long getUserId() {
-        return getLoginUser().getUserId();
+        LoginUser u = getLoginUserOrNull();
+        return u != null ? u.getUserId() : null;
     }
 
     /**
-     * 获取当前用户名
+     * 获取当前用户名（未认证返回 null）
      */
     public static String getUsername() {
-        return getLoginUser().getUsername();
+        LoginUser u = getLoginUserOrNull();
+        return u != null ? u.getUsername() : null;
     }
 
     /**
-     * 获取当前租户 ID
+     * 获取当前租户 ID（未认证返回 null）
      */
     public static String getTenantId() {
-        return getLoginUser().getTenantId();
+        LoginUser u = getLoginUserOrNull();
+        return u != null ? u.getTenantId() : null;
     }
 
     /**

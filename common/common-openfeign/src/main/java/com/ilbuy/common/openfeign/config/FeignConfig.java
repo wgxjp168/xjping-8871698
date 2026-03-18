@@ -2,6 +2,7 @@ package com.ilbuy.common.openfeign.config;
 
 import com.ilbuy.common.openfeign.decoder.FeignErrorDecoder;
 import com.ilbuy.common.openfeign.interceptor.FeignTokenRelayInterceptor;
+import com.ilbuy.common.openfeign.interceptor.FeignTraceIdInterceptor;
 import feign.Logger;
 import feign.Request;
 import feign.Retryer;
@@ -80,6 +81,15 @@ public class FeignConfig {
     @Bean
     public FeignTokenRelayInterceptor feignTokenRelayInterceptor() {
         return new FeignTokenRelayInterceptor();
+    }
+
+    /**
+     * 链路追踪 ID 拦截器（传播 X-Trace-Id，对齐 MDC）
+     */
+    @Bean
+    @ConditionalOnMissingBean(FeignTraceIdInterceptor.class)
+    public FeignTraceIdInterceptor feignTraceIdInterceptor() {
+        return new FeignTraceIdInterceptor();
     }
 
     /**
