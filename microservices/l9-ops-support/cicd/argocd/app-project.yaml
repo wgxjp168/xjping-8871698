@@ -1,0 +1,82 @@
+---
+# AppProject — ILbuy 平台项目级访问控制
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: ilbuy
+  namespace: argocd
+  # 禁止 ArgoCD 删除此资源
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  description: "ILbuy 我来购平台 — L1-L8 全层微服务"
+
+  # 允许的源 Git 仓库
+  sourceRepos:
+    - "https://gitlab.ilbuy.internal/ilbuy/ilbuy-platform"
+    - "https://charts.bitnami.com/bitnami"   # Helm Charts
+
+  # 允许部署的目标集群 + 命名空间
+  destinations:
+    - name: in-cluster
+      server: https://kubernetes.default.svc
+      namespace: ilbuy-l1
+    - name: in-cluster
+      server: https://kubernetes.default.svc
+      namespace: ilbuy-l2
+    - name: in-cluster
+      server: https://kubernetes.default.svc
+      namespace: ilbuy-l3
+    - name: in-cluster
+      server: https://kubernetes.default.svc
+      namespace: ilbuy-l4
+    - name: in-cluster
+      server: https://kubernetes.default.svc
+      namespace: ilbuy-l5
+    - name: in-cluster
+      server: https://kubernetes.default.svc
+      namespace: ilbuy-l6
+    - name: in-cluster
+      server: https://kubernetes.default.svc
+      namespace: ilbuy-l7
+    - name: in-cluster
+      server: https://kubernetes.default.svc
+      namespace: ilbuy-l8
+    - name: in-cluster
+      server: https://kubernetes.default.svc
+      namespace: ilbuy-infra
+    - name: in-cluster
+      server: https://kubernetes.default.svc
+      namespace: ilbuy-ops
+
+  # 允许的集群资源
+  clusterResourceWhitelist:
+    - group: ""
+      kind: Namespace
+    - group: rbac.authorization.k8s.io
+      kind: ClusterRole
+    - group: rbac.authorization.k8s.io
+      kind: ClusterRoleBinding
+
+  # 允许的命名空间资源（全部）
+  namespaceResourceWhitelist:
+    - group: "*"
+      kind: "*"
+
+  # 生产环境同步策略：不允许自动 prune（防止误删）
+  syncWindows:
+    - kind: allow
+      schedule: "* * * * *"   # 始终允许同步
+      duration: 24h
+      applications: ["*-dev", "*-staging"]
+      namespaces: ["ilbuy-l*"]
+    - kind: allow
+      schedule: "0 2 * * 1-5"  # 生产仅工作日凌晨2点允许自动同步
+      duration: 2h
+      applications: ["*-prod"]
+      namespaces: ["ilbuy-l*"]
+
+  # 拒绝部署某些危险资源
+  namespaceResourceBlacklist:
+    - group: ""
+      kind: ResourceQuota   # 不允许应用自行修改配额

@@ -1,0 +1,200 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fluent-bit-config
+  namespace: ilbuy-ops
+  labels:
+    app: fluent-bit
+data:
+  fluent-bit.conf: |
+    # 通过 --from-file 创建此 ConfigMap:
+    # kubectl create configmap fluent-bit-config \
+    #   --from-file=fluent-bit.conf=observability/elk/fluentbit/fluent-bit.conf \
+    #   --from-file=parsers.conf=observability/elk/fluentbit/parsers.conf \
+    #   -n ilbuy-ops
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fluent-bit-scripts
+  namespace: ilbuy-ops
+data:
+  add_layer.lua: |
+    # kubectl create configmap fluent-bit-scripts \
+    #   --from-file=add_layer.lua=observability/elk/fluentbit/add_layer.lua \
+    #   -n ilbuy-ops
+
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: fluent-bit
+  namespace: ilbuy-ops
+  labels:
+    app: fluent-bit
+    component: log-collector
+spec:
+  selector:
+    matchLabels:
+      app: fluent-bit
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+  template:
+    metadata:
+      labels:
+        app: fluent-bit
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: "/api/v1/metrics/prometheus"
+        prometheus.io/port: "2020"
+    spec:
+      serviceAccountName: fluent-bit
+      hostNetwork: false
+      dnsPolicy: ClusterFirst
+      tolerations:
+        - key: node-role.kubernetes.io/control-plane
+          operator: Exists
+          effect: NoSchedule
+        - key: node.kubernetes.io/not-ready
+          operator: Exists
+          effect: NoExecute
+          tolerationSeconds: 300
+      containers:
+        - name: fluent-bit
+          image: fluent/fluent-bit:3.0.7
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 2020
+              name: http-metrics
+          env:
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: FLUENTBIT_ES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: elasticsearch-credentials
+                  key: fluentbit-password
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "50m"
+            limits:
+              memory: "256Mi"
+              cpu: "200m"
+          volumeMounts:
+            - name: config
+              mountPath: /fluent-bit/etc/fluent-bit.conf
+              subPath: fluent-bit.conf
+              readOnly: true
+            - name: config
+              mountPath: /fluent-bit/etc/parsers.conf
+              subPath: parsers.conf
+              readOnly: true
+            - name: scripts
+              mountPath: /fluent-bit/scripts
+              readOnly: true
+            # 宿主机日志目录
+            - name: varlog
+              mountPath: /var/log
+              readOnly: true
+            - name: varlibdockercontainers
+              mountPath: /var/lib/docker/containers
+              readOnly: true
+            - name: etcmachineid
+              mountPath: /etc/machine-id
+              readOnly: true
+            # 游标数据库持久化（防止重启后重复采集）
+            - name: flb-db
+              mountPath: /var/log/flb_kube.db
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 2020
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /api/v1/health
+              port: 2020
+            initialDelaySeconds: 5
+            periodSeconds: 15
+      terminationGracePeriodSeconds: 30
+      volumes:
+        - name: config
+          configMap:
+            name: fluent-bit-config
+        - name: scripts
+          configMap:
+            name: fluent-bit-scripts
+        - name: varlog
+          hostPath:
+            path: /var/log
+        - name: varlibdockercontainers
+          hostPath:
+            path: /var/lib/docker/containers
+        - name: etcmachineid
+          hostPath:
+            path: /etc/machine-id
+            type: File
+        - name: flb-db
+          hostPath:
+            path: /var/lib/fluent-bit
+            type: DirectoryOrCreate
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: fluent-bit
+  namespace: ilbuy-ops
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: fluent-bit
+rules:
+  - apiGroups: [""]
+    resources: [namespaces, pods, nodes, nodes/proxy]
+    verbs: [get, list, watch]
+  - apiGroups: [apps]
+    resources: [replicasets]
+    verbs: [get, list, watch]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: fluent-bit
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: fluent-bit
+subjects:
+  - kind: ServiceAccount
+    name: fluent-bit
+    namespace: ilbuy-ops
+
+---
+# Fluent Bit 自身监控 Service（供 Prometheus 抓取）
+apiVersion: v1
+kind: Service
+metadata:
+  name: fluent-bit-metrics
+  namespace: ilbuy-ops
+  labels:
+    app: fluent-bit
+spec:
+  selector:
+    app: fluent-bit
+  ports:
+    - name: http-metrics
+      port: 2020
+      targetPort: 2020
+  type: ClusterIP

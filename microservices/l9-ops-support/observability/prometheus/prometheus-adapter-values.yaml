@@ -1,0 +1,80 @@
+# Prometheus Adapter Helm Values
+# 为 HPA 提供自定义指标（HTTP RPS / P99 延迟）
+#
+# 安装：
+#   helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+#   helm install prometheus-adapter prometheus-community/prometheus-adapter \
+#     -f prometheus-adapter-values.yaml \
+#     -n ilbuy-ops \
+#     --version 4.10.0
+
+prometheus:
+  url: http://prometheus.ilbuy-ops.svc.cluster.local
+  port: 9090
+  path: ""
+
+replicas: 2
+
+resources:
+  requests:
+    memory: 128Mi
+    cpu: 100m
+  limits:
+    memory: 256Mi
+    cpu: 200m
+
+# 自定义指标规则
+rules:
+  default: false
+
+  custom:
+    # ── HTTP RPS（每 Pod 平均请求率）────────────────────────────────────────
+    - seriesQuery: 'http_requests_total{namespace!="",pod!=""}'
+      resources:
+        overrides:
+          namespace:
+            resource: namespace
+          pod:
+            resource: pod
+      name:
+        matches: "^http_requests_total$"
+        as: "http_requests_per_second"
+      metricsQuery: 'sum(rate(http_requests_total{<<.LabelMatchers>>}[2m])) by (<<.GroupBy>>)'
+
+    # ── P99 延迟（以 Deployment 为单位）─────────────────────────────────────
+    - seriesQuery: 'http_request_duration_seconds_bucket{namespace!="",pod!=""}'
+      resources:
+        overrides:
+          namespace:
+            resource: namespace
+          pod:
+            resource: pod
+      name:
+        matches: "^http_request_duration_seconds_bucket$"
+        as: "http_request_p99_latency_seconds"
+      metricsQuery: |
+        histogram_quantile(0.99,
+          sum(rate(http_request_duration_seconds_bucket{<<.LabelMatchers>>}[5m]))
+          by (le, <<.GroupBy>>)
+        )
+
+    # ── RabbitMQ 队列深度（L5 报告生成队列 HPA 使用）──────────────────────
+    - seriesQuery: 'rabbitmq_queue_messages_ready{queue!=""}'
+      resources:
+        overrides:
+          namespace:
+            resource: namespace
+      name:
+        matches: "^rabbitmq_queue_messages_ready$"
+        as: "rabbitmq_queue_messages_ready"
+      metricsQuery: 'rabbitmq_queue_messages_ready{<<.LabelMatchers>>}'
+
+  # 外部指标（用于 HPA External 类型）
+  external:
+    - seriesQuery: 'rabbitmq_queue_messages_ready{queue!=""}'
+      resources:
+        namespaced: true
+      name:
+        matches: "^rabbitmq_queue_messages_ready$"
+        as: "rabbitmq_queue_messages_ready"
+      metricsQuery: 'sum(rabbitmq_queue_messages_ready{queue="<<.MetricName>>"})'

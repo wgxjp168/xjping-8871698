@@ -1,0 +1,95 @@
+---
+# ArgoCD 命名空间
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: argocd
+  labels:
+    managed-by: ops
+
+---
+# ArgoCD ConfigMap — 全局配置
+# 安装 ArgoCD:
+#   kubectl create namespace argocd
+#   kubectl apply -n argocd -f \
+#     https://raw.githubusercontent.com/argoproj/argo-cd/v2.11.0/manifests/install.yaml
+#   # 再应用本文件中的自定义配置
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-cm
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: argocd-cm
+    app.kubernetes.io/part-of: argocd
+data:
+  # 允许的 Git 仓库（GitLab 内部）
+  repositories: |
+    - url: https://gitlab.ilbuy.internal/ilbuy/ilbuy-platform
+      type: git
+      insecure: "false"
+      name: ilbuy-platform
+
+  # SSO 集成（GitLab OAuth）
+  url: https://argocd.ilbuy.internal
+  oidc.config: |
+    name: GitLab
+    issuer: https://gitlab.ilbuy.internal
+    clientID: $argocd-gitlab-client-id
+    clientSecret: $argocd-gitlab-client-secret
+    requestedScopes:
+      - openid
+      - profile
+      - email
+      - read_api
+
+  # 资源跟踪方式（推荐 annotation）
+  application.resourceTrackingMethod: annotation
+
+  # 状态检查间隔
+  timeout.reconciliation: 180s
+
+  # 自动同步时保留 PVC
+  resource.customizations: |
+    PersistentVolumeClaim:
+      health.lua: |
+        hs = {}
+        if obj.status ~= nil then
+          if obj.status.phase == "Bound" then
+            hs.status = "Healthy"
+            hs.message = "PVC bound"
+          else
+            hs.status = "Progressing"
+            hs.message = obj.status.phase
+          end
+        end
+        return hs
+
+---
+# ArgoCD RBAC 配置
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-rbac-cm
+  namespace: argocd
+data:
+  policy.csv: |
+    # 运维管理员：所有权限
+    g, ops-team, role:admin
+
+    # 开发人员：只能同步 dev/staging，不能操作 prod
+    p, role:developer, applications, get,    ilbuy/*, allow
+    p, role:developer, applications, sync,   ilbuy/*-dev, allow
+    p, role:developer, applications, sync,   ilbuy/*-staging, allow
+    p, role:developer, applications, sync,   ilbuy/*-prod, deny
+
+    # AI 团队：额外可操作 L2/L8
+    p, role:ai-team, applications, sync, ilbuy/l2-*, allow
+    p, role:ai-team, applications, sync, ilbuy/l8-*, allow
+
+    g, dev-team, role:developer
+    g, ai-team,  role:ai-team
+
+  policy.default: role:readonly
+  scopes: "[groups]"

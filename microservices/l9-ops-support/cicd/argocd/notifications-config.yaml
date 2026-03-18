@@ -1,0 +1,106 @@
+# ArgoCD Notifications — 钉钉/邮件告警配置
+# 安装：kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/notifications_catalog/install.yaml
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-notifications-cm
+  namespace: argocd
+data:
+  # 钉钉 Webhook 服务配置
+  service.webhook.dingtalk: |
+    url: $dingtalk-webhook-url
+    headers:
+    - name: Content-Type
+      value: application/json
+
+  # 邮件配置
+  service.email: |
+    host: smtp.ilbuy.internal
+    port: 587
+    from: argocd@ilbuy.internal
+    username: argocd
+    password: $smtp-password
+    tls:
+      insecure: false
+
+  # 通知模板 — 部署成功
+  template.app-deployed: |
+    webhook:
+      dingtalk:
+        method: POST
+        body: |
+          {
+            "msgtype": "markdown",
+            "markdown": {
+              "title": "✅ 部署成功",
+              "text": "## ✅ ILbuy 部署成功\n\n**应用**: {{.app.metadata.name}}\n\n**环境**: {{index .app.metadata.labels \"env\"}}\n\n**服务层**: {{index .app.metadata.labels \"layer\"}}\n\n**版本**: {{.app.status.sync.revision | truncate 8}}\n\n**时间**: {{.app.status.operationState.finishedAt}}"
+            }
+          }
+
+  # 通知模板 — 同步失败
+  template.app-sync-failed: |
+    webhook:
+      dingtalk:
+        method: POST
+        body: |
+          {
+            "msgtype": "markdown",
+            "markdown": {
+              "title": "❌ 同步失败",
+              "text": "## ❌ ILbuy 同步失败\n\n**应用**: {{.app.metadata.name}}\n\n**错误**: {{.app.status.operationState.message}}\n\n**版本**: {{.app.status.sync.revision | truncate 8}}\n\n[查看详情]({{.context.argocdUrl}}/applications/{{.app.metadata.name}})"
+            }
+          }
+    email:
+      subject: "[ILbuy ArgoCD] 同步失败: {{.app.metadata.name}}"
+      body: |
+        应用 {{.app.metadata.name}} 同步失败。
+        错误信息: {{.app.status.operationState.message}}
+        查看详情: {{.context.argocdUrl}}/applications/{{.app.metadata.name}}
+
+  # 通知模板 — 健康异常
+  template.app-health-degraded: |
+    webhook:
+      dingtalk:
+        method: POST
+        body: |
+          {
+            "msgtype": "markdown",
+            "markdown": {
+              "title": "⚠️ 应用健康异常",
+              "text": "## ⚠️ ILbuy 应用健康异常\n\n**应用**: {{.app.metadata.name}}\n\n**状态**: {{.app.status.health.status}}\n\n**消息**: {{.app.status.health.message}}\n\n[立即处理]({{.context.argocdUrl}}/applications/{{.app.metadata.name}})"
+            }
+          }
+
+  # 触发器配置
+  trigger.on-deployed: |
+    - description: 应用部署成功时通知
+      send: [app-deployed]
+      when: app.status.operationState.phase in ['Succeeded'] and app.status.health.status == 'Healthy'
+
+  trigger.on-sync-failed: |
+    - description: 同步失败时立即通知
+      send: [app-sync-failed]
+      when: app.status.operationState.phase in ['Error', 'Failed']
+
+  trigger.on-health-degraded: |
+    - description: 应用健康降级通知
+      send: [app-health-degraded]
+      when: app.status.health.status == 'Degraded'
+
+  # 订阅默认配置（所有应用）
+  defaultTriggers: |
+    - on-sync-failed
+    - on-health-degraded
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: argocd-notifications-secret
+  namespace: argocd
+type: Opaque
+stringData:
+  # 通过外部 Secret 管理（Vault Agent 注入）
+  dingtalk-webhook-url: "https://oapi.dingtalk.com/robot/send?access_token=REPLACE_WITH_REAL_TOKEN"
+  smtp-password: "REPLACE_WITH_REAL_PASSWORD"

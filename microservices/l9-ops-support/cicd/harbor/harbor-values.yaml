@@ -1,0 +1,163 @@
+# Harbor 私有镜像仓库 Helm Values
+# 安装：
+#   helm repo add harbor https://helm.goharbor.io
+#   helm install harbor harbor/harbor \
+#     -f harbor-values.yaml \
+#     -n ilbuy-ops \
+#     --version 1.14.2
+
+expose:
+  type: ingress
+  tls:
+    enabled: true
+    certSource: secret
+    secret:
+      secretName: harbor-tls
+  ingress:
+    hosts:
+      core: harbor.ilbuy.internal
+    className: nginx
+    annotations:
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
+      nginx.ingress.kubernetes.io/proxy-body-size: "1g"  # 大镜像上传
+      nginx.ingress.kubernetes.io/proxy-read-timeout: "900"
+      nginx.ingress.kubernetes.io/proxy-send-timeout: "900"
+
+externalURL: https://harbor.ilbuy.internal
+
+# 管理员密码（生产从 Vault 注入）
+harborAdminPassword: "Harbor12345"   # 初次部署后立即修改！
+
+# 持久化存储配置
+persistence:
+  enabled: true
+  resourcePolicy: keep    # 避免 helm uninstall 时删除数据
+  persistentVolumeClaim:
+    registry:
+      storageClass: ilbuy-nfs    # 镜像数据用 NFS（共享）
+      accessMode: ReadWriteMany
+      size: 200Gi
+    chartmuseum:
+      storageClass: ilbuy-ssd
+      accessMode: ReadWriteOnce
+      size: 10Gi
+    jobservice:
+      storageClass: ilbuy-ssd
+      accessMode: ReadWriteOnce
+      size: 5Gi
+    database:
+      storageClass: ilbuy-ssd
+      accessMode: ReadWriteOnce
+      size: 20Gi
+    redis:
+      storageClass: ilbuy-ssd
+      accessMode: ReadWriteOnce
+      size: 5Gi
+    trivy:
+      storageClass: ilbuy-ssd
+      accessMode: ReadWriteOnce
+      size: 20Gi
+
+# 各组件资源配置
+portal:
+  replicas: 2
+  resources:
+    requests:
+      memory: 128Mi
+      cpu: 100m
+    limits:
+      memory: 256Mi
+      cpu: 200m
+
+core:
+  replicas: 2
+  resources:
+    requests:
+      memory: 256Mi
+      cpu: 100m
+    limits:
+      memory: 512Mi
+      cpu: 500m
+  # GC 调度（每天凌晨3点）
+  gcController:
+    schedule: "0 3 * * *"
+
+jobservice:
+  replicas: 1
+  maxJobWorkers: 5
+  resources:
+    requests:
+      memory: 256Mi
+      cpu: 100m
+    limits:
+      memory: 512Mi
+      cpu: 500m
+
+registry:
+  replicas: 2
+  resources:
+    requests:
+      memory: 256Mi
+      cpu: 100m
+    limits:
+      memory: 512Mi
+      cpu: 500m
+
+trivy:
+  enabled: true
+  replicas: 1
+  # 自动更新漏洞数据库
+  automaticUpdate: true
+  resources:
+    requests:
+      memory: 256Mi
+      cpu: 200m
+    limits:
+      memory: 1Gi
+      cpu: 500m
+
+notary:
+  enabled: false  # 初期不启用镜像签名
+
+chartmuseum:
+  enabled: true   # 存储 Helm Charts
+
+# 数据库（使用内置 PostgreSQL）
+database:
+  type: internal
+  internal:
+    password: "changeme"    # 生产从 Secret 注入
+    resources:
+      requests:
+        memory: 256Mi
+        cpu: 100m
+      limits:
+        memory: 512Mi
+        cpu: 500m
+
+# 指标导出（供 Prometheus 采集）
+metrics:
+  enabled: true
+  serviceMonitor:
+    enabled: false   # 使用 prometheus.io/scrape annotation 代替
+
+# 通知（镜像推送触发 CI）
+notification:
+  webhook:
+    enabled: true
+
+# 认证 — LDAP 集成
+ldap:
+  url: ldap://ldap.ilbuy.internal
+  baseDN: "dc=ilbuy,dc=internal"
+  searchDN: "cn=harbor,ou=service-accounts,dc=ilbuy,dc=internal"
+  searchPassword: ""   # 从 Secret 注入
+  uid: uid
+  scope: 2
+  groupBaseDN: "ou=groups,dc=ilbuy,dc=internal"
+  groupFilter: "(objectclass=groupOfNames)"
+  groupGID: cn
+  adminGroup: ops-team
+
+# 日志
+logLevel: warning

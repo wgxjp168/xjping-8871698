@@ -1,0 +1,103 @@
+# 示例：L8 feedback-svc 生产环境 Application（手动同步、保守策略）
+# 其他服务参照此模板创建，或通过 ApplicationSet 自动生成
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: feedback-svc-prod
+  namespace: argocd
+  labels:
+    layer: l8
+    service: feedback-svc
+    env: prod
+  # 删除保护：必须先删 Application 再清理资源
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  annotations:
+    # 通知集成：同步失败发送钉钉
+    notifications.argoproj.io/subscribe.on-sync-failed.dingtalk: ilbuy-ops
+    notifications.argoproj.io/subscribe.on-deployed.dingtalk: ilbuy-ops
+    notifications.argoproj.io/subscribe.on-health-degraded.dingtalk: oncall-critical
+spec:
+  project: ilbuy
+  source:
+    repoURL: https://gitlab.ilbuy.internal/ilbuy/ilbuy-platform
+    targetRevision: HEAD
+    path: microservices/l8-feedback-optimize/feedback-svc/k8s
+    # Kustomize overlay（生产差异化配置）
+    kustomize:
+      images:
+        # 由 CI Pipeline 通过以下命令更新:
+        # argocd app set feedback-svc-prod \
+        #   --kustomize-image harbor.ilbuy.internal/ilbuy/feedback-svc=v1.2.3
+        - harbor.ilbuy.internal/ilbuy/feedback-svc:latest
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ilbuy-l8
+  syncPolicy:
+    # 生产环境：禁止自动同步，必须人工审批
+    automated: null
+    syncOptions:
+      - CreateNamespace=false
+      - ApplyOutOfSyncOnly=true
+      - PrunePropagationPolicy=foreground
+    retry:
+      limit: 3
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 5m
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        - /spec/replicas
+  revisionHistoryLimit: 10
+  info:
+    - name: "服务说明"
+      value: "L8 反馈收集服务 — 处理用户对推荐结果的反馈"
+    - name: "负责团队"
+      value: "AI 团队"
+    - name: "文档"
+      value: "https://wiki.ilbuy.internal/services/feedback-svc"
+
+---
+# L8 feedback-svc 开发环境（自动同步）
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: feedback-svc-dev
+  namespace: argocd
+  labels:
+    layer: l8
+    service: feedback-svc
+    env: dev
+spec:
+  project: ilbuy
+  source:
+    repoURL: https://gitlab.ilbuy.internal/ilbuy/ilbuy-platform
+    targetRevision: develop
+    path: microservices/l8-feedback-optimize/feedback-svc/k8s
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ilbuy-l8
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=false
+      - ApplyOutOfSyncOnly=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        - /spec/replicas
+  revisionHistoryLimit: 5

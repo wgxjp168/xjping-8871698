@@ -1,0 +1,70 @@
+# Jenkins 插件列表 — 由 Dockerfile jenkins-plugin-cli 安装
+# 格式: pluginId[:version]
+
+# ── 核心基础 ─────────────────────────────────────────────────────────────────
+configuration-as-code
+pipeline-model-definition
+pipeline-stage-step
+pipeline-build-step
+pipeline-input-step
+workflow-aggregator
+git
+github
+gitlab-plugin
+
+# ── K8s Agent ────────────────────────────────────────────────────────────────
+kubernetes
+kubernetes-credentials
+
+# ── 代码质量 ─────────────────────────────────────────────────────────────────
+sonar
+jacoco
+cobertura
+warnings-ng
+code-coverage-api
+
+# ── 构建工具 ─────────────────────────────────────────────────────────────────
+docker-workflow
+docker-commons
+docker-plugin
+
+# ── 凭据管理 ─────────────────────────────────────────────────────────────────
+credentials
+credentials-binding
+plain-credentials
+vault-plugin
+
+# ── 通知集成 ─────────────────────────────────────────────────────────────────
+email-ext
+dingtalk
+slack
+
+# ── UI & 可用性 ───────────────────────────────────────────────────────────────
+blueocean
+ansicolor
+timestamper
+build-timeout
+rebuild
+pipeline-stage-view
+dashboard-view
+job-dsl
+matrix-auth
+role-strategy
+
+# ── 测试报告 ─────────────────────────────────────────────────────────────────
+junit
+xunit
+htmlpublisher
+
+# ── 安全 ─────────────────────────────────────────────────────────────────────
+ldap
+oic-auth
+script-security
+authorize-project
+
+# ── 工具 ─────────────────────────────────────────────────────────────────────
+build-user-vars-plugin
+mask-passwords
+environment-injector
+parameterized-trigger
+copyartifact

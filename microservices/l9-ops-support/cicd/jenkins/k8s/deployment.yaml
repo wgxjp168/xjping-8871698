@@ -1,0 +1,190 @@
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: jenkins-data
+  namespace: ilbuy-ops
+  labels:
+    app: jenkins
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: ilbuy-ssd
+  resources:
+    requests:
+      storage: 50Gi
+
+---
+# Jenkins StatefulSet（保证 Pod 重启后挂载同一 PVC）
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: jenkins
+  namespace: ilbuy-ops
+  labels:
+    app: jenkins
+    component: cicd
+spec:
+  replicas: 1
+  serviceName: jenkins
+  selector:
+    matchLabels:
+      app: jenkins
+  template:
+    metadata:
+      labels:
+        app: jenkins
+        component: cicd
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: "/prometheus"
+        prometheus.io/port: "8080"
+    spec:
+      serviceAccountName: jenkins
+      securityContext:
+        runAsUser: 1000
+        fsGroup: 1000
+      initContainers:
+        # 修复挂载目录权限
+        - name: fix-permissions
+          image: busybox:1.36
+          command: ["chown", "-R", "1000:1000", "/var/jenkins_home"]
+          volumeMounts:
+            - name: jenkins-home
+              mountPath: /var/jenkins_home
+      containers:
+        - name: jenkins
+          # 使用自定义镜像（包含 kubectl/helm/sonar-scanner/trivy）
+          image: harbor.ilbuy.internal/ilbuy-ops/jenkins:2.460-custom
+          imagePullPolicy: Always
+          env:
+            - name: JAVA_OPTS
+              value: >-
+                -Djenkins.install.runSetupWizard=false
+                -Dhudson.model.DirectoryBrowserSupport.CSP=
+                -Xmx2g -Xms512m
+                -XX:+UseG1GC
+                -XX:MaxGCPauseMillis=200
+            - name: CASC_JENKINS_CONFIG
+              value: /var/jenkins_home/casc_configs
+            - name: LDAP_MANAGER_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: jenkins-secrets
+                  key: ldap-manager-password
+            - name: SONAR_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: jenkins-secrets
+                  key: sonar-token
+            - name: HARBOR_USER
+              valueFrom:
+                secretKeyRef:
+                  name: jenkins-secrets
+                  key: harbor-user
+            - name: HARBOR_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: jenkins-secrets
+                  key: harbor-password
+            - name: K8S_JENKINS_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: jenkins-secrets
+                  key: k8s-token
+            - name: DINGTALK_WEBHOOK_URL
+              valueFrom:
+                secretKeyRef:
+                  name: jenkins-secrets
+                  key: dingtalk-webhook
+          ports:
+            - containerPort: 8080
+              name: http
+            - containerPort: 50000
+              name: agent
+          resources:
+            requests:
+              memory: "1Gi"
+              cpu: "500m"
+            limits:
+              memory: "3Gi"
+              cpu: "2000m"
+          volumeMounts:
+            - name: jenkins-home
+              mountPath: /var/jenkins_home
+            - name: casc-config
+              mountPath: /var/jenkins_home/casc_configs
+              readOnly: true
+            - name: docker-sock
+              mountPath: /var/run/docker.sock  # 或使用 Docker-in-Docker
+          livenessProbe:
+            httpGet:
+              path: /login
+              port: 8080
+            initialDelaySeconds: 120
+            periodSeconds: 30
+            failureThreshold: 5
+          readinessProbe:
+            httpGet:
+              path: /login
+              port: 8080
+            initialDelaySeconds: 60
+            periodSeconds: 15
+            failureThreshold: 3
+      volumes:
+        - name: jenkins-home
+          persistentVolumeClaim:
+            claimName: jenkins-data
+        - name: casc-config
+          configMap:
+            name: jenkins-casc-config
+        - name: docker-sock
+          hostPath:
+            path: /var/run/docker.sock
+
+---
+# Jenkins 内部访问 Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: jenkins
+  namespace: ilbuy-ops
+  labels:
+    app: jenkins
+spec:
+  selector:
+    app: jenkins
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+    - name: agent
+      port: 50000
+      targetPort: 50000
+  type: ClusterIP
+
+---
+# Jenkins ConfigMap — JCasC 挂载
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: jenkins-casc-config
+  namespace: ilbuy-ops
+data:
+  jenkins.yaml: |
+    # 通过以下命令创建：
+    # kubectl create configmap jenkins-casc-config \
+    #   --from-file=jenkins.yaml=cicd/jenkins/jenkins.yaml \
+    #   -n ilbuy-ops
+
+---
+# Jenkins ServiceAccount（已在 rbac.yaml 中定义 ClusterRoleBinding）
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: jenkins
+  namespace: ilbuy-ops
+
+---
+# jenkins-plugins.txt — 安装到 Dockerfile 的插件列表
+# 此文件由 Dockerfile 的 jenkins-plugin-cli 读取
+# 保存为独立文件以便版本管理

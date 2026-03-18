@@ -1,0 +1,119 @@
+# ApplicationSet — 自动为 L1-L8 所有层生成 dev/staging/prod Application
+# 目录约定: microservices/<layer>/<service>/k8s/ 存放该服务的 K8s YAML
+---
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: ilbuy-services
+  namespace: argocd
+spec:
+  generators:
+    # Matrix: 环境 × 服务 笛卡尔积
+    - matrix:
+        generators:
+          # 环境列表
+          - list:
+              elements:
+                - env: dev
+                  namespace_suffix: ""          # dev 直接用 ilbuy-l* namespace
+                  auto_sync: "true"
+                  prune: "false"
+                  self_heal: "true"
+                  target_revision: develop
+                - env: staging
+                  namespace_suffix: ""
+                  auto_sync: "true"
+                  prune: "false"
+                  self_heal: "false"
+                  target_revision: HEAD
+                - env: prod
+                  namespace_suffix: ""
+                  auto_sync: "false"            # 生产手动同步
+                  prune: "false"
+                  self_heal: "false"
+                  target_revision: HEAD
+
+          # 服务目录扫描（从 Git 仓库扫描 microservices/*/*/k8s 目录）
+          - git:
+              repoURL: https://gitlab.ilbuy.internal/ilbuy/ilbuy-platform
+              revision: HEAD
+              directories:
+                - path: microservices/*/*/k8s
+
+  template:
+    metadata:
+      # Application 名称格式: <service>-<env>
+      name: "{{path.basenameNormalized}}-{{env}}"
+      namespace: argocd
+      labels:
+        layer: "{{path[1]}}"       # 如 l8-feedback-optimize
+        service: "{{path[2]}}"     # 如 feedback-svc
+        env: "{{env}}"
+      annotations:
+        argocd.argoproj.io/manifest-generate-paths: "{{path}}"
+    spec:
+      project: ilbuy
+      source:
+        repoURL: https://gitlab.ilbuy.internal/ilbuy/ilbuy-platform
+        targetRevision: "{{target_revision}}"
+        path: "{{path}}"
+        # 使用 Kustomize overlay 区分环境
+        kustomize:
+          namePrefix: ""
+          images: []  # 镜像由 CI 通过 argocd app set --kustomize-image 注入
+      destination:
+        server: https://kubernetes.default.svc
+        # 命名空间从目录路径解析: microservices/l8-feedback-optimize/feedback-svc/k8s → ilbuy-l8
+        namespace: "ilbuy-{{path[1] | truncate 2}}"  # 取 l8-xxx 的 l8 部分→ ilbuy-l8
+      syncPolicy:
+        automated:
+          prune: "{{prune}}"
+          selfHeal: "{{self_heal}}"
+          allowEmpty: false
+        syncOptions:
+          - CreateNamespace=false
+          - ApplyOutOfSyncOnly=true
+          - PrunePropagationPolicy=foreground
+          - RespectIgnoreDifferences=true
+        retry:
+          limit: 5
+          backoff:
+            duration: 5s
+            factor: 2
+            maxDuration: 3m
+      # 忽略非关键 diff（如 replicas 被 HPA 修改）
+      ignoreDifferences:
+        - group: apps
+          kind: Deployment
+          jsonPointers:
+            - /spec/replicas   # HPA 管理，忽略 Git 中的副本数
+        - group: autoscaling
+          kind: HorizontalPodAutoscaler
+          jsonPointers:
+            - /spec/metrics
+      revisionHistoryLimit: 10
+
+---
+# App of Apps — 单一入口管理所有 ArgoCD Application
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: ilbuy-app-of-apps
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  project: ilbuy
+  source:
+    repoURL: https://gitlab.ilbuy.internal/ilbuy/ilbuy-platform
+    targetRevision: HEAD
+    path: microservices/l9-ops-support/cicd/argocd/applications
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=false
