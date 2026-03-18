@@ -1,0 +1,111 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: feedback-svc
+  namespace: ilbuy-l8
+  labels:
+    app: feedback-svc
+    layer: l8-feedback-optimize
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: feedback-svc
+  template:
+    metadata:
+      labels:
+        app: feedback-svc
+        layer: l8-feedback-optimize
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: "/actuator/prometheus"
+        prometheus.io/port: "8060"
+    spec:
+      serviceAccountName: ilbuy-svc
+      containers:
+        - name: feedback-svc
+          image: ilbuy/feedback-svc:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8060
+              protocol: TCP
+          env:
+            - name: DB_URL
+              valueFrom:
+                secretKeyRef:
+                  name: ilbuy-l8-db-secret
+                  key: url
+            - name: RABBITMQ_URL
+              valueFrom:
+                secretKeyRef:
+                  name: ilbuy-rabbitmq-secret
+                  key: url
+            - name: L6_DELIVERY_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: ilbuy-l8-config
+                  key: l6.delivery.url
+            - name: FOLLOWUP_DELAY_HOURS
+              value: "24"
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "200m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          readinessProbe:
+            httpGet:
+              path: /health/readiness
+              port: 8060
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /health/liveness
+              port: 8060
+            initialDelaySeconds: 60
+            periodSeconds: 15
+            failureThreshold: 3
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: feedback-svc
+  namespace: ilbuy-l8
+spec:
+  type: ClusterIP
+  selector:
+    app: feedback-svc
+  ports:
+    - port: 8060
+      targetPort: 8060
+      name: http
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: feedback-svc-hpa
+  namespace: ilbuy-l8
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: feedback-svc
+  minReplicas: 2
+  maxReplicas: 6
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80
