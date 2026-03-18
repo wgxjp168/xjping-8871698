@@ -76,9 +76,11 @@ def _compute_auc_roc(y_true: np.ndarray, y_prob: np.ndarray) -> float:
 
     fpr_arr = np.array(fpr_list)
     tpr_arr = np.array(tpr_list)
-    # Sort by FPR for trapz
+    # Sort by FPR for trapezoidal integration
     order = np.argsort(fpr_arr)
-    return float(np.trapz(tpr_arr[order], fpr_arr[order]))
+    # np.trapezoid is available in numpy >=2.0; fall back to np.trapz for older versions
+    trapz_fn = getattr(np, "trapezoid", None) or getattr(np, "trapz")
+    return float(trapz_fn(tpr_arr[order], fpr_arr[order]))
 
 
 def evaluate_model(artifact_path: str, test_data: list[dict] | None = None) -> dict:

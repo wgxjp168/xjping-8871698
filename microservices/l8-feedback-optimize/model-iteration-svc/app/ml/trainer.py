@@ -27,7 +27,6 @@ DEFAULT_HYPERPARAMETERS: dict[str, Any] = {
     "learning_rate": 0.1,
     "subsample": 0.8,
     "colsample_bytree": 0.8,
-    "use_label_encoder": False,
     "eval_metric": "logloss",
     "random_state": 42,
 }
@@ -101,7 +100,7 @@ def train_model(samples: list[dict] | None = None) -> dict:
             synthetic = True
 
     hp = dict(DEFAULT_HYPERPARAMETERS)
-    model = XGBClassifier(**{k: v for k, v in hp.items() if k != "random_state"}, random_state=hp["random_state"])
+    model = XGBClassifier(**{k: v for k, v in hp.items() if k not in ("random_state",)}, random_state=hp["random_state"])
     model.fit(X, y)
 
     version_tag = datetime.utcnow().strftime("%Y%m%d_%H%M%S") + "_" + uuid.uuid4().hex[:6]
