@@ -23,6 +23,10 @@ spec:
         prometheus.io/port: "8060"
     spec:
       serviceAccountName: ilbuy-svc
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 999
+        fsGroup: 999
       containers:
         - name: feedback-svc
           image: ilbuy/feedback-svc:latest

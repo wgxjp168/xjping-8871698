@@ -23,6 +23,10 @@ spec:
         prometheus.io/port: "8063"
     spec:
       serviceAccountName: ilbuy-svc
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 999
+        fsGroup: 999
       containers:
         - name: model-deploy-svc
           image: ilbuy/model-deploy-svc:latest

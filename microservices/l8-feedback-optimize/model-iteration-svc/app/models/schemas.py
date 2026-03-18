@@ -26,8 +26,7 @@ class ExperimentResponse(BaseModel):
     ended_at: Optional[datetime]
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}
 
 class TrainingJobCreate(BaseModel):
     trigger_reason: str = "MANUAL"
@@ -45,8 +44,7 @@ class TrainingJobResponse(BaseModel):
     completed_at: Optional[datetime]
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}
 
 class ModelVersionResponse(BaseModel):
     id: str
@@ -61,8 +59,7 @@ class ModelVersionResponse(BaseModel):
     approved: bool
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}
 
 class ModelReadyEvent(BaseModel):
     """Published to l8.model.ready → model-deploy-svc"""

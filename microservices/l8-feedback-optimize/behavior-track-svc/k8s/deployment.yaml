@@ -23,6 +23,10 @@ spec:
         prometheus.io/port: "8061"
     spec:
       serviceAccountName: ilbuy-svc
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 999
+        fsGroup: 999
       containers:
         - name: behavior-track-svc
           image: ilbuy/behavior-track-svc:latest

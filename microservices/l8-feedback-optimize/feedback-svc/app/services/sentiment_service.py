@@ -1,6 +1,14 @@
 import logging
 from typing import Tuple, Optional
-from snownlp import SnowNLP
+
+# Try to import snownlp; fall back gracefully if not available (e.g. Python 3.11+
+# where snownlp's legacy setup.py build fails with modern pip/setuptools).
+try:
+    from snownlp import SnowNLP as _SnowNLP  # type: ignore
+    _SNOWNLP_AVAILABLE = True
+except ImportError:
+    _SnowNLP = None
+    _SNOWNLP_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
 
@@ -15,14 +23,18 @@ NEGATIVE_KEYWORDS = ["不准确", "错误", "差", "失望", "无用", "不好",
 
 def analyze_sentiment(text: str) -> Tuple[float, str]:
     """
-    Analyze sentiment of Chinese text using snownlp.
+    Analyze sentiment of Chinese text.
+    Uses snownlp when available; otherwise falls back to keyword-rule scoring.
     Returns (score 0.0-1.0, label POSITIVE/NEUTRAL/NEGATIVE)
     """
     if not text or not text.strip():
         return 0.5, "NEUTRAL"
 
+    if not _SNOWNLP_AVAILABLE:
+        return _rule_based_fallback(text)
+
     try:
-        score = SnowNLP(text).sentiments
+        score = _SnowNLP(text).sentiments
 
         # Keyword boosting for domain-specific context
         score = _apply_keyword_boost(text, score)

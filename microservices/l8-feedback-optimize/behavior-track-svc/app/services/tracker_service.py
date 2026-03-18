@@ -95,6 +95,11 @@ async def _update_session(event: TrackEventRequest, db: AsyncSession, event_time
             session_id=event.session_id,
             channel=event.channel,
             started_at=event_time,
+            clicks=0,
+            page_views=0,
+            report_views=0,
+            conversions=0,
+            total_time_seconds=0,
         )
         db.add(session)
 
