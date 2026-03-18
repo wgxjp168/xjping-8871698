@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 from datetime import datetime
@@ -36,9 +37,12 @@ async def start_consumer():
                     except Exception as exc:
                         logger.error("Error processing l8.model.ready message: %s", exc, exc_info=True)
 
+    except asyncio.CancelledError:
+        logger.info("model-ready consumer cancelled")
     except Exception as exc:
-        logger.warning("model-ready consumer connection failed (stub mode): %s", exc)
-        return
+        logger.error("model-ready consumer connection failed, retrying in 5s: %s", exc)
+        await asyncio.sleep(5)
+        asyncio.create_task(start_consumer())
 
 
 async def _process_model_ready_event(payload: dict):

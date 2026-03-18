@@ -30,7 +30,3 @@ async def actuator_readiness(db: AsyncSession = Depends(get_db)):
         from fastapi.responses import JSONResponse
         return JSONResponse(status_code=503, content={"status": "DOWN"})
 
-@router.get("/actuator/prometheus")
-async def prometheus_metrics():
-    from prometheus_fastapi_instrumentator import metrics
-    return {}

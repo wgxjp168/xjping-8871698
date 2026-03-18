@@ -48,7 +48,7 @@ async def track_event(event: TrackEventRequest, db: AsyncSession) -> str:
 
 
 async def track_batch(events: list[TrackEventRequest], db: AsyncSession) -> int:
-    """Batch track events — write to ClickHouse in bulk, update sessions individually."""
+    """Batch track events — write to ClickHouse in bulk, update PostgreSQL sessions per event."""
     rows = []
     for event in events:
         event_time = (
@@ -67,6 +67,14 @@ async def track_batch(events: list[TrackEventRequest], db: AsyncSession) -> int:
             "extra": json.dumps(event.extra or {}),
             "event_time": event_time,
         })
+        # Keep PostgreSQL session counters and conversion funnels in sync
+        await _update_session(event, db, event_time)
+        if event.event_type == EventType.REPORT_VIEW and event.report_id:
+            await _upsert_funnel(event.user_id, event.report_id, "VIEW", event.channel, db)
+        elif event.event_type == EventType.CONVERSION and event.report_id:
+            await _upsert_funnel(event.user_id, event.report_id, "PURCHASE", event.channel, db, converted=True)
+        elif event.event_type == EventType.RECOMMENDATION_CLICK and event.report_id:
+            await _upsert_funnel(event.user_id, event.report_id, "DETAIL", event.channel, db)
 
     inserted = clickhouse_service.insert_batch(rows)
     return inserted

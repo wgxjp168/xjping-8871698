@@ -170,5 +170,5 @@ async def _run_in_thread(fn, *args):
     import asyncio
     import functools
 
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     return await loop.run_in_executor(None, functools.partial(fn, *args))

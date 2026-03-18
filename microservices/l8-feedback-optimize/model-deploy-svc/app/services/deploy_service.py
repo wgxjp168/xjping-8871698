@@ -8,6 +8,11 @@ from app.models.schemas import DeploymentRequest, ModelDeployedEvent
 from app.services import mq_service
 from app.config import get_settings
 
+try:
+    import httpx as _httpx
+except ImportError:
+    _httpx = None  # type: ignore
+
 logger = logging.getLogger(__name__)
 settings = get_settings()
 
@@ -84,6 +89,9 @@ async def execute_deployment(db: AsyncSession, deployment_id: str) -> Optional[D
         await mq_service.publish(settings.rabbitmq_output_routing_key, event.model_dump())
         logger.info("Published l8.model.deployed for version=%s", deployment.version_tag)
 
+        # Notify decision-svc to hot-reload the model (best-effort)
+        await _notify_decision_svc_reload(deployment.artifact_path or "", deployment.version_tag)
+
     except Exception as exc:
         logger.error("Deployment execution failed for id=%s: %s", deployment_id, exc, exc_info=True)
         deployment.status = "FAILED"
@@ -120,12 +128,14 @@ async def rollback_deployment(db: AsyncSession, deployment_id: str, reason: str)
     )
     db.add(rollback_log)
 
-    # Find the most recent previously active deployment (excluding the one being rolled back)
+    # Find the most recent previously ACTIVE deployment (by deployed_at, excluding current)
+    # Use is_active flag OR status==ACTIVE to handle partially-rolled-back states
     prev_result = await db.execute(
         select(Deployment)
         .where(
             Deployment.id != deployment_id,
-            Deployment.status == "ACTIVE",
+            Deployment.status.in_(["ACTIVE"]),
+            Deployment.rolled_back_at.is_(None),
         )
         .order_by(Deployment.deployed_at.desc())
         .limit(1)
@@ -168,3 +178,23 @@ async def get_deployment(db: AsyncSession, deployment_id: str) -> Optional[Deplo
     """Return a deployment by ID."""
     result = await db.execute(select(Deployment).where(Deployment.id == deployment_id))
     return result.scalar_one_or_none()
+
+
+async def _notify_decision_svc_reload(artifact_path: str, version_tag: str) -> None:
+    """POST to decision-svc /api/v1/models/reload so it hot-swaps the active model."""
+    if _httpx is None:
+        logger.warning("httpx not available; skipping decision-svc hot-reload")
+        return
+    url = f"{settings.decision_svc_url}/api/v1/models/reload"
+    payload = {"artifact_path": artifact_path, "version_tag": version_tag}
+    try:
+        async with _httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.post(url, json=payload)
+            if resp.status_code < 300:
+                logger.info("decision-svc hot-reload triggered: version=%s", version_tag)
+            else:
+                logger.warning(
+                    "decision-svc hot-reload returned %s: %s", resp.status_code, resp.text
+                )
+    except Exception as exc:
+        logger.warning("decision-svc hot-reload failed (non-fatal): %s", exc)

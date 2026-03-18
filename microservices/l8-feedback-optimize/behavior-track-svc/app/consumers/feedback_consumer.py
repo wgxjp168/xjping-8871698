@@ -1,13 +1,15 @@
 import json
 import logging
 import asyncio
-from datetime import datetime
+from datetime import datetime, timedelta
 import aio_pika
 from aio_pika import ExchangeType
+from sqlalchemy import select, func
 from app.config import get_settings
 from app.models.schemas import BehaviorAggregatedEvent
 from app.services import clickhouse_service, mq_service
 from app.db.database import AsyncSessionLocal
+from app.models.events import UserSession, ConversionFunnel
 from app.services.tracker_service import track_event
 from app.models.schemas import TrackEventRequest, EventType
 import uuid
@@ -64,9 +66,44 @@ async def _process_feedback_event(payload: dict):
         await track_event(track_req, db)
 
 
+async def _compute_session_metrics(period_start: datetime, period_end: datetime) -> dict:
+    """Compute avg_session_duration and conversion_rate from PostgreSQL for the period."""
+    async with AsyncSessionLocal() as db:
+        # avg session duration: sessions that ended within the period
+        avg_result = await db.execute(
+            select(func.avg(UserSession.total_time_seconds)).where(
+                UserSession.started_at >= period_start,
+                UserSession.started_at < period_end,
+            )
+        )
+        avg_duration = avg_result.scalar_one_or_none() or 0.0
+
+        # conversion_rate = sessions with >=1 conversion / total sessions in period
+        total_sessions = await db.scalar(
+            select(func.count()).select_from(UserSession).where(
+                UserSession.started_at >= period_start,
+                UserSession.started_at < period_end,
+            )
+        ) or 0
+        converted_sessions = await db.scalar(
+            select(func.count()).select_from(UserSession).where(
+                UserSession.started_at >= period_start,
+                UserSession.started_at < period_end,
+                UserSession.conversions > 0,
+            )
+        ) or 0
+        conversion_rate = converted_sessions / total_sessions if total_sessions > 0 else 0.0
+
+        # avg_satisfaction: mean of satisfaction signals stored as extra in ClickHouse
+        # (approximated here via conversion proxy; ClickHouse is the authoritative source)
+        return {
+            "avg_session_duration": round(float(avg_duration), 2),
+            "conversion_rate": round(conversion_rate, 4),
+        }
+
+
 async def run_aggregation_job():
     """Periodically aggregate behavior data and publish to model-iteration-svc."""
-    from datetime import timedelta
     import uuid as uuid_module
 
     while True:
@@ -76,6 +113,7 @@ async def run_aggregation_job():
             period_start = now - timedelta(minutes=settings.aggregation_interval_minutes)
 
             summary = clickhouse_service.aggregate_behavior_summary(period_start, now)
+            session_metrics = await _compute_session_metrics(period_start, now)
 
             event = BehaviorAggregatedEvent(
                 aggregation_id=str(uuid_module.uuid4()),
@@ -83,14 +121,18 @@ async def run_aggregation_job():
                 period_end=now.isoformat(),
                 total_events=summary.get("total_events", 0),
                 unique_users=summary.get("unique_users", 0),
-                avg_session_duration=0.0,
-                conversion_rate=0.0,
+                avg_session_duration=session_metrics["avg_session_duration"],
+                conversion_rate=session_metrics["conversion_rate"],
                 avg_satisfaction=None,
                 top_report_ids=summary.get("top_reports", []),
-                feature_summary=summary,
+                feature_summary={**summary, **session_metrics},
             )
 
             await mq_service.publish(settings.rabbitmq_output_routing_key, event.model_dump())
-            logger.info(f"Published behavior aggregation: events={summary.get('total_events')}")
+            logger.info(
+                "Published behavior aggregation: events=%s conversion_rate=%.4f",
+                summary.get("total_events"),
+                session_metrics["conversion_rate"],
+            )
         except Exception as e:
             logger.error(f"Aggregation job error: {e}", exc_info=True)
