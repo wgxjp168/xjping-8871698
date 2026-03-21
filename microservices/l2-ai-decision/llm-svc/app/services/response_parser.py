@@ -187,10 +187,15 @@ class ResponseParser:
 
         # Remove HTML tags
         text = re.sub(r"<[^>]+>", "", text)
-        # Remove markdown bold/italic markers
-        text = re.sub(r"\*{1,3}|_{1,3}", "", text)
+        # Remove markdown bold/italic asterisk markers (e.g. **bold**, *italic*)
+        # Use word-boundary-aware pattern so JSON keys with underscores are preserved.
+        text = re.sub(r"\*{1,3}", "", text)
+        # Remove markdown underscore markers only when NOT inside identifiers:
+        # matches _word_ or __word__ at non-word boundaries to avoid stripping
+        # underscores in JSON keys like match_score → matchscore.
+        text = re.sub(r"(?<!\w)_{1,3}(?!\w)", "", text)
         # Collapse horizontal rules
-        text = re.sub(r"^[-*_]{3,}\s*$", "", text, flags=re.MULTILINE)
+        text = re.sub(r"^[-*]{3,}\s*$", "", text, flags=re.MULTILINE)
         # Collapse multiple blank lines
         text = re.sub(r"\n{3,}", "\n\n", text)
 

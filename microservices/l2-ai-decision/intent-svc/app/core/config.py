@@ -27,7 +27,7 @@ class Settings(BaseSettings):
     version: str = "1.0.0"
 
     # Downstream service URLs
-    llm_svc_url: str = "http://llm-svc:8020"
+    llm_svc_url: str = "http://llm-svc:8011"
 
     # Hugging Face / Transformers
     hf_model_name: str = "hfl/chinese-roberta-wwm-ext"

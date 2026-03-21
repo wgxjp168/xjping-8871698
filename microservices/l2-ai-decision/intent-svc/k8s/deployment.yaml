@@ -91,7 +91,7 @@ spec:
                 - ALL
           volumeMounts:
             - name: model-cache
-              mountPath: /app/.cache
+              mountPath: /model-cache
       volumes:
         - name: model-cache
           emptyDir:
