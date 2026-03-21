@@ -13,10 +13,10 @@ import java.lang.annotation.*;
  * public Result<List<UserVO>> list() { ... }
  * }</pre>
  */
-@Target(ElementType.METHOD)
+@Target({ElementType.METHOD, ElementType.TYPE})
 @Retention(RetentionPolicy.RUNTIME)
 @Documented
-@PreAuthorize("hasAuthority('{value}')")
+@PreAuthorize("hasAuthority('{value}')")   // Spring Security 6: {value} 替换为 @HasPermission 的 value()
 public @interface HasPermission {
 
     /**

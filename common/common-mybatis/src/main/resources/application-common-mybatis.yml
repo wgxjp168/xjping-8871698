@@ -1,0 +1,67 @@
+# ====================================================
+#  common-mybatis 模块示例配置
+#  复制到消费方的 application.yml 并按需修改
+# ====================================================
+
+spring:
+  datasource:
+    # ── 方案 A：不启用动态多数据源，直接使用 Druid 单数据源 ──
+    # druid:
+    #   url: jdbc:p6spy:mysql://localhost:3306/ilbuy?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai
+    #   username: root
+    #   password: yourpassword
+    #   driver-class-name: com.p6spy.engine.spy.P6SpyDriver
+    #   initial-size: 5
+    #   min-idle: 5
+    #   max-active: 20
+
+    # ── 方案 B：启用动态多数据源（master/slave 读写分离）──
+    dynamic:
+      enabled: true
+      primary: master
+      strict: false
+      datasource:
+        master:
+          url: jdbc:p6spy:mysql://localhost:3306/ilbuy?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai
+          username: root
+          password: yourpassword
+          driver-class-name: com.p6spy.engine.spy.P6SpyDriver
+          type: com.alibaba.druid.pool.DruidDataSource
+          druid:
+            initial-size: 5
+            min-idle: 5
+            max-active: 20
+            max-wait: 60000
+            filters: stat,wall,slf4j
+            connection-properties: druid.stat.slowSqlMillis=2000;druid.stat.logSlowSql=true
+        slave:
+          url: jdbc:p6spy:mysql://localhost:3307/ilbuy?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai
+          username: root
+          password: yourpassword
+          driver-class-name: com.p6spy.engine.spy.P6SpyDriver
+          type: com.alibaba.druid.pool.DruidDataSource
+
+mybatis-plus:
+  mapper-locations: classpath*:mapper/**/*Mapper.xml
+  type-aliases-package: com.ilbuy.**.entity
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.slf4j.Slf4jImpl
+    default-fetch-size: 100
+    default-statement-timeout: 30
+  global-config:
+    db-config:
+      id-type: assign_id          # 雪花算法
+      logic-delete-field: deleted
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+
+# Druid 监控台（可选，需要 ilbuy.druid.monitor.enabled=true）
+ilbuy:
+  druid:
+    monitor:
+      enabled: false              # 生产环境建议关闭或加 IP 白名单
+      login-username: admin
+      login-password: admin123
+      url-pattern: /druid/*
+      allow: 127.0.0.1

@@ -1,1 +1,2 @@
+com.ilbuy.common.security.config.SecurityAutoConfiguration
 com.ilbuy.common.security.config.SecurityConfig

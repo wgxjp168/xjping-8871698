@@ -1,0 +1,34 @@
+# ====================================================
+#  common-openfeign 模块示例配置
+#  复制到消费方的 application.yml 并按需修改
+# ====================================================
+
+spring:
+  cloud:
+    openfeign:
+      # 启用 Sentinel 熔断（对应 SentinelFeignConfig）
+      sentinel:
+        enabled: true
+      client:
+        # 全局默认超时（FeignConfig 中已通过 @Bean 设置，此处可覆盖）
+        config:
+          default:
+            connect-timeout: 3000     # ms
+            read-timeout: 10000       # ms
+            logger-level: BASIC       # NONE / BASIC / HEADERS / FULL
+          # 按服务覆盖（示例）
+          # user-service:
+          #   connect-timeout: 2000
+          #   read-timeout: 5000
+
+# 日志：开启 Feign 请求/响应详情（需 logger-level: FULL）
+logging:
+  level:
+    com.ilbuy: DEBUG
+
+# Sentinel 配置
+spring.cloud.sentinel:
+  transport:
+    dashboard: localhost:8080
+    port: 8719
+  eager: true           # 饥饿加载，启动即向 Sentinel Dashboard 注册

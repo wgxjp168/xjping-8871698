@@ -2,10 +2,12 @@ package com.ilbuy.common.security.jwt;
 
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
-import org.springframework.stereotype.Component;
 
 /**
  * JWT 配置属性
+ *
+ * <p>由 {@link com.ilbuy.common.security.config.SecurityAutoConfiguration}
+ * 通过 {@code @EnableConfigurationProperties} 注册，消费方无需额外配置。</p>
  *
  * <pre>application.yml:
  * ilbuy:
@@ -18,7 +20,6 @@ import org.springframework.stereotype.Component;
  * </pre>
  */
 @Data
-@Component
 @ConfigurationProperties(prefix = "ilbuy.security.jwt")
 public class JwtProperties {
 

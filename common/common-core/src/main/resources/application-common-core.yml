@@ -1,0 +1,33 @@
+# ====================================================
+#  common-core 模块示例配置
+#  复制到消费方的 application.yml 并按需修改
+# ====================================================
+
+spring:
+  # Jackson 全局设置（CoreAutoConfiguration 中已注册 ObjectMapper，
+  # 也可通过 spring.jackson 属性覆盖）
+  jackson:
+    date-format: yyyy-MM-dd HH:mm:ss
+    time-zone: Asia/Shanghai
+    serialization:
+      write-dates-as-timestamps: false
+
+  # Redis（RateLimitAspect / NoRepeatSubmitAspect 依赖 StringRedisTemplate）
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password: ""
+      database: 0
+      timeout: 3000ms
+      lettuce:
+        pool:
+          max-active: 20
+          max-idle: 10
+          min-idle: 5
+          max-wait: 3000ms
+
+# 日志配置示例
+logging:
+  level:
+    com.ilbuy: DEBUG
