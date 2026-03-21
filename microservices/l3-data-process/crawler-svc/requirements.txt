@@ -20,3 +20,7 @@ scrapy==2.12.0
 # Utilities
 python-dotenv==1.0.1
 tenacity==9.0.0
+
+# Testing (dev only — not installed in Docker runtime stage)
+pytest==8.3.4
+pytest-asyncio==0.24.0

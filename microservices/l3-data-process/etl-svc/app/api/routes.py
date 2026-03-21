@@ -82,8 +82,6 @@ async def process_etl(
     input_count = len(request.raw_products)
 
     # ── Step 1: Clean ─────────────────────────────────────────────────────
-    if request.normalize:  # clean is always run; normalise is a flag for normalizer step
-        pass
     cleaned, invalid_count = data_cleaner.clean_batch(request.raw_products)
 
     # ── Step 2: Deduplicate ───────────────────────────────────────────────

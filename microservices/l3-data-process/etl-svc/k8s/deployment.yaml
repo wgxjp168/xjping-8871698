@@ -39,30 +39,9 @@ spec:
             - name: http
               containerPort: 8031
               protocol: TCP
-          env:
-            - name: ENV
-              value: "production"
-            - name: PORT
-              value: "8031"
-            - name: LOG_LEVEL
-              value: "INFO"
-            - name: L4_DATA_SVC_URL
-              value: "http://l4-data-svc.ilbuy-l4.svc.cluster.local:8040"
-            - name: L4_INGEST_ENABLED
-              valueFrom:
-                configMapKeyRef:
-                  name: etl-svc-config
-                  key: l4_ingest_enabled
-            - name: REDIS_URL
-              valueFrom:
-                configMapKeyRef:
-                  name: etl-svc-config
-                  key: redis_url
-            - name: MAX_BATCH_SIZE
-              valueFrom:
-                configMapKeyRef:
-                  name: etl-svc-config
-                  key: max_batch_size
+          envFrom:
+            - configMapRef:
+                name: etl-svc-config-prod
           resources:
             requests:
               cpu: "250m"
@@ -70,11 +49,19 @@ spec:
             limits:
               cpu: "500m"
               memory: "512Mi"
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            failureThreshold: 18        # 最多等待 90 秒启动
+            successThreshold: 1
           livenessProbe:
             httpGet:
               path: /health
               port: http
-            initialDelaySeconds: 15
+            initialDelaySeconds: 0
             periodSeconds: 20
             timeoutSeconds: 5
             failureThreshold: 3

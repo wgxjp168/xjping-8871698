@@ -12,3 +12,7 @@ redis[asyncio]==5.2.1
 
 # Utilities
 python-dotenv==1.0.1
+
+# Testing (dev only — not installed in Docker runtime stage)
+pytest==8.3.4
+httpx==0.28.1

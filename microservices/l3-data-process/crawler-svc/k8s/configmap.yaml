@@ -1,0 +1,58 @@
+---
+# ── 开发环境 ConfigMap ──────────────────────────────────────────────────────
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: crawler-svc-config-dev
+  namespace: ilbuy-l3-dev
+  labels:
+    app: crawler-svc
+    env: dev
+data:
+  ENV: "development"
+  PORT: "8030"
+  LOG_LEVEL: "DEBUG"
+  ETL_SVC_URL: "http://etl-svc.ilbuy-l3-dev.svc.cluster.local:8031"
+  DECISION_SVC_URL: "http://decision-svc.ilbuy-l2-dev.svc.cluster.local:8012"
+  REDIS_URL: "redis://redis.ilbuy-infra.svc.cluster.local:6379/2"
+  PROXY_ENABLED: "false"
+  RESPECT_CRAWL_DELAY: "true"
+  # 开发环境放宽 RPM 方便调试
+  TAOBAO_RPM: "10"
+  JD_RPM: "20"
+  ALI1688_RPM: "10"
+  PDD_RPM: "15"
+  VIPSHOP_RPM: "10"
+  SUNING_RPM: "10"
+  DOUYIN_RPM: "10"
+  MAX_CONCURRENT_JOBS: "3"
+  JOB_TIMEOUT_S: "120"
+
+---
+# ── 生产环境 ConfigMap ──────────────────────────────────────────────────────
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: crawler-svc-config-prod
+  namespace: ilbuy-l3
+  labels:
+    app: crawler-svc
+    env: prod
+data:
+  ENV: "production"
+  PORT: "8030"
+  LOG_LEVEL: "INFO"
+  ETL_SVC_URL: "http://etl-svc.ilbuy-l3.svc.cluster.local:8031"
+  DECISION_SVC_URL: "http://decision-svc.ilbuy-l2.svc.cluster.local:8012"
+  REDIS_URL: "redis://redis.ilbuy-infra.svc.cluster.local:6379/2"
+  PROXY_ENABLED: "false"
+  RESPECT_CRAWL_DELAY: "true"
+  TAOBAO_RPM: "30"
+  JD_RPM: "60"
+  ALI1688_RPM: "20"
+  PDD_RPM: "40"
+  VIPSHOP_RPM: "30"
+  SUNING_RPM: "30"
+  DOUYIN_RPM: "20"
+  MAX_CONCURRENT_JOBS: "10"
+  JOB_TIMEOUT_S: "300"

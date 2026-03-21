@@ -39,57 +39,11 @@ spec:
             - name: http
               containerPort: 8030
               protocol: TCP
-          env:
-            - name: ENV
-              value: "production"
-            - name: PORT
-              value: "8030"
-            - name: LOG_LEVEL
-              value: "INFO"
-            - name: ETL_SVC_URL
-              value: "http://etl-svc.ilbuy-l3.svc.cluster.local:8031"
-            - name: DECISION_SVC_URL
-              value: "http://decision-svc.ilbuy-l2.svc.cluster.local:8012"
-            - name: REDIS_URL
-              valueFrom:
-                configMapKeyRef:
-                  name: crawler-svc-config
-                  key: redis_url
-            - name: PROXY_ENABLED
-              valueFrom:
-                configMapKeyRef:
-                  name: crawler-svc-config
-                  key: proxy_enabled
-            - name: TAOBAO_APP_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: platform-api-secrets
-                  key: taobao_app_key
-            - name: TAOBAO_APP_SECRET
-              valueFrom:
-                secretKeyRef:
-                  name: platform-api-secrets
-                  key: taobao_app_secret
-            - name: JD_APP_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: platform-api-secrets
-                  key: jd_app_key
-            - name: JD_APP_SECRET
-              valueFrom:
-                secretKeyRef:
-                  name: platform-api-secrets
-                  key: jd_app_secret
-            - name: PDD_CLIENT_ID
-              valueFrom:
-                secretKeyRef:
-                  name: platform-api-secrets
-                  key: pdd_client_id
-            - name: PDD_CLIENT_SECRET
-              valueFrom:
-                secretKeyRef:
-                  name: platform-api-secrets
-                  key: pdd_client_secret
+          envFrom:
+            - configMapRef:
+                name: crawler-svc-config-prod
+            - secretRef:
+                name: platform-api-secrets
           resources:
             requests:
               cpu: "250m"
@@ -97,11 +51,19 @@ spec:
             limits:
               cpu: "1000m"
               memory: "512Mi"
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            failureThreshold: 24        # 最多等待 2 分钟（APScheduler + 连接池初始化）
+            successThreshold: 1
           livenessProbe:
             httpGet:
               path: /health
               port: http
-            initialDelaySeconds: 20
+            initialDelaySeconds: 0
             periodSeconds: 30
             timeoutSeconds: 5
             failureThreshold: 3

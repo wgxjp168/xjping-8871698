@@ -1,0 +1,50 @@
+---
+# ── 开发环境 ConfigMap ──────────────────────────────────────────────────────
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: etl-svc-config-dev
+  namespace: ilbuy-l3-dev
+  labels:
+    app: etl-svc
+    env: dev
+data:
+  ENV: "development"
+  PORT: "8031"
+  LOG_LEVEL: "DEBUG"
+  L4_DATA_SVC_URL: "http://l4-data-svc.ilbuy-l4-dev.svc.cluster.local:8040"
+  L4_INGEST_ENABLED: "false"     # 开发环境不转发 L4
+  REDIS_URL: "redis://redis.ilbuy-infra.svc.cluster.local:6379/3"
+  MAX_BATCH_SIZE: "200"
+  DEDUPE_TTL_S: "3600"           # 开发环境去重缓存 1 小时
+  # 评分权重（开发环境可调整用于测试）
+  WEIGHT_PRICE: "0.25"
+  WEIGHT_POPULARITY: "0.25"
+  WEIGHT_RATING: "0.25"
+  WEIGHT_AVAILABILITY: "0.15"
+  WEIGHT_VALUE: "0.10"
+
+---
+# ── 生产环境 ConfigMap ──────────────────────────────────────────────────────
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: etl-svc-config-prod
+  namespace: ilbuy-l3
+  labels:
+    app: etl-svc
+    env: prod
+data:
+  ENV: "production"
+  PORT: "8031"
+  LOG_LEVEL: "INFO"
+  L4_DATA_SVC_URL: "http://l4-data-svc.ilbuy-l4.svc.cluster.local:8040"
+  L4_INGEST_ENABLED: "false"     # 待 L4 就绪后改为 true
+  REDIS_URL: "redis://redis.ilbuy-infra.svc.cluster.local:6379/3"
+  MAX_BATCH_SIZE: "1000"
+  DEDUPE_TTL_S: "86400"          # 生产环境去重缓存 24 小时
+  WEIGHT_PRICE: "0.25"
+  WEIGHT_POPULARITY: "0.25"
+  WEIGHT_RATING: "0.25"
+  WEIGHT_AVAILABILITY: "0.15"
+  WEIGHT_VALUE: "0.10"
