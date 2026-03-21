@@ -1,0 +1,364 @@
+_format_version: "3.0"
+_transform: true
+
+# =============================================================
+#  ILbuy 平台 Kong API 网关声明式配置
+#  适用版本：Kong >= 3.4 (deck 工具同步)
+#  同步命令：deck gateway sync kong.yml --kong-addr http://kong-admin:8001
+# =============================================================
+
+# ─────────────────────────────────────────
+#  Consumer（用户标识，供限流区分维度使用）
+# ─────────────────────────────────────────
+consumers:
+  - username: c-end-user          # C端消费者（通过 JWT 插件自动关联）
+    tags: [c-end]
+  - username: b-end-api           # B端 API 消费者
+    tags: [b-end]
+  - username: internal-service    # 内部服务间调用
+    tags: [internal]
+
+# ─────────────────────────────────────────
+#  上游服务定义
+# ─────────────────────────────────────────
+upstreams:
+  - name: dialog-service
+    algorithm: round-robin
+    healthchecks:
+      active:
+        type: http
+        http_path: /actuator/health
+        healthy:
+          interval: 10
+          successes: 2
+        unhealthy:
+          interval: 5
+          http_failures: 3
+      passive:
+        healthy:
+          successes: 5
+        unhealthy:
+          http_failures: 5
+          http_statuses: [500, 502, 503, 504]
+    targets:
+      - target: dialog-service:8080
+        weight: 100
+
+  - name: order-service
+    algorithm: round-robin
+    healthchecks:
+      active:
+        type: http
+        http_path: /actuator/health
+        healthy:
+          interval: 10
+          successes: 2
+        unhealthy:
+          interval: 5
+          http_failures: 3
+      passive:
+        unhealthy:
+          http_failures: 5
+    targets:
+      - target: order-service:8080
+        weight: 100
+
+  - name: user-service
+    algorithm: round-robin
+    targets:
+      - target: user-service:8080
+        weight: 100
+
+  - name: auth-service
+    algorithm: round-robin
+    targets:
+      - target: auth-service:8080
+        weight: 100
+
+  - name: product-service
+    algorithm: round-robin
+    targets:
+      - target: product-service:8080
+        weight: 100
+
+  - name: open-api-service
+    algorithm: round-robin
+    targets:
+      - target: open-api-service:8080
+        weight: 100
+
+# ─────────────────────────────────────────
+#  Service + Route 定义
+# ─────────────────────────────────────────
+services:
+
+  # ── 认证服务（白名单，不鉴权，不限流） ──
+  - name: auth-service
+    url: http://auth-service
+    connect_timeout: 3000
+    read_timeout: 10000
+    write_timeout: 10000
+    tags: [auth]
+    routes:
+      - name: auth-route
+        paths:
+          - /api/v1/auth
+        strip_path: false
+        methods: [GET, POST, PUT, DELETE, OPTIONS]
+    plugins:
+      - name: request-id           # 注入 X-Request-Id（TraceID 前身）
+        config:
+          header_name: X-Trace-Id
+          generator: uuid#counter
+          echo_downstream: true
+
+  # ── 对话服务（C端核心，100 req/min/用户） ──
+  - name: dialog-service
+    url: http://dialog-service
+    connect_timeout: 3000
+    read_timeout: 30000            # 对话服务可能耗时较长（AI 推理）
+    write_timeout: 10000
+    tags: [c-end, ai]
+    routes:
+      - name: dialog-route
+        paths:
+          - /api/v1/dialog
+        strip_path: false
+        methods: [GET, POST, OPTIONS]
+    plugins:
+      # JWT 鉴权
+      - name: jwt
+        config:
+          header_names: [Authorization]
+          claims_to_verify: [exp]
+          key_claim_name: iss
+          secret_is_base64: true
+          anonymous: ~
+          run_on_preflight: false
+      # C端用户限流（100 req/min/用户）
+      - name: rate-limiting
+        config:
+          minute: 100
+          policy: redis
+          redis:
+            host: ${REDIS_HOST}
+            port: ${REDIS_PORT:6379}
+            password: ${REDIS_PASSWORD}
+            database: 0
+          limit_by: consumer          # 按消费者（映射到 userId）
+          hide_client_headers: false  # 暴露 X-RateLimit-* 头方便前端感知
+          error_code: 429
+          error_message: "请求过于频繁，请稍后重试"
+      # 请求日志审计
+      - name: http-log
+        config:
+          http_endpoint: http://logstash:5044/kong-audit
+          method: POST
+          content_type: application/json
+          keepalive: 60000
+          flush_timeout: 2
+          retry_count: 3
+          custom_fields_by_lua: >
+            return {
+              traceId   = kong.request.get_header("X-Trace-Id"),
+              userId    = kong.client.get_consumer() and kong.client.get_consumer().username or nil,
+              clientIp  = kong.client.get_forwarded_ip(),
+              service   = "dialog-service",
+              timestamp = ngx.now() * 1000
+            }
+
+  # ── 订单服务（C端，50 req/min/用户） ──
+  - name: order-service
+    url: http://order-service
+    connect_timeout: 3000
+    read_timeout: 10000
+    write_timeout: 10000
+    tags: [c-end, order]
+    routes:
+      - name: order-route
+        paths:
+          - /api/v1/order
+        strip_path: false
+        methods: [GET, POST, PUT, PATCH, DELETE, OPTIONS]
+    plugins:
+      - name: jwt
+        config:
+          header_names: [Authorization]
+          claims_to_verify: [exp]
+          key_claim_name: iss
+          secret_is_base64: true
+      - name: rate-limiting
+        config:
+          minute: 50
+          policy: redis
+          redis:
+            host: ${REDIS_HOST}
+            port: ${REDIS_PORT:6379}
+            password: ${REDIS_PASSWORD}
+            database: 0
+          limit_by: consumer
+          hide_client_headers: false
+          error_code: 429
+          error_message: "请求过于频繁，请稍后重试"
+      - name: http-log
+        config:
+          http_endpoint: http://logstash:5044/kong-audit
+          method: POST
+          content_type: application/json
+          custom_fields_by_lua: >
+            return {
+              traceId  = kong.request.get_header("X-Trace-Id"),
+              service  = "order-service"
+            }
+
+  # ── 用户服务 ──
+  - name: user-service
+    url: http://user-service
+    connect_timeout: 3000
+    read_timeout: 10000
+    write_timeout: 10000
+    tags: [c-end, user]
+    routes:
+      - name: user-route
+        paths:
+          - /api/v1/user
+        strip_path: false
+        methods: [GET, POST, PUT, PATCH, DELETE, OPTIONS]
+    plugins:
+      - name: jwt
+        config:
+          header_names: [Authorization]
+          claims_to_verify: [exp]
+          key_claim_name: iss
+          secret_is_base64: true
+      - name: rate-limiting
+        config:
+          minute: 100
+          policy: redis
+          redis:
+            host: ${REDIS_HOST}
+            port: ${REDIS_PORT:6379}
+            password: ${REDIS_PASSWORD}
+            database: 0
+          limit_by: consumer
+          hide_client_headers: false
+
+  # ── 商品服务 ──
+  - name: product-service
+    url: http://product-service
+    connect_timeout: 3000
+    read_timeout: 10000
+    write_timeout: 10000
+    tags: [c-end, product]
+    routes:
+      - name: product-route
+        paths:
+          - /api/v1/product
+        strip_path: false
+        methods: [GET, POST, PUT, DELETE, OPTIONS]
+    plugins:
+      - name: jwt
+        config:
+          header_names: [Authorization]
+          claims_to_verify: [exp]
+          key_claim_name: iss
+          secret_is_base64: true
+      - name: rate-limiting
+        config:
+          minute: 200              # 商品查询频次高，适当放宽
+          policy: redis
+          redis:
+            host: ${REDIS_HOST}
+            port: ${REDIS_PORT:6379}
+            password: ${REDIS_PASSWORD}
+            database: 0
+          limit_by: consumer
+
+  # ── B端开放 API（IP 维度限流，1000 req/min/IP） ──
+  - name: open-api-service
+    url: http://open-api-service
+    connect_timeout: 3000
+    read_timeout: 15000
+    write_timeout: 10000
+    tags: [b-end, open-api]
+    routes:
+      - name: b-api-route
+        paths:
+          - /api/v1/open
+        strip_path: false
+        methods: [GET, POST, PUT, DELETE, OPTIONS]
+    plugins:
+      - name: key-auth             # B端使用 API Key 鉴权（非 JWT）
+        config:
+          key_names: [X-Api-Key, apikey]
+          hide_credentials: true
+          anonymous: ~
+      - name: rate-limiting
+        config:
+          minute: 1000             # B端 1000 req/min/IP
+          policy: redis
+          redis:
+            host: ${REDIS_HOST}
+            port: ${REDIS_PORT:6379}
+            password: ${REDIS_PASSWORD}
+            database: 0
+          limit_by: ip
+          hide_client_headers: false
+          error_code: 429
+          error_message: "API 调用频率超限"
+      - name: http-log
+        config:
+          http_endpoint: http://logstash:5044/kong-audit
+          method: POST
+          content_type: application/json
+          custom_fields_by_lua: >
+            return {
+              traceId  = kong.request.get_header("X-Trace-Id"),
+              apiKey   = kong.request.get_header("X-Api-Key"),
+              service  = "open-api-service"
+            }
+
+# ─────────────────────────────────────────
+#  全局插件（所有路由生效）
+# ─────────────────────────────────────────
+plugins:
+  # TraceID 注入（全局：所有请求）
+  - name: request-id
+    config:
+      header_name: X-Trace-Id
+      generator: uuid
+      echo_downstream: true
+
+  # 安全响应头（全局）
+  - name: response-transformer
+    config:
+      add:
+        headers:
+          - "X-Content-Type-Options:nosniff"
+          - "X-Frame-Options:DENY"
+          - "X-XSS-Protection:1; mode=block"
+          - "Referrer-Policy:strict-origin-when-cross-origin"
+
+  # CORS（全局兜底，优先使用服务级配置）
+  - name: cors
+    config:
+      origins: ["*"]              # 生产改为实际前端域名
+      methods: [GET, POST, PUT, PATCH, DELETE, OPTIONS]
+      headers: [Authorization, Content-Type, X-Trace-Id, X-Requested-With]
+      credentials: true
+      max_age: 1800
+      preflight_continue: false
+
+  # IP 黑名单（全局保护）
+  - name: ip-restriction
+    config:
+      deny:
+        - "0.0.0.0/8"           # 无效地址段
+      allow: ~                    # null = 允许所有（黑名单模式）
+    enabled: false                # 按需启用，黑名单 IP 在此配置
+
+  # 全局审计日志（所有请求）
+  - name: file-log
+    config:
+      path: /var/log/kong/access.log
+      reopen: true

@@ -1,0 +1,108 @@
+server:
+  port: 8080
+  # Netty 调优
+  netty:
+    connection-timeout: 5000ms
+
+spring:
+  application:
+    name: api-gateway
+
+  # ── Nacos 配置中心 ──
+  config:
+    import: "nacos:api-gateway.yml?group=ILBUY_GATEWAY&refreshEnabled=true"
+
+  cloud:
+    nacos:
+      discovery:
+        server-addr: ${NACOS_ADDR:localhost:8848}
+        namespace: ${NACOS_NAMESPACE:public}
+        group: ILBUY_GATEWAY
+      config:
+        server-addr: ${NACOS_ADDR:localhost:8848}
+        namespace: ${NACOS_NAMESPACE:public}
+        file-extension: yml
+
+    # ── Spring Cloud Gateway ──
+    gateway:
+      # 启用服务发现路由（lb://）
+      discovery:
+        locator:
+          enabled: false              # 关闭自动路由，使用手动配置更安全
+
+      # 全局请求超时
+      httpclient:
+        connect-timeout: 3000
+        response-timeout: 10s
+
+      # 默认过滤器（对所有路由生效）
+      default-filters:
+        - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials, RETAIN_UNIQUE
+        - AddResponseHeader=X-Content-Type-Options, nosniff
+        - AddResponseHeader=X-Frame-Options, DENY
+        - AddResponseHeader=X-XSS-Protection, 1; mode=block
+
+    # ── Sentinel ──
+    sentinel:
+      transport:
+        dashboard: ${SENTINEL_DASHBOARD:localhost:8080}
+        port: 8719
+      eager: true
+      filter:
+        enabled: false              # 网关模式关闭 Servlet 过滤器，使用 SentinelGatewayFilter
+
+  # ── Redis（限流窗口 + Token 黑名单） ──
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      database: 0
+      timeout: 3000ms
+      lettuce:
+        pool:
+          max-active: 50
+          max-idle: 20
+          min-idle: 5
+          max-wait: 3000ms
+
+# ── 业务配置 ──
+ilbuy:
+  gateway:
+    jwt:
+      secret: ${JWT_SECRET:aWxidXktcGxhdGZvcm0tc2VjcmV0LWtleS0zMmJ5dGVz}
+      issuer: ilbuy-platform
+      blacklist-key-prefix: "ilbuy:token:blacklist:"
+    auth:
+      whitelist:
+        - /api/v1/auth/**
+        - /api/v1/public/**
+        - /actuator/health
+        - /actuator/info
+        - /v3/api-docs/**
+        - /swagger-ui/**
+        - /fallback/**
+
+# ── Actuator ──
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,gateway,metrics
+  endpoint:
+    gateway:
+      enabled: true
+    health:
+      show-details: when-authorized
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
+# ── 日志 ──
+logging:
+  level:
+    com.ilbuy.gateway: INFO
+    org.springframework.cloud.gateway: INFO
+    reactor.netty: WARN
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level [%X{traceId}] %logger{36} - %msg%n"

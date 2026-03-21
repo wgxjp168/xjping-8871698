@@ -1,0 +1,72 @@
+server:
+  port: 8090
+
+spring:
+  application:
+    name: websocket-gateway
+
+  cloud:
+    nacos:
+      discovery:
+        server-addr: ${NACOS_ADDR:localhost:8848}
+        namespace: ${NACOS_NAMESPACE:public}
+        group: ILBUY_GATEWAY
+      config:
+        server-addr: ${NACOS_ADDR:localhost:8848}
+        namespace: ${NACOS_NAMESPACE:public}
+        file-extension: yml
+
+  # ── Redis（会话注册表 + Pub/Sub 跨实例广播） ──
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      database: 0
+      timeout: 3000ms
+      lettuce:
+        pool:
+          max-active: 50
+          max-idle: 20
+          min-idle: 5
+          max-wait: 3000ms
+
+  # Spring Session Redis（可选，用于跨实例共享 HTTP Session）
+  session:
+    store-type: redis
+    redis:
+      namespace: ilbuy:ws:session
+
+# ── JWT 配置（与 api-gateway 共享密钥） ──
+ilbuy:
+  gateway:
+    jwt:
+      secret: ${JWT_SECRET:aWxidXktcGxhdGZvcm0tc2VjcmV0LWtleS0zMmJ5dGVz}
+      issuer: ilbuy-platform
+
+# ── WebSocket 配置 ──
+websocket:
+  # 心跳间隔（秒）
+  heartbeat-interval: 30
+  # 最大 Pong 等待超时（秒）
+  pong-timeout: 90
+  # 单用户最大并发连接数
+  max-sessions-per-user: 5
+
+# ── Actuator ──
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: when-authorized
+
+# ── 日志 ──
+logging:
+  level:
+    com.ilbuy.gateway.ws: INFO
+    org.springframework.web.socket: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level [%X{traceId}] %logger{36} - %msg%n"
