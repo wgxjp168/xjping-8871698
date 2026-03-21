@@ -1,0 +1,52 @@
+---
+# ── 开发环境 Service ──
+apiVersion: v1
+kind: Service
+metadata:
+  name: websocket-gateway
+  namespace: ilbuy-dev
+  labels:
+    app: websocket-gateway
+    env: dev
+spec:
+  type: ClusterIP
+  selector:
+    app: websocket-gateway
+  ports:
+    - name: http
+      port: 8090
+      targetPort: 8090
+      protocol: TCP
+
+---
+# ── 生产环境 Service（LoadBalancer，对外暴露 WebSocket） ──
+apiVersion: v1
+kind: Service
+metadata:
+  name: websocket-gateway
+  namespace: ilbuy-prod
+  labels:
+    app: websocket-gateway
+    env: prod
+  annotations:
+    # WebSocket 需要关闭 LB 空闲超时（或设置极大值，避免长连接被踢）
+    service.beta.kubernetes.io/alibaba-cloud-loadbalancer-spec: "slb.s2.small"
+    service.beta.kubernetes.io/alibaba-cloud-loadbalancer-connection-idle-timeout: "3600"
+spec:
+  type: LoadBalancer
+  selector:
+    app: websocket-gateway
+  ports:
+    - name: ws
+      port: 80
+      targetPort: 8090
+      protocol: TCP
+    - name: wss
+      port: 443
+      targetPort: 8090
+      protocol: TCP
+  sessionAffinity: ClientIP           # WebSocket 需要会话保持（同一客户端始终路由到同一 Pod）
+  sessionAffinityConfig:
+    clientIP:
+      timeoutSeconds: 86400           # 会话保持 24h
+  externalTrafficPolicy: Local        # 保留客户端真实 IP

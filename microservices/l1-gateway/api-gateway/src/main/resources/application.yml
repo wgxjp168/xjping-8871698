@@ -94,6 +94,14 @@ management:
       enabled: true
     health:
       show-details: when-authorized
+      # K8s liveness/readiness 探针支持（Spring Boot 2.3+）
+      probes:
+        enabled: true
+  health:
+    livenessstate:
+      enabled: true
+    readinessstate:
+      enabled: true
   metrics:
     tags:
       application: ${spring.application.name}

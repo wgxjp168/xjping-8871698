@@ -1,0 +1,177 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-gateway
+  namespace: ilbuy-prod
+  labels:
+    app: api-gateway
+    env: prod
+    version: "1.0.0"
+spec:
+  replicas: 2                        # 生产环境最少 2 副本，HPA 按需扩容
+  selector:
+    matchLabels:
+      app: api-gateway
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0              # 零停机滚动更新
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        app: api-gateway
+        env: prod
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: "/actuator/prometheus"
+        prometheus.io/port: "8080"
+    spec:
+      serviceAccountName: ilbuy-app
+      terminationGracePeriodSeconds: 60   # 生产环境等待更长（处理长尾请求）
+
+      # 镜像拉取凭证
+      imagePullSecrets:
+        - name: harbor-secret
+
+      containers:
+        - name: api-gateway
+          image: harbor.ilbuy.internal/ilbuy/api-gateway:1.0.0
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+
+          # ── 资源限制（生产环境标准配置） ──
+          resources:
+            requests:
+              cpu: 500m
+              memory: 512Mi
+            limits:
+              cpu: 1000m             # 1 core
+              memory: 1Gi
+
+          # ── 环境变量 ──
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              valueFrom:
+                configMapKeyRef:
+                  name: api-gateway-config
+                  key: SPRING_PROFILES_ACTIVE
+            - name: NACOS_ADDR
+              valueFrom:
+                configMapKeyRef:
+                  name: api-gateway-config
+                  key: NACOS_ADDR
+            - name: NACOS_NAMESPACE
+              valueFrom:
+                configMapKeyRef:
+                  name: api-gateway-config
+                  key: NACOS_NAMESPACE
+            - name: REDIS_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: api-gateway-config
+                  key: REDIS_HOST
+            - name: REDIS_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: api-gateway-config
+                  key: REDIS_PORT
+            - name: SENTINEL_DASHBOARD
+              valueFrom:
+                configMapKeyRef:
+                  name: api-gateway-config
+                  key: SENTINEL_DASHBOARD
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: api-gateway-secret
+                  key: JWT_SECRET
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: api-gateway-secret
+                  key: REDIS_PASSWORD
+            # Pod 自身信息（可选，供日志追踪使用）
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+
+          # ── 启动探针 ──
+          startupProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8080
+            initialDelaySeconds: 20
+            periodSeconds: 5
+            failureThreshold: 36
+            successThreshold: 1
+
+          # ── 就绪探针 ──
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 8080
+            initialDelaySeconds: 25
+            periodSeconds: 5
+            failureThreshold: 3
+            successThreshold: 1
+            timeoutSeconds: 3
+
+          # ── 存活探针 ──
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 8080
+            initialDelaySeconds: 40
+            periodSeconds: 15
+            failureThreshold: 3
+            successThreshold: 1
+            timeoutSeconds: 5
+
+          lifecycle:
+            preStop:
+              exec:
+                command: ["sh", "-c", "sleep 20"]
+
+          volumeMounts:
+            - name: logs
+              mountPath: /app/logs
+
+      volumes:
+        - name: logs
+          emptyDir:
+            sizeLimit: 1Gi
+
+      # ── 强制反亲和性：不同副本部署到不同节点 ──
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                  - key: app
+                    operator: In
+                    values: [api-gateway]
+              topologyKey: kubernetes.io/hostname
+
+      # 容忍度（允许部署到专用网关节点）
+      tolerations:
+        - key: "dedicated"
+          operator: "Equal"
+          value: "gateway"
+          effect: "NoSchedule"
+
+      # 节点选择（优先调度到网关专用节点）
+      nodeSelector:
+        node-role: gateway

@@ -1,0 +1,153 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-gateway
+  namespace: ilbuy-dev
+  labels:
+    app: api-gateway
+    env: dev
+    version: "1.0.0"
+spec:
+  replicas: 1                        # 开发环境单副本
+  selector:
+    matchLabels:
+      app: api-gateway
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        app: api-gateway
+        env: dev
+      annotations:
+        # Prometheus 指标采集
+        prometheus.io/scrape: "true"
+        prometheus.io/path: "/actuator/prometheus"
+        prometheus.io/port: "8080"
+    spec:
+      serviceAccountName: ilbuy-app
+      terminationGracePeriodSeconds: 30
+
+      containers:
+        - name: api-gateway
+          image: ilbuy/api-gateway:1.0.0-SNAPSHOT
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+
+          # ── 资源限制（开发环境较小） ──
+          resources:
+            requests:
+              cpu: 200m
+              memory: 384Mi
+            limits:
+              cpu: 500m
+              memory: 768Mi
+
+          # ── 环境变量（来自 ConfigMap + Secret） ──
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              valueFrom:
+                configMapKeyRef:
+                  name: api-gateway-config
+                  key: SPRING_PROFILES_ACTIVE
+            - name: NACOS_ADDR
+              valueFrom:
+                configMapKeyRef:
+                  name: api-gateway-config
+                  key: NACOS_ADDR
+            - name: NACOS_NAMESPACE
+              valueFrom:
+                configMapKeyRef:
+                  name: api-gateway-config
+                  key: NACOS_NAMESPACE
+            - name: REDIS_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: api-gateway-config
+                  key: REDIS_HOST
+            - name: REDIS_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: api-gateway-config
+                  key: REDIS_PORT
+            - name: SENTINEL_DASHBOARD
+              valueFrom:
+                configMapKeyRef:
+                  name: api-gateway-config
+                  key: SENTINEL_DASHBOARD
+            # 敏感配置来自 Secret
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: api-gateway-secret
+                  key: JWT_SECRET
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: api-gateway-secret
+                  key: REDIS_PASSWORD
+
+          # ── 启动探针（最多等待 3 分钟） ──
+          startupProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8080
+            initialDelaySeconds: 15
+            periodSeconds: 5
+            failureThreshold: 36       # 36 × 5s = 3min
+            successThreshold: 1
+
+          # ── 就绪探针（决定是否接收流量） ──
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 8080
+            initialDelaySeconds: 20
+            periodSeconds: 5
+            failureThreshold: 3
+            successThreshold: 1
+            timeoutSeconds: 3
+
+          # ── 存活探针（失败则重启容器） ──
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 5
+            successThreshold: 1
+            timeoutSeconds: 5
+
+          # 优雅停机：K8s 发出 SIGTERM 后，等 15s 让请求处理完
+          lifecycle:
+            preStop:
+              exec:
+                command: ["sh", "-c", "sleep 15"]
+
+          volumeMounts:
+            - name: logs
+              mountPath: /app/logs
+
+      volumes:
+        - name: logs
+          emptyDir: {}
+
+      # 调度策略：避免多实例部署在同一节点（生产环境使用）
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app
+                      operator: In
+                      values: [api-gateway]
+                topologyKey: kubernetes.io/hostname

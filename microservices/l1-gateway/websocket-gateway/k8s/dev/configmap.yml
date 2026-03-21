@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: websocket-gateway-config
+  namespace: ilbuy-dev
+  labels:
+    app: websocket-gateway
+    env: dev
+data:
+  # ── 应用配置（开发环境） ──
+  SPRING_PROFILES_ACTIVE: "dev"
+  SERVER_PORT: "8090"
+  NACOS_ADDR: "nacos-headless.ilbuy-dev:8848"
+  NACOS_NAMESPACE: "dev"
+  REDIS_HOST: "redis-master.ilbuy-dev"
+  REDIS_PORT: "6379"
+
+  # WebSocket 配置
+  WS_MAX_TEXT_MESSAGE_SIZE: "65536"   # 64KB 最大文本消息
+  WS_MAX_BINARY_MESSAGE_SIZE: "65536"
+  WS_SESSION_TTL_HOURS: "25"         # Session 在 Redis 中的 TTL（小时）
+
+  # 日志级别（开发环境调试）
+  LOGGING_LEVEL_COM_ILBUY: "DEBUG"
+  LOGGING_LEVEL_ORG_SPRINGFRAMEWORK_WEB_SOCKET: "DEBUG"

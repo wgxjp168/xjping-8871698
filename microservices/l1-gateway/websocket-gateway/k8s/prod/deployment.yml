@@ -1,0 +1,175 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: websocket-gateway
+  namespace: ilbuy-prod
+  labels:
+    app: websocket-gateway
+    env: prod
+    version: "1.0.0"
+spec:
+  replicas: 2                        # 生产环境最少 2 副本，HPA 按需扩容
+  selector:
+    matchLabels:
+      app: websocket-gateway
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0              # 零停机滚动更新
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        app: websocket-gateway
+        env: prod
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: "/actuator/prometheus"
+        prometheus.io/port: "8090"
+    spec:
+      serviceAccountName: ilbuy-app
+      terminationGracePeriodSeconds: 90   # WebSocket 长连接等待更长时间
+
+      imagePullSecrets:
+        - name: harbor-secret
+
+      containers:
+        - name: websocket-gateway
+          image: harbor.ilbuy.internal/ilbuy/websocket-gateway:1.0.0
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 8090
+              protocol: TCP
+
+          # ── 资源限制（生产环境） ──
+          resources:
+            requests:
+              cpu: 500m
+              memory: 512Mi
+            limits:
+              cpu: 1000m             # 1 core
+              memory: 1Gi
+
+          # ── 环境变量 ──
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              valueFrom:
+                configMapKeyRef:
+                  name: websocket-gateway-config
+                  key: SPRING_PROFILES_ACTIVE
+            - name: SERVER_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: websocket-gateway-config
+                  key: SERVER_PORT
+            - name: NACOS_ADDR
+              valueFrom:
+                configMapKeyRef:
+                  name: websocket-gateway-config
+                  key: NACOS_ADDR
+            - name: NACOS_NAMESPACE
+              valueFrom:
+                configMapKeyRef:
+                  name: websocket-gateway-config
+                  key: NACOS_NAMESPACE
+            - name: REDIS_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: websocket-gateway-config
+                  key: REDIS_HOST
+            - name: REDIS_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: websocket-gateway-config
+                  key: REDIS_PORT
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: websocket-gateway-secret
+                  key: JWT_SECRET
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: websocket-gateway-secret
+                  key: REDIS_PASSWORD
+            # Pod 自身信息（供日志追踪）
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+
+          # ── 启动探针 ──
+          startupProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8090
+            initialDelaySeconds: 20
+            periodSeconds: 5
+            failureThreshold: 36
+            successThreshold: 1
+
+          # ── 就绪探针 ──
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 8090
+            initialDelaySeconds: 25
+            periodSeconds: 5
+            failureThreshold: 3
+            successThreshold: 1
+            timeoutSeconds: 3
+
+          # ── 存活探针 ──
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 8090
+            initialDelaySeconds: 40
+            periodSeconds: 15
+            failureThreshold: 3
+            successThreshold: 1
+            timeoutSeconds: 5
+
+          lifecycle:
+            preStop:
+              exec:
+                # WebSocket 长连接：给更长的排水时间
+                command: ["sh", "-c", "sleep 45"]
+
+          volumeMounts:
+            - name: logs
+              mountPath: /app/logs
+
+      volumes:
+        - name: logs
+          emptyDir:
+            sizeLimit: 1Gi
+
+      # ── 强制反亲和性：不同副本部署到不同节点 ──
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                  - key: app
+                    operator: In
+                    values: [websocket-gateway]
+              topologyKey: kubernetes.io/hostname
+
+      tolerations:
+        - key: "dedicated"
+          operator: "Equal"
+          value: "gateway"
+          effect: "NoSchedule"
+
+      nodeSelector:
+        node-role: gateway

@@ -1,0 +1,150 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: websocket-gateway
+  namespace: ilbuy-dev
+  labels:
+    app: websocket-gateway
+    env: dev
+    version: "1.0.0"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: websocket-gateway
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        app: websocket-gateway
+        env: dev
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: "/actuator/prometheus"
+        prometheus.io/port: "8090"
+    spec:
+      serviceAccountName: ilbuy-app
+      terminationGracePeriodSeconds: 60   # WebSocket 长连接需要更长的优雅停机时间
+
+      containers:
+        - name: websocket-gateway
+          image: ilbuy/websocket-gateway:1.0.0-SNAPSHOT
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 8090
+              protocol: TCP
+
+          # ── 资源限制（开发环境） ──
+          resources:
+            requests:
+              cpu: 200m
+              memory: 384Mi
+            limits:
+              cpu: 500m
+              memory: 768Mi
+
+          # ── 环境变量 ──
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              valueFrom:
+                configMapKeyRef:
+                  name: websocket-gateway-config
+                  key: SPRING_PROFILES_ACTIVE
+            - name: SERVER_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: websocket-gateway-config
+                  key: SERVER_PORT
+            - name: NACOS_ADDR
+              valueFrom:
+                configMapKeyRef:
+                  name: websocket-gateway-config
+                  key: NACOS_ADDR
+            - name: NACOS_NAMESPACE
+              valueFrom:
+                configMapKeyRef:
+                  name: websocket-gateway-config
+                  key: NACOS_NAMESPACE
+            - name: REDIS_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: websocket-gateway-config
+                  key: REDIS_HOST
+            - name: REDIS_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: websocket-gateway-config
+                  key: REDIS_PORT
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: websocket-gateway-secret
+                  key: JWT_SECRET
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: websocket-gateway-secret
+                  key: REDIS_PASSWORD
+
+          # ── 启动探针 ──
+          startupProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8090
+            initialDelaySeconds: 15
+            periodSeconds: 5
+            failureThreshold: 36       # 36 × 5s = 3min
+            successThreshold: 1
+
+          # ── 就绪探针 ──
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 8090
+            initialDelaySeconds: 20
+            periodSeconds: 5
+            failureThreshold: 3
+            successThreshold: 1
+            timeoutSeconds: 3
+
+          # ── 存活探针 ──
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 8090
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 5
+            successThreshold: 1
+            timeoutSeconds: 5
+
+          lifecycle:
+            preStop:
+              exec:
+                # 等待已有 WebSocket 连接处理完毕再停机
+                command: ["sh", "-c", "sleep 30"]
+
+          volumeMounts:
+            - name: logs
+              mountPath: /app/logs
+
+      volumes:
+        - name: logs
+          emptyDir: {}
+
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app
+                      operator: In
+                      values: [websocket-gateway]
+                topologyKey: kubernetes.io/hostname

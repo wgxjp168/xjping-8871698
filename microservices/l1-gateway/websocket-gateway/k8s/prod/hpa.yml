@@ -1,0 +1,41 @@
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: websocket-gateway-hpa
+  namespace: ilbuy-prod
+  labels:
+    app: websocket-gateway
+    env: prod
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: websocket-gateway
+  minReplicas: 2
+  maxReplicas: 8                     # WebSocket 连接数高峰扩容上限更大
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 60     # WebSocket 长连接 CPU 阈值稍低
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 75
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 30
+      policies:
+        - type: Pods
+          value: 2                   # WebSocket 流量突发时允许一次扩 2 个
+          periodSeconds: 60
+    scaleDown:
+      stabilizationWindowSeconds: 600  # WebSocket 缩容窗口更长（避免频繁断连）
+      policies:
+        - type: Pods
+          value: 1
+          periodSeconds: 180

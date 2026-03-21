@@ -5,9 +5,9 @@ import com.alibaba.csp.sentinel.adapter.gateway.common.rule.GatewayParamFlowItem
 import com.alibaba.csp.sentinel.adapter.gateway.common.rule.GatewayRuleManager;
 import com.alibaba.csp.sentinel.adapter.gateway.sc.SentinelGatewayFilter;
 import com.alibaba.csp.sentinel.adapter.gateway.sc.callback.GatewayCallbackManager;
+import com.alibaba.csp.sentinel.slots.block.RuleConstant;
 import com.alibaba.csp.sentinel.slots.block.degrade.DegradeRule;
 import com.alibaba.csp.sentinel.slots.block.degrade.DegradeRuleManager;
-import com.alibaba.csp.sentinel.slots.block.degrade.circuitbreaker.CircuitBreakerStrategy;
 import com.ilbuy.gateway.api.handler.SentinelFallbackHandler;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
@@ -112,30 +112,30 @@ public class SentinelGatewayConfig {
     private void initDegradeRules() {
         List<DegradeRule> rules = new ArrayList<>();
 
-        // dialog-service：慢调用比例熔断（RT > 500ms, 比例 > 60%，熔断 10s）
+        // dialog-service：慢调用平均 RT 熔断（平均 RT > 500ms，熔断 10s）
+        // DEGRADE_GRADE_RT = 0（慢调用平均响应时间）
         DegradeRule dialogSlowRule = new DegradeRule("dialog-service")
-                .setStrategy(CircuitBreakerStrategy.SLOW_REQUEST_RATIO.getType())
-                .setCount(500)          // 最大 RT（ms）
-                .setSlowRatioThreshold(0.6)
+                .setStrategy(RuleConstant.DEGRADE_GRADE_RT)
+                .setCount(500)           // 平均响应时间阈值（ms）
                 .setStatIntervalMs(10_000)
                 .setMinRequestAmount(10)
-                .setTimeWindow(10);     // 熔断恢复时间（s）
+                .setTimeWindow(10);      // 熔断恢复时间（s）
         rules.add(dialogSlowRule);
 
         // dialog-service：异常比例熔断（> 50%，熔断 15s）
+        // DEGRADE_GRADE_EXCEPTION_RATIO = 1（异常比例，0.0~1.0）
         DegradeRule dialogErrorRule = new DegradeRule("dialog-service")
-                .setStrategy(CircuitBreakerStrategy.ERROR_RATIO.getType())
-                .setCount(0.5)
+                .setStrategy(RuleConstant.DEGRADE_GRADE_EXCEPTION_RATIO)
+                .setCount(0.5)           // 异常比例阈值 50%
                 .setStatIntervalMs(10_000)
                 .setMinRequestAmount(10)
                 .setTimeWindow(15);
         rules.add(dialogErrorRule);
 
-        // order-service：慢调用熔断（RT > 1000ms, 比例 > 50%，熔断 20s）
+        // order-service：慢调用熔断（平均 RT > 1000ms，熔断 20s）
         DegradeRule orderSlowRule = new DegradeRule("order-service")
-                .setStrategy(CircuitBreakerStrategy.SLOW_REQUEST_RATIO.getType())
+                .setStrategy(RuleConstant.DEGRADE_GRADE_RT)
                 .setCount(1_000)
-                .setSlowRatioThreshold(0.5)
                 .setStatIntervalMs(10_000)
                 .setMinRequestAmount(5)
                 .setTimeWindow(20);

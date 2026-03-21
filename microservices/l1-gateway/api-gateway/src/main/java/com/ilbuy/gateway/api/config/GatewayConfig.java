@@ -82,6 +82,7 @@ public class GatewayConfig {
         return builder.routes()
 
             // ── 对话服务（C端核心，限流最严）──
+            // 熔断由 SentinelGatewayFilter（GlobalFilter）统一处理，此处只配置限流
             .route("dialog-route", r -> r
                 .path("/api/v1/dialog/**")
                 .filters(f -> f
@@ -90,10 +91,7 @@ public class GatewayConfig {
                     .requestRateLimiter(c -> c
                         .setRateLimiter(consumerRateLimiter)
                         .setKeyResolver(userKeyResolver)
-                        .setDenyEmptyKey(false))
-                    .circuitBreaker(cb -> cb
-                        .setName("dialog-service")
-                        .setFallbackUri("forward:/fallback/dialog")))
+                        .setDenyEmptyKey(false)))
                 .uri("lb://dialog-service"))
 
             // ── 订单服务 ──
@@ -105,10 +103,7 @@ public class GatewayConfig {
                     .requestRateLimiter(c -> c
                         .setRateLimiter(consumerRateLimiter)
                         .setKeyResolver(userKeyResolver)
-                        .setDenyEmptyKey(false))
-                    .circuitBreaker(cb -> cb
-                        .setName("order-service")
-                        .setFallbackUri("forward:/fallback/order")))
+                        .setDenyEmptyKey(false)))
                 .uri("lb://order-service"))
 
             // ── 用户服务 ──
