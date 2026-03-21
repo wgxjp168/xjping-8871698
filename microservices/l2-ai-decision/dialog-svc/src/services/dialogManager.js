@@ -25,28 +25,30 @@ const MIN_ENTITIES_FOR_BRAND_DETECTION = 1;
  */
 const MIN_PARAMS_FOR_DECISION = 2;
 
-// ─── Prompts / suggestions ────────────────────────────────────────────────────
+// ─── 对话建议语（中文） ───────────────────────────────────────────────────────
 
 const SUGGESTIONS_BY_STATE = {
   [DialogState.COLLECTING]: [
-    'Tell me the product category you are looking for',
-    'What is your approximate budget?',
-    'Do you have a preferred brand?',
+    '请告诉我您想要的商品类别',
+    '您的预算大概是多少？',
+    '您有偏好的品牌吗？',
+    '需要什么规格或参数要求？',
   ],
   [DialogState.BRAND_DETECTION]: [
-    'Confirm the brand you have in mind',
-    'Would you like to explore alternative brands?',
+    '请确认您心仪的品牌',
+    '是否需要为您推荐同类其他品牌？',
   ],
   [DialogState.DECISION]: [
-    'Generating recommendations…',
+    '正在分析中，请稍候…',
   ],
   [DialogState.COMPLETED]: [
-    'Start a new search',
-    'Refine the current recommendation',
+    '开始新的采购咨询',
+    '进一步优化当前推荐',
+    '查看完整决策报告',
   ],
   [DialogState.ERROR]: [
-    'Please try rephrasing your request',
-    'Start a new session',
+    '请换一种方式描述您的需求',
+    '重新开始对话',
   ],
 };
 
@@ -68,12 +70,12 @@ class DialogManager {
     await sessionStore.create(session.sessionId, session);
     logger.info({ msg: 'Dialog session started', sessionId: session.sessionId, userId });
 
-    // Kick off first intent pass immediately so the very first response is informed.
+    // 第一轮意图识别，使响应更有针对性
     let intentResult = null;
     try {
       intentResult = await intentClient.recognize(initialMessage, session.context);
     } catch (err) {
-      logger.warn({ msg: 'Intent recognition failed on session start', error: err.message });
+      logger.warn({ msg: '首轮意图识别失败', error: err.message });
     }
 
     if (intentResult) {
@@ -102,34 +104,34 @@ class DialogManager {
   async processMessage(sessionId, userMessage) {
     let session = await sessionStore.get(sessionId);
     if (!session) {
-      const err = new Error('Session not found');
+      const err = new Error('会话不存在，请重新开始');
       err.status = 404;
       throw err;
     }
 
     if (session.state === DialogState.COMPLETED || session.state === DialogState.ERROR) {
-      return this._buildResponse(session, null, 'This session has already ended. Please start a new session.');
+      return this._buildResponse(session, null, '本次会话已结束，请开启新的采购咨询。');
     }
 
     // 1. Append user message
     session = appendMessage(session, 'user', userMessage);
 
-    // 2. Recognise intent
+    // 2. 意图识别
     let intentResult = null;
     try {
       intentResult = await intentClient.recognize(userMessage, session.context);
       session = mergeContext(session, { intent: intentResult.intent });
     } catch (err) {
-      logger.error({ msg: 'Intent recognition failed', sessionId, error: err.message });
+      logger.error({ msg: '意图识别失败', sessionId, error: err.message });
     }
 
-    // 3. Extract entities
+    // 3. 实体提取
     let entityResult = null;
     try {
       entityResult = await intentClient.extractEntities(userMessage);
       if (entityResult?.entities?.length) {
         const merged = [...(session.context.entities || []), ...entityResult.entities];
-        // Deduplicate by type+value
+        // 按 type:value 去重
         const seen = new Set();
         const deduped = merged.filter((e) => {
           const id = `${e.type}:${e.value}`;
@@ -140,7 +142,7 @@ class DialogManager {
         session = mergeContext(session, { entities: deduped });
       }
     } catch (err) {
-      logger.warn({ msg: 'Entity extraction failed', sessionId, error: err.message });
+      logger.warn({ msg: '实体提取失败', sessionId, error: err.message });
     }
 
     // 4. Accumulate product params from entities
@@ -181,7 +183,7 @@ class DialogManager {
     if (state === DialogState.COLLECTING) {
       if (entityCount >= MIN_ENTITIES_FOR_BRAND_DETECTION) {
         session = transitionState(session, DialogState.BRAND_DETECTION);
-        // Attempt brand detection
+        // 品牌检测
         try {
           const brandResult = await intentClient.detectBrand(
             context.intent || '',
@@ -189,7 +191,7 @@ class DialogManager {
           );
           session = mergeContext(session, { brandStatus: brandResult });
         } catch (err) {
-          logger.warn({ msg: 'Brand detection failed', error: err.message });
+          logger.warn({ msg: '品牌检测失败', error: err.message });
         }
       }
     }
@@ -216,31 +218,58 @@ class DialogManager {
    */
   async _triggerDecisionFlow(session) {
     try {
-      logger.info({ msg: 'Triggering decision flow', sessionId: session.sessionId });
+      logger.info({ msg: '触发 AI 决策八步流程', sessionId: session.sessionId });
 
+      // ── 单品分析（8步决策流）────────────────────────────────────────────
       const decisionPayload = {
-        sessionId: session.sessionId,
-        userId: session.userId,
-        intent: session.context.intent,
-        entities: session.context.entities,
-        brandStatus: session.context.brandStatus,
-        productParams: session.context.productParams,
-        messages: session.messages,
+        session_id: session.sessionId,
+        intent: session.context.intent || 'PURCHASE_INQUIRY',
+        entities: this._entitiesToDict(session.context.entities),
+        brand_status: session.context.brandStatus?.brand_status || 'UNKNOWN',
+        user_context: {
+          userId: session.userId,
+          productParams: session.context.productParams,
+        },
       };
 
       const decisionResult = await decisionClient.analyze(decisionPayload);
 
-      session = mergeContext(session, { decisionResult });
+      // ── 双档推荐（当候选商品数 ≥ 2 时启用）───────────────────────────
+      let dualResult = null;
+      const candidates = session.context.candidates || [];
+      if (candidates.length >= 2) {
+        try {
+          const dualPayload = {
+            session_id: session.sessionId,
+            intent: decisionPayload.intent,
+            entities: decisionPayload.entities,
+            brand_status: decisionPayload.brand_status,
+            user_context: decisionPayload.user_context,
+            candidates,
+          };
+          dualResult = await decisionClient.dualRecommend(dualPayload);
+          logger.info({
+            msg: '双档推荐完成',
+            sessionId: session.sessionId,
+            qualityPick: dualResult?.quality_pick?.product_name,
+            valuePick: dualResult?.value_pick?.product_name,
+          });
+        } catch (dualErr) {
+          logger.warn({ msg: '双档推荐失败，降级为单品分析', error: dualErr.message });
+        }
+      }
+
+      session = mergeContext(session, { decisionResult, dualResult });
       session = transitionState(session, DialogState.COMPLETED);
 
       logger.info({
-        msg: 'Decision flow completed',
+        msg: 'AI 决策流程完成',
         sessionId: session.sessionId,
-        decisionId: decisionResult?.decisionId,
+        decisionId: decisionResult?.decision_id,
       });
     } catch (err) {
       logger.error({
-        msg: 'Decision flow failed',
+        msg: 'AI 决策流程失败',
         sessionId: session.sessionId,
         error: err.message,
       });
@@ -249,6 +278,19 @@ class DialogManager {
     }
 
     return session;
+  }
+
+  /**
+   * 将实体数组 [{type, value}] 转为 decision-svc 期望的 dict 格式。
+   * @private
+   */
+  _entitiesToDict(entities) {
+    if (!Array.isArray(entities)) return entities || {};
+    const dict = {};
+    for (const e of entities) {
+      if (e && e.type) dict[e.type] = e.value;
+    }
+    return dict;
   }
 
   /**
@@ -271,32 +313,57 @@ class DialogManager {
           message = this._collectingMessage(context, intentResult);
           break;
 
-        case DialogState.BRAND_DETECTION:
+        case DialogState.BRAND_DETECTION: {
           requiresMoreInfo = true;
-          message = context.brandStatus?.brands?.length
-            ? `I detected the following brands: ${context.brandStatus.brands.join(', ')}. Would you like to proceed with one of these, or explore alternatives?`
-            : 'I\'m gathering information about brands relevant to your request. Could you specify a preferred brand?';
+          const detectedBrands = context.brandStatus?.brands || [];
+          if (detectedBrands.length > 0) {
+            message = `我检测到您提到了以下品牌：**${detectedBrands.join('、')}**。\n请问您是否已确定品牌？还是希望我为您推荐更多同类品牌进行对比？`;
+          } else {
+            message = '我正在分析您的品牌偏好。请问您是否有心仪的品牌，或希望我根据需求为您推荐？';
+          }
           break;
+        }
 
         case DialogState.DECISION:
           requiresMoreInfo = false;
-          message = 'I have enough information to analyse your request. Running the AI decision flow now, please wait…';
+          message = '已收集到足够的需求信息，正在运行 AI 决策八步分析，请稍候…';
           break;
 
         case DialogState.COMPLETED: {
-          const decisionId = context.decisionResult?.decisionId;
-          message = decisionId
-            ? `Analysis complete! Your decision report ID is ${decisionId}. Here is the summary: ${context.decisionResult?.summary || 'Please check your report.'}`
-            : 'Your session has been completed. Would you like to start a new search?';
+          const decisionId = context.decisionResult?.decision_id;
+          const dualResult = context.dualResult;
+
+          if (dualResult) {
+            // 双档推荐摘要
+            const q = dualResult.quality_pick;
+            const v = dualResult.value_pick;
+            message = `🎯 **AI 采购分析完成！**\n\n` +
+              `**品质款推荐**：${q.product_name}（评分 ${q.score_result?.total_score?.toFixed(1)}，` +
+              `价格 ¥${q.product_price?.toFixed(2)}）\n` +
+              `**性价比款推荐**：${v.product_name}（评分 ${v.score_result?.total_score?.toFixed(1)}，` +
+              `价格 ¥${v.product_price?.toFixed(2)}）\n\n` +
+              `${dualResult.comparison_summary || ''}\n\n` +
+              `决策报告编号：\`${decisionId || dualResult.decision_id}\``;
+          } else if (decisionId) {
+            const score = context.decisionResult?.score_result?.total_score;
+            const grade = context.decisionResult?.score_result?.grade;
+            const rec = context.decisionResult?.recommendation || '';
+            message = `🎯 **AI 采购分析完成！**\n\n` +
+              `综合评分：**${score?.toFixed(1) ?? '--'} 分（${grade ?? '--'} 级）**\n\n` +
+              `${rec}\n\n` +
+              `决策报告编号：\`${decisionId}\`，可通过报告 ID 查看完整分析。`;
+          } else {
+            message = '本次采购咨询已完成。如需重新咨询，请开启新会话。';
+          }
           break;
         }
 
         case DialogState.ERROR:
-          message = `An error occurred while processing your request: ${context.errorMessage || 'Unknown error'}. Please try again.`;
+          message = `❌ 处理您的请求时出现错误：${context.errorMessage || '未知错误'}。\n请尝试重新描述需求，或开启新会话。`;
           break;
 
         default:
-          message = 'How can I assist you today?';
+          message = '您好！我是 ILbuy 智能采购助手，请告诉我您的采购需求。';
       }
     }
 
@@ -316,15 +383,36 @@ class DialogManager {
   _collectingMessage(context, intentResult) {
     const params = context.productParams || {};
     const paramCount = Object.keys(params).length;
+    const entityCount = (context.entities || []).length;
+
+    const INTENT_CN_MAP = {
+      PURCHASE_INQUIRY: '购买咨询',
+      RECOMMENDATION: '商品推荐',
+      PRICE_QUERY: '价格查询',
+      SPEC_QUERY: '规格查询',
+      COMPARISON: '商品对比',
+      BUDGET_INQUIRY: '预算规划',
+      CUSTOM_ORDER: '企业定制采购',
+      BRAND_QUERY: '品牌咨询',
+    };
 
     if (intentResult?.intent) {
-      if (paramCount === 0) {
-        return `I understand you are looking for something related to "${intentResult.intent}". Could you give me more details, such as the product category and your budget?`;
+      const intentCn = INTENT_CN_MAP[intentResult.intent] || intentResult.intent;
+      if (paramCount === 0 && entityCount === 0) {
+        return `您好！我了解您正在咨询**${intentCn}**相关内容。\n请告诉我更多细节，例如：商品类别、预算范围，以及是否有偏好的品牌？`;
       }
-      return `Great, I have captured some details. Could you tell me more about your requirements, such as your budget or preferred brand?`;
+      if (paramCount < MIN_PARAMS_FOR_DECISION) {
+        const missing = [];
+        if (!params.budget_max && !params.budget_min) missing.push('预算范围');
+        if (!params.category) missing.push('商品类别');
+        if (!params.brand) missing.push('品牌偏好（可选）');
+        const hint = missing.length > 0 ? `\n\n还需要您提供：${missing.join('、')}` : '';
+        return `好的，我已记录了您的部分需求（共 ${paramCount} 项参数）。${hint}`;
+      }
+      return `好的，我已收集到足够信息（${paramCount} 项参数，${entityCount} 个实体），即将为您进行 AI 决策分析。`;
     }
 
-    return 'I\'m here to help! Could you describe what you are looking for in more detail?';
+    return '您好！我是 ILbuy 智能采购助手，请详细描述您的采购需求，例如商品类别、预算和偏好。';
   }
 }
 

@@ -36,21 +36,9 @@ spec:
           ports:
             - containerPort: 8012
               protocol: TCP
-          env:
-            - name: ENV
-              value: "production"
-            - name: PORT
-              value: "8012"
-            - name: LOG_LEVEL
-              value: "INFO"
-            - name: INTENT_SVC_URL
-              value: "http://intent-svc.ilbuy-l2.svc.cluster.local:8010"
-            - name: LLM_SVC_URL
-              value: "http://llm-svc.ilbuy-l2.svc.cluster.local:8011"
-            - name: L3_DATA_SVC_URL
-              value: "http://l3-data-svc.ilbuy-l3.svc.cluster.local:8031"
-            - name: L3_PRODUCT_SVC_URL
-              value: "http://l3-product-svc.ilbuy-l3.svc.cluster.local:8032"
+          envFrom:
+            - configMapRef:
+                name: decision-svc-config-prod
           resources:
             requests:
               cpu: "250m"
@@ -58,20 +46,30 @@ spec:
             limits:
               cpu: "500m"
               memory: "512Mi"
-          livenessProbe:
-            httpGet:
-              path: /health
-              port: 8012
-            initialDelaySeconds: 15
-            periodSeconds: 20
-            failureThreshold: 3
-          readinessProbe:
+          startupProbe:
             httpGet:
               path: /health
               port: 8012
             initialDelaySeconds: 10
+            periodSeconds: 5
+            failureThreshold: 24        # 最多等待 2 分钟启动
+            successThreshold: 1
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8012
+            initialDelaySeconds: 0      # startupProbe 通过后才开始
+            periodSeconds: 20
+            failureThreshold: 3
+            timeoutSeconds: 5
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8012
+            initialDelaySeconds: 0
             periodSeconds: 10
             failureThreshold: 3
+            timeoutSeconds: 3
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true

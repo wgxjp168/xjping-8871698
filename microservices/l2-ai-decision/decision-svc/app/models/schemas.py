@@ -199,6 +199,81 @@ class ReportResponse(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Dual Recommendation Schemas
+# ---------------------------------------------------------------------------
+
+class CandidateProduct(BaseModel):
+    """A single candidate product to be evaluated in the dual-recommendation flow."""
+    product_id: str = Field(..., description="Unique product identifier")
+    product_name: str = Field(..., description="Display name of the product")
+    product_price: float = Field(..., gt=0, description="Current sale price")
+    attributes: dict[str, Any] = Field(
+        default_factory=dict,
+        description=(
+            "Product attributes: brand, category, warranty_months, lead_time_days, "
+            "market_price_ratio, brand_tier, certification_count, etc."
+        ),
+    )
+
+
+class CandidateScore(BaseModel):
+    """Scoring result for a single candidate product."""
+    product_id: str
+    product_name: str
+    product_price: float
+    score_result: ScoreResult
+    rule_result: RuleResult
+    recommendation_type: str = Field(
+        ...,
+        description="品质款 | 性价比款 | 候补",
+    )
+
+
+class DualRecommendRequest(BaseModel):
+    """Request for the dual-recommendation endpoint."""
+    session_id: str = Field(..., description="Current session identifier")
+    intent: str = Field(..., description="Parsed purchase intent")
+    entities: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Extracted entities (budget, specs, quantity…)",
+    )
+    brand_status: BrandStatus = Field(default=BrandStatus.UNKNOWN)
+    user_context: dict[str, Any] = Field(default_factory=dict)
+    candidates: list[CandidateProduct] = Field(
+        ...,
+        min_length=1,
+        description="List of candidate products (from product-service query result)",
+    )
+
+
+class DualRecommendResult(BaseModel):
+    """Dual-recommendation output: one quality pick + one value pick."""
+    decision_id: str = Field(
+        default_factory=lambda: f"DUAL-{uuid4().hex[:12].upper()}",
+    )
+    session_id: str = ""
+    scoring_context: ScoringContext
+    quality_pick: CandidateScore = Field(
+        ...,
+        description="品质款：综合评分最高的候选商品",
+    )
+    value_pick: CandidateScore = Field(
+        ...,
+        description="性价比款：性价比（评分/价格）最优的候选商品",
+    )
+    all_scores: list[CandidateScore] = Field(
+        default_factory=list,
+        description="所有候选商品的评分（由高到低排序）",
+    )
+    comparison_summary: str = Field(
+        default="",
+        description="品质款与性价比款的差异对比自然语言摘要",
+    )
+    requires_human_review: bool = False
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+# ---------------------------------------------------------------------------
 # Health
 # ---------------------------------------------------------------------------
 

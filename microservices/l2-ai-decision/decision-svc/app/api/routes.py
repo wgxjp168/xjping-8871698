@@ -22,6 +22,8 @@ from app.models.schemas import (
     BrandStatus,
     DecisionAnalyzeRequest,
     DecisionAnalyzeResponse,
+    DualRecommendRequest,
+    DualRecommendResult,
     HealthResponse,
     ReportFormat,
     ReportRequest,
@@ -31,6 +33,7 @@ from app.models.schemas import (
     ScoringContext,
 )
 from app.services.decision_engine import decision_engine
+from app.services.dual_recommendation import dual_recommendation_engine
 from app.services.report_generator import report_generator
 from app.services.rule_engine import rule_engine
 from app.services.scoring.b2b_scorer import b2b_scorer
@@ -215,3 +218,33 @@ async def generate_report(request: ReportRequest) -> ReportResponse:
         )
 
     return report_generator.generate(decision, fmt=request.format.value)
+
+
+# --------------------------------------------------------------------------- #
+# Dual Recommendation endpoint
+# --------------------------------------------------------------------------- #
+
+@router.post(
+    "/decision/recommend/dual",
+    response_model=DualRecommendResult,
+    tags=["decision"],
+    summary="双档推荐：品质款 + 性价比款",
+    description=(
+        "从候选商品池中按评分模型（B2B / B2C_KNOWN / B2C_UNKNOWN）为每个候选品打分，"
+        "输出综合评分最高的'品质款'和性价比指数最优的'性价比款'，并附带差异对比摘要。\n\n"
+        "对应 8-step 流程的第 7 步（结果生成）。"
+    ),
+)
+async def dual_recommend(request: DualRecommendRequest) -> DualRecommendResult:
+    """
+    品质款：综合评分最高（优先保证品质、合规）。
+    性价比款：评分/价格指数最优（同等品质下价格更低）。
+    违规商品评分乘以 0.6 惩罚系数，仍参与排名确保始终有输出。
+    """
+    try:
+        return dual_recommendation_engine.recommend(request)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.exception("Dual recommendation failed")
+        raise HTTPException(status_code=500, detail=f"Dual recommendation failed: {exc}") from exc

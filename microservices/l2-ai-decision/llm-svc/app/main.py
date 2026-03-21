@@ -13,7 +13,9 @@ import sys
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
-from fastapi import FastAPI
+import uuid
+
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import router
@@ -96,6 +98,16 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    # ------------------------------------------------------------------
+    # Trace-ID middleware
+    # ------------------------------------------------------------------
+    @app.middleware("http")
+    async def trace_id_middleware(request: Request, call_next):
+        trace_id = request.headers.get("X-Trace-ID") or uuid.uuid4().hex
+        response = await call_next(request)
+        response.headers["X-Trace-ID"] = trace_id
+        return response
 
     # ------------------------------------------------------------------
     # Routes

@@ -456,6 +456,7 @@ class DecisionEngine:
 
         return DecisionAnalyzeResponse(
             decision_id=decision_id,
+            session_id=request.session_id,
             scoring_context=scoring_context,
             score_result=score_result,
             rule_result=rule_result,

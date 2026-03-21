@@ -8,9 +8,12 @@ import sys
 from contextlib import asynccontextmanager
 from typing import AsyncIterator
 
+import uuid
+
 import uvicorn
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.api.routes import router
 from app.core.config import settings
@@ -50,6 +53,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     from app.services.decision_engine import decision_engine  # noqa: F401
     from app.services.report_generator import report_generator  # noqa: F401
     from app.services.explainability import explainability_engine  # noqa: F401
+    from app.services.dual_recommendation import dual_recommendation_engine  # noqa: F401
 
     logger.info("All engines initialised — service ready")
     yield
@@ -73,6 +77,17 @@ def create_app() -> FastAPI:
         redoc_url="/redoc",
         lifespan=lifespan,
     )
+
+    # ── Trace-ID middleware ──────────────────────────────────────────────────
+    # Reads X-Trace-ID from upstream (e.g. L1 API Gateway) and echoes it back
+    # in every response.  Generates a new UUID when the header is absent.
+
+    @app.middleware("http")
+    async def trace_id_middleware(request: Request, call_next):
+        trace_id = request.headers.get("X-Trace-ID") or uuid.uuid4().hex
+        response = await call_next(request)
+        response.headers["X-Trace-ID"] = trace_id
+        return response
 
     # CORS
     app.add_middleware(

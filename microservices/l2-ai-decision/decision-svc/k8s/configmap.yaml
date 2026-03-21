@@ -1,0 +1,41 @@
+---
+# ── 开发环境 ConfigMap ──────────────────────────────────────────────────────
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: decision-svc-config-dev
+  namespace: ilbuy-l2-dev
+  labels:
+    app: decision-svc
+    env: dev
+data:
+  ENV: "development"
+  PORT: "8012"
+  LOG_LEVEL: "DEBUG"
+  INTENT_SVC_URL: "http://intent-svc.ilbuy-l2-dev.svc.cluster.local:8010"
+  LLM_SVC_URL: "http://llm-svc.ilbuy-l2-dev.svc.cluster.local:8011"
+  L3_DATA_SVC_URL: "http://l3-data-svc.ilbuy-l3-dev.svc.cluster.local:8031"
+  L3_PRODUCT_SVC_URL: "http://l3-product-svc.ilbuy-l3-dev.svc.cluster.local:8032"
+  HTTP_TIMEOUT: "10"
+  DECISION_CACHE_TTL: "3600"
+
+---
+# ── 生产环境 ConfigMap ──────────────────────────────────────────────────────
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: decision-svc-config-prod
+  namespace: ilbuy-l2
+  labels:
+    app: decision-svc
+    env: prod
+data:
+  ENV: "production"
+  PORT: "8012"
+  LOG_LEVEL: "INFO"
+  INTENT_SVC_URL: "http://intent-svc.ilbuy-l2.svc.cluster.local:8010"
+  LLM_SVC_URL: "http://llm-svc.ilbuy-l2.svc.cluster.local:8011"
+  L3_DATA_SVC_URL: "http://l3-data-svc.ilbuy-l3.svc.cluster.local:8031"
+  L3_PRODUCT_SVC_URL: "http://l3-product-svc.ilbuy-l3.svc.cluster.local:8032"
+  HTTP_TIMEOUT: "5"
+  DECISION_CACHE_TTL: "7200"

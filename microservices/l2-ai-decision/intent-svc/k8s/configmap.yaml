@@ -1,0 +1,41 @@
+---
+# ── 开发环境 ConfigMap ──────────────────────────────────────────────────────
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: intent-svc-config-dev
+  namespace: ilbuy-l2-dev
+  labels:
+    app: intent-svc
+    env: dev
+data:
+  ENV: "development"
+  PORT: "8010"
+  LOG_LEVEL: "DEBUG"
+  LLM_SVC_URL: "http://llm-svc.ilbuy-l2-dev.svc.cluster.local:8011"
+  # 开发环境使用 CPU，不加载 GPU
+  NLP_DEVICE: "cpu"
+  HF_MODEL_NAME: "hfl/chinese-roberta-wwm-ext"
+  # 模型缓存目录（对应 volumeMount）
+  TRANSFORMERS_CACHE: "/model-cache"
+  LLM_FALLBACK_THRESHOLD: "0.55"
+
+---
+# ── 生产环境 ConfigMap ──────────────────────────────────────────────────────
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: intent-svc-config-prod
+  namespace: ilbuy-l2
+  labels:
+    app: intent-svc
+    env: prod
+data:
+  ENV: "production"
+  PORT: "8010"
+  LOG_LEVEL: "INFO"
+  LLM_SVC_URL: "http://llm-svc.ilbuy-l2.svc.cluster.local:8011"
+  NLP_DEVICE: "cpu"
+  HF_MODEL_NAME: "hfl/chinese-roberta-wwm-ext"
+  TRANSFORMERS_CACHE: "/model-cache"
+  LLM_FALLBACK_THRESHOLD: "0.55"

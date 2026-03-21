@@ -58,4 +58,21 @@ async function getReport(decisionId) {
   return response.data;
 }
 
-module.exports = { analyze, getReport };
+/**
+ * Calls the dual-recommendation endpoint to get 品质款 + 性价比款.
+ *
+ * @param {Object} payload
+ * @param {string}   payload.session_id
+ * @param {string}   payload.intent
+ * @param {Object}   payload.entities
+ * @param {string}   payload.brand_status  - KNOWN | UNKNOWN | PARTIAL
+ * @param {Object}   payload.user_context
+ * @param {Array}    payload.candidates    - CandidateProduct list
+ * @returns {Promise<Object>} DualRecommendResult
+ */
+async function dualRecommend(payload) {
+  const response = await httpClient.post('/decision/recommend/dual', payload);
+  return response.data;
+}
+
+module.exports = { analyze, getReport, dualRecommend };

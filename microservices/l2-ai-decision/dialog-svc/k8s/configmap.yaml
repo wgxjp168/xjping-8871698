@@ -1,0 +1,41 @@
+---
+# ── 开发环境 ConfigMap ──────────────────────────────────────────────────────
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dialog-svc-config-dev
+  namespace: ilbuy-l2-dev
+  labels:
+    app: dialog-svc
+    env: dev
+data:
+  NODE_ENV: "development"
+  PORT: "8013"
+  LOG_LEVEL: "debug"
+  INTENT_SVC_URL: "http://intent-svc.ilbuy-l2-dev.svc.cluster.local:8010"
+  DECISION_SVC_URL: "http://decision-svc.ilbuy-l2-dev.svc.cluster.local:8012"
+  REDIS_TTL: "3600"          # 开发环境 session 1 小时过期
+  AUTH_ENABLED: "false"      # 开发环境关闭强制鉴权
+  MIN_ENTITIES_FOR_BRAND_DETECTION: "1"
+  MIN_PARAMS_FOR_DECISION: "2"
+
+---
+# ── 生产环境 ConfigMap ──────────────────────────────────────────────────────
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dialog-svc-config-prod
+  namespace: ilbuy-l2
+  labels:
+    app: dialog-svc
+    env: prod
+data:
+  NODE_ENV: "production"
+  PORT: "8013"
+  LOG_LEVEL: "info"
+  INTENT_SVC_URL: "http://intent-svc.ilbuy-l2.svc.cluster.local:8010"
+  DECISION_SVC_URL: "http://decision-svc.ilbuy-l2.svc.cluster.local:8012"
+  REDIS_TTL: "86400"         # 生产环境 session 24 小时过期
+  AUTH_ENABLED: "true"
+  MIN_ENTITIES_FOR_BRAND_DETECTION: "1"
+  MIN_PARAMS_FOR_DECISION: "2"

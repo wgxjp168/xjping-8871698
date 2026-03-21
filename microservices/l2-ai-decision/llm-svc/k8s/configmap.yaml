@@ -1,0 +1,51 @@
+---
+# ── 开发环境 ConfigMap ──────────────────────────────────────────────────────
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: llm-svc-config-dev
+  namespace: ilbuy-l2-dev
+  labels:
+    app: llm-svc
+    env: dev
+data:
+  ENV: "development"
+  PORT: "8011"
+  LOG_LEVEL: "DEBUG"
+  LLM_PROVIDER: "anthropic"          # 开发环境默认 Anthropic
+  # 开发环境使用更快/更便宜的模型
+  OPENAI_MODEL: "gpt-4o-mini"
+  ANTHROPIC_MODEL: "claude-haiku-4-5-20251001"
+  WENXIN_MODEL: "ernie-speed-128k"
+  MAX_TOKENS: "2048"
+  TEMPERATURE: "0.3"
+  # 重试配置
+  LLM_MAX_RETRIES: "2"
+  LLM_RETRY_DELAY: "1.0"
+  # CORS 开发环境宽松
+  CORS_ORIGINS: "*"
+
+---
+# ── 生产环境 ConfigMap ──────────────────────────────────────────────────────
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: llm-svc-config-prod
+  namespace: ilbuy-l2
+  labels:
+    app: llm-svc
+    env: prod
+data:
+  ENV: "production"
+  PORT: "8011"
+  LOG_LEVEL: "INFO"
+  LLM_PROVIDER: "anthropic"
+  # 生产环境使用高能力模型
+  OPENAI_MODEL: "gpt-4o"
+  ANTHROPIC_MODEL: "claude-sonnet-4-6"
+  WENXIN_MODEL: "ernie-4.0-turbo-128k"
+  MAX_TOKENS: "4096"
+  TEMPERATURE: "0.2"
+  LLM_MAX_RETRIES: "3"
+  LLM_RETRY_DELAY: "2.0"
+  CORS_ORIGINS: "https://ilbuy.com,https://admin.ilbuy.com"

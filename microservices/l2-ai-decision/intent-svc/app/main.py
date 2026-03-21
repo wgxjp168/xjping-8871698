@@ -144,17 +144,21 @@ app.add_middleware(
 
 
 @app.middleware("http")
-async def request_logging_middleware(request: Request, call_next: Any) -> Any:
-    """Log method, path, and response time for every request."""
+async def trace_and_log_middleware(request: Request, call_next: Any) -> Any:
+    """Propagate X-Trace-ID and log request timing."""
+    import uuid as _uuid
+    trace_id = request.headers.get("X-Trace-ID") or _uuid.uuid4().hex
     start = time.perf_counter()
     response = await call_next(request)
     elapsed_ms = (time.perf_counter() - start) * 1000
+    response.headers["X-Trace-ID"] = trace_id
     logger.info(
-        "%s %s → %d  (%.1f ms)",
+        "%s %s → %d  (%.1f ms) trace=%s",
         request.method,
         request.url.path,
         response.status_code,
         elapsed_ms,
+        trace_id,
     )
     return response
 

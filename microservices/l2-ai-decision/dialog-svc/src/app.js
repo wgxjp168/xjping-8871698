@@ -10,6 +10,7 @@ const logger = require('./services/logger');
 const healthRouter = require('./routes/health');
 const dialogRouter = require('./routes/dialog');
 const errorHandler = require('./middleware/errorHandler');
+const traceIdMiddleware = require('./middleware/traceId');
 
 // ─── App setup ────────────────────────────────────────────────────────────────
 
@@ -28,6 +29,9 @@ if (process.env.NODE_ENV !== 'test') {
     },
   }));
 }
+
+// TraceID 传播（读取或生成 X-Trace-ID，挂载 req.traceId，回写响应头）
+app.use(traceIdMiddleware);
 
 // Parse incoming JSON bodies (limit to 1 MB to guard against payload attacks).
 app.use(express.json({ limit: '1mb' }));
