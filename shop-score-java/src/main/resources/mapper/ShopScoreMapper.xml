@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ilbuy.shop.mapper.ShopScoreMapper">
+
+    <insert id="insertMain" useGeneratedKeys="true" keyProperty="mainId">
+        INSERT INTO shop_score_main
+            (shop_id, score_period, total_score, shop_level, score_user, score_time, opinion, create_time)
+        VALUES
+            (#{shopId}, #{scorePeriod}, #{totalScore}, #{shopLevel}, #{scoreUser}, #{scoreTime},
+             #{opinion, jdbcType=VARCHAR}, NOW())
+    </insert>
+
+    <insert id="batchInsertItem">
+        INSERT INTO shop_score_item
+            (main_id, shop_id, score_rule, full_score, actual_score, remark, create_time)
+        VALUES
+        <foreach collection="list" item="i" separator=",">
+            (#{i.mainId}, #{i.shopId}, #{i.scoreRule}, #{i.fullScore}, #{i.actualScore},
+             #{i.remark, jdbcType=VARCHAR}, NOW())
+        </foreach>
+    </insert>
+
+    <select id="selectByShopAndPeriod" resultType="ShopScoreMain">
+        SELECT * FROM shop_score_main
+        WHERE shop_id = #{shopId} AND score_period = #{period}
+        LIMIT 1
+    </select>
+
+    <select id="selectMainById" resultType="ShopScoreMain">
+        SELECT * FROM shop_score_main WHERE main_id = #{mainId}
+    </select>
+
+    <!-- 评分明细：用 CASE WHEN 映射规则名，避免额外字典表 -->
+    <select id="selectItemsByMainId" resultType="com.ilbuy.shop.vo.ShopScoreDetailVO$ItemVO">
+        SELECT
+            i.score_rule,
+            CASE i.score_rule
+                WHEN 1 THEN '商品合规'
+                WHEN 2 THEN '服务'
+                WHEN 3 THEN '履约'
+                WHEN 4 THEN '品质'
+                WHEN 5 THEN '配合'
+                WHEN 6 THEN '违规'
+                ELSE '未知'
+            END AS score_rule_name,
+            i.full_score,
+            i.actual_score,
+            i.remark
+        FROM shop_score_item i
+        WHERE i.main_id = #{mainId}
+        ORDER BY i.score_rule ASC
+    </select>
+
+    <sql id="scoreListColumns">
+        m.main_id, m.shop_id, s.shop_name, m.score_period,
+        m.total_score, m.shop_level, m.score_user, m.score_time,
+        m.opinion, m.create_time
+    </sql>
+
+    <sql id="scoreListWhere">
+        <where>
+            <if test="shopId != null">AND m.shop_id = #{shopId}</if>
+            <if test="shopName != null and shopName != ''">
+                AND s.shop_name LIKE CONCAT('%', #{shopName}, '%')
+            </if>
+            <if test="scorePeriod != null and scorePeriod != ''">
+                AND m.score_period = #{scorePeriod}
+            </if>
+            <if test="shopLevel != null and shopLevel != ''">
+                AND m.shop_level = #{shopLevel}
+            </if>
+        </where>
+    </sql>
+
+    <select id="selectPage" resultType="com.ilbuy.shop.vo.ShopScoreMainVO">
+        SELECT <include refid="scoreListColumns"/>
+        FROM shop_score_main m
+        LEFT JOIN shop_info s ON m.shop_id = s.shop_id
+        <include refid="scoreListWhere"/>
+        ORDER BY m.create_time DESC
+    </select>
+
+    <select id="selectForExport" resultType="com.ilbuy.shop.vo.ShopScoreMainVO">
+        SELECT <include refid="scoreListColumns"/>
+        FROM shop_score_main m
+        LEFT JOIN shop_info s ON m.shop_id = s.shop_id
+        <include refid="scoreListWhere"/>
+        ORDER BY m.create_time DESC
+    </select>
+
+</mapper>

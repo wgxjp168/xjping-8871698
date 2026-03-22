@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ilbuy.shop.mapper.ShopViolationMapper">
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO shop_violation
+            (shop_id, vio_type, vio_content, vio_time, deduction_score, handle_result, create_time)
+        VALUES
+            (#{shopId}, #{vioType}, #{vioContent}, #{vioTime},
+             #{deductionScore, jdbcType=INTEGER}, #{handleResult, jdbcType=VARCHAR}, NOW())
+    </insert>
+
+    <update id="updateById">
+        UPDATE shop_violation
+        <set>
+            <if test="vioType != null and vioType != ''">vio_type = #{vioType},</if>
+            <if test="vioContent != null and vioContent != ''">vio_content = #{vioContent},</if>
+            <if test="vioTime != null">vio_time = #{vioTime},</if>
+            <if test="deductionScore != null">deduction_score = #{deductionScore},</if>
+            <if test="handleResult != null">handle_result = #{handleResult},</if>
+        </set>
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM shop_violation WHERE id = #{id}
+    </delete>
+
+    <select id="selectById" resultType="ShopViolation">
+        SELECT * FROM shop_violation WHERE id = #{id}
+    </select>
+
+    <sql id="vioListColumns">
+        v.id, v.shop_id, s.shop_name, v.vio_type, v.vio_content,
+        v.vio_time, v.deduction_score, v.handle_result, v.create_time
+    </sql>
+
+    <sql id="vioListWhere">
+        <where>
+            <if test="shopId != null">AND v.shop_id = #{shopId}</if>
+            <if test="shopName != null and shopName != ''">
+                AND s.shop_name LIKE CONCAT('%', #{shopName}, '%')
+            </if>
+            <if test="vioType != null and vioType != ''">
+                AND v.vio_type = #{vioType}
+            </if>
+            <if test="vioTimeStart != null and vioTimeStart != ''">
+                AND v.vio_time &gt;= #{vioTimeStart}
+            </if>
+            <if test="vioTimeEnd != null and vioTimeEnd != ''">
+                AND v.vio_time &lt;= #{vioTimeEnd}
+            </if>
+        </where>
+    </sql>
+
+    <select id="selectPage" resultType="com.ilbuy.shop.vo.ShopViolationVO">
+        SELECT <include refid="vioListColumns"/>
+        FROM shop_violation v
+        LEFT JOIN shop_info s ON v.shop_id = s.shop_id
+        <include refid="vioListWhere"/>
+        ORDER BY v.create_time DESC
+    </select>
+
+    <select id="selectForExport" resultType="com.ilbuy.shop.vo.ShopViolationVO">
+        SELECT <include refid="vioListColumns"/>
+        FROM shop_violation v
+        LEFT JOIN shop_info s ON v.shop_id = s.shop_id
+        <include refid="vioListWhere"/>
+        ORDER BY v.create_time DESC
+    </select>
+
+</mapper>

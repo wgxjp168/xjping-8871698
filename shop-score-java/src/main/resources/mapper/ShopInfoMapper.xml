@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ilbuy.shop.mapper.ShopInfoMapper">
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="shopId">
+        INSERT INTO shop_info
+            (shop_name, cate_id, contact_user, contact_phone, shop_status, join_time, remark, create_time, update_time)
+        VALUES
+            (#{shopName}, #{cateId}, #{contactUser}, #{contactPhone},
+             #{shopStatus, jdbcType=INTEGER}, #{joinTime, jdbcType=DATE},
+             #{remark, jdbcType=VARCHAR}, NOW(), NOW())
+    </insert>
+
+    <update id="updateById">
+        UPDATE shop_info
+        <set>
+            <if test="shopName != null and shopName != ''">shop_name = #{shopName},</if>
+            <if test="cateId != null">cate_id = #{cateId},</if>
+            <if test="contactUser != null and contactUser != ''">contact_user = #{contactUser},</if>
+            <if test="contactPhone != null and contactPhone != ''">contact_phone = #{contactPhone},</if>
+            <if test="shopStatus != null">shop_status = #{shopStatus},</if>
+            <if test="joinTime != null">join_time = #{joinTime},</if>
+            <if test="remark != null">remark = #{remark},</if>
+            update_time = NOW()
+        </set>
+        WHERE shop_id = #{shopId}
+    </update>
+
+    <!-- 逻辑删除：将状态置为 3（关闭） -->
+    <update id="deleteById">
+        UPDATE shop_info SET shop_status = 3, update_time = NOW() WHERE shop_id = #{shopId}
+    </update>
+
+    <select id="selectById" resultType="ShopInfo">
+        SELECT * FROM shop_info WHERE shop_id = #{shopId}
+    </select>
+
+    <sql id="shopInfoListColumns">
+        s.shop_id, s.shop_name, c.cate_name, s.contact_user, s.contact_phone,
+        CASE s.shop_status WHEN 1 THEN '正常' WHEN 2 THEN '暂停' WHEN 3 THEN '关闭' ELSE '未知' END AS shop_status_name,
+        s.join_time, s.remark, s.create_time
+    </sql>
+
+    <sql id="shopInfoListWhere">
+        <where>
+            <if test="shopName != null and shopName != ''">
+                AND s.shop_name LIKE CONCAT('%', #{shopName}, '%')
+            </if>
+            <if test="cateId != null">
+                AND s.cate_id = #{cateId}
+            </if>
+            <if test="shopStatus != null">
+                AND s.shop_status = #{shopStatus}
+            </if>
+        </where>
+    </sql>
+
+    <select id="selectPage" resultType="com.ilbuy.shop.vo.ShopInfoVO">
+        SELECT <include refid="shopInfoListColumns"/>
+        FROM shop_info s
+        LEFT JOIN shop_category c ON s.cate_id = c.id
+        <include refid="shopInfoListWhere"/>
+        ORDER BY s.create_time DESC
+    </select>
+
+    <select id="selectForExport" resultType="com.ilbuy.shop.vo.ShopInfoVO">
+        SELECT <include refid="shopInfoListColumns"/>
+        FROM shop_info s
+        LEFT JOIN shop_category c ON s.cate_id = c.id
+        <include refid="shopInfoListWhere"/>
+        ORDER BY s.create_time DESC
+    </select>
+
+</mapper>
