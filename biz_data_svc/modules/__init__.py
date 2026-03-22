@@ -1,1 +1,1 @@
-"""biz-data-svc 业务模块包"""
+"""biz_data_svc 全部业务模块"""
