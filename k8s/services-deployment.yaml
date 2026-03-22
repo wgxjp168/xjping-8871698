@@ -1,0 +1,392 @@
+---
+# ══════════════════════════════════════════
+# user-service
+# ══════════════════════════════════════════
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: user-service
+  namespace: ilbuy-prod
+  labels:
+    app: user-service
+    version: "1.0.0"
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: user-service
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        app: user-service
+    spec:
+      serviceAccountName: ilbuy-service-account
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app
+                      operator: In
+                      values: ["user-service"]
+                topologyKey: kubernetes.io/hostname
+      containers:
+        - name: user-service
+          image: registry.cn-hangzhou.aliyuncs.com/ilbuy/user-service:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8001
+          envFrom:
+            - configMapRef:
+                name: ilbuy-common-config
+            - secretRef:
+                name: ilbuy-secrets
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8001
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8001
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          lifecycle:
+            preStop:
+              exec:
+                command: ["sleep", "5"]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: user-service
+  namespace: ilbuy-prod
+spec:
+  selector:
+    app: user-service
+  ports:
+    - port: 8001
+      targetPort: 8001
+  type: ClusterIP
+
+---
+# ══════════════════════════════════════════
+# procurement-service
+# ══════════════════════════════════════════
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: procurement-service
+  namespace: ilbuy-prod
+  labels:
+    app: procurement-service
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: procurement-service
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        app: procurement-service
+    spec:
+      serviceAccountName: ilbuy-service-account
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                  - key: app
+                    operator: In
+                    values: ["procurement-service"]
+              topologyKey: kubernetes.io/hostname
+      containers:
+        - name: procurement-service
+          image: registry.cn-hangzhou.aliyuncs.com/ilbuy/procurement-service:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8002
+          envFrom:
+            - configMapRef:
+                name: ilbuy-common-config
+            - secretRef:
+                name: ilbuy-secrets
+          resources:
+            requests:
+              cpu: "200m"
+              memory: "384Mi"
+            limits:
+              cpu: "1000m"
+              memory: "768Mi"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8002
+            initialDelaySeconds: 15
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8002
+            initialDelaySeconds: 30
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: procurement-service
+  namespace: ilbuy-prod
+spec:
+  selector:
+    app: procurement-service
+  ports:
+    - port: 8002
+      targetPort: 8002
+  type: ClusterIP
+
+---
+# ══════════════════════════════════════════
+# ai-matching-service
+# ══════════════════════════════════════════
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ai-matching-service
+  namespace: ilbuy-prod
+  labels:
+    app: ai-matching-service
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: ai-matching-service
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        app: ai-matching-service
+    spec:
+      serviceAccountName: ilbuy-service-account
+      containers:
+        - name: ai-matching-service
+          image: registry.cn-hangzhou.aliyuncs.com/ilbuy/ai-matching-service:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8003
+          envFrom:
+            - configMapRef:
+                name: ilbuy-common-config
+            - secretRef:
+                name: ilbuy-secrets
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "512Mi"
+            limits:
+              cpu: "2000m"
+              memory: "1.5Gi"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8003
+            initialDelaySeconds: 20
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8003
+            initialDelaySeconds: 40
+            periodSeconds: 15
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ai-matching-service
+  namespace: ilbuy-prod
+spec:
+  selector:
+    app: ai-matching-service
+  ports:
+    - port: 8003
+      targetPort: 8003
+  type: ClusterIP
+
+---
+# ══════════════════════════════════════════
+# order-service
+# ══════════════════════════════════════════
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: order-service
+  namespace: ilbuy-prod
+  labels:
+    app: order-service
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: order-service
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        app: order-service
+    spec:
+      serviceAccountName: ilbuy-service-account
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                  - key: app
+                    operator: In
+                    values: ["order-service"]
+              topologyKey: kubernetes.io/hostname
+      containers:
+        - name: order-service
+          image: registry.cn-hangzhou.aliyuncs.com/ilbuy/order-service:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8004
+          envFrom:
+            - configMapRef:
+                name: ilbuy-common-config
+            - secretRef:
+                name: ilbuy-secrets
+          resources:
+            requests:
+              cpu: "200m"
+              memory: "384Mi"
+            limits:
+              cpu: "1000m"
+              memory: "768Mi"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8004
+            initialDelaySeconds: 15
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8004
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          lifecycle:
+            preStop:
+              exec:
+                command: ["sleep", "10"]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: order-service
+  namespace: ilbuy-prod
+spec:
+  selector:
+    app: order-service
+  ports:
+    - port: 8004
+      targetPort: 8004
+  type: ClusterIP
+
+---
+# ══════════════════════════════════════════
+# data-collector-service
+# ══════════════════════════════════════════
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: data-collector-service
+  namespace: ilbuy-prod
+  labels:
+    app: data-collector-service
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: data-collector-service
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        app: data-collector-service
+    spec:
+      serviceAccountName: ilbuy-service-account
+      containers:
+        - name: data-collector-service
+          image: registry.cn-hangzhou.aliyuncs.com/ilbuy/data-collector-service:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8005
+          envFrom:
+            - configMapRef:
+                name: ilbuy-common-config
+            - secretRef:
+                name: ilbuy-secrets
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8005
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8005
+            initialDelaySeconds: 30
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: data-collector-service
+  namespace: ilbuy-prod
+spec:
+  selector:
+    app: data-collector-service
+  ports:
+    - port: 8005
+      targetPort: 8005
+  type: ClusterIP

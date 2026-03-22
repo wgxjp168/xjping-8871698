@@ -1,0 +1,97 @@
+---
+# ILbuy Prometheus 告警规则
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: ilbuy-alerts
+  namespace: ilbuy-prod
+  labels:
+    prometheus: kube-prometheus
+    role: alert-rules
+spec:
+  groups:
+    - name: ilbuy.service
+      interval: 30s
+      rules:
+        # Pod 频繁重启
+        - alert: ILbuyPodCrashLooping
+          expr: rate(kube_pod_container_status_restarts_total{namespace="ilbuy-prod"}[5m]) > 0.1
+          for: 5m
+          labels:
+            severity: critical
+            team: backend
+          annotations:
+            summary: "Pod {{ $labels.pod }} 频繁重启"
+            description: "命名空间 ilbuy-prod 中 Pod {{ $labels.pod }} 重启速率超过阈值"
+
+        # 服务不可用
+        - alert: ILbuyServiceDown
+          expr: up{job=~"ilbuy.*"} == 0
+          for: 2m
+          labels:
+            severity: critical
+          annotations:
+            summary: "ILbuy 服务 {{ $labels.job }} 不可用"
+
+        # 高错误率 (5xx > 1%)
+        - alert: ILbuyHighErrorRate
+          expr: |
+            sum(rate(flask_http_request_total{namespace="ilbuy-prod",status=~"5.."}[5m]))
+            /
+            sum(rate(flask_http_request_total{namespace="ilbuy-prod"}[5m])) > 0.01
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "ILbuy 5xx 错误率超过 1%"
+            description: "当前错误率: {{ $value | humanizePercentage }}"
+
+        # 慢接口 P99 > 2s
+        - alert: ILbuySlowAPI
+          expr: |
+            histogram_quantile(0.99,
+              sum(rate(flask_http_request_duration_seconds_bucket{namespace="ilbuy-prod"}[5m])) by (le, service)
+            ) > 2
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "服务 {{ $labels.service }} P99 响应时间 > 2s"
+
+    - name: ilbuy.infrastructure
+      rules:
+        # MySQL 主从延迟 > 5s
+        - alert: ILbuyMySQLReplicationLag
+          expr: mysql_slave_status_seconds_behind_master > 5
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "MySQL 主从复制延迟 {{ $value }}s"
+
+        # Redis 内存使用率 > 85%
+        - alert: ILbuyRedisHighMemory
+          expr: redis_memory_used_bytes / redis_memory_max_bytes > 0.85
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Redis 内存使用率 {{ $value | humanizePercentage }}"
+
+        # Kafka 消费延迟 > 1000
+        - alert: ILbuyKafkaConsumerLag
+          expr: kafka_consumer_group_lag > 1000
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Kafka 消费组 {{ $labels.consumergroup }} 积压 {{ $value }} 条"
+
+        # Pod OOM
+        - alert: ILbuyPodOOMKilled
+          expr: kube_pod_container_status_last_terminated_reason{namespace="ilbuy-prod",reason="OOMKilled"} == 1
+          for: 0m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Pod {{ $labels.pod }} 因 OOM 被终止"

@@ -1,0 +1,200 @@
+---
+# ============================================================
+# 我来购ILbuy - API网关 K8s 部署配置
+# ============================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-gateway
+  namespace: ilbuy-prod
+  labels:
+    app: api-gateway
+    version: "1.0.0"
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: api-gateway
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: api-gateway
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8001"
+        prometheus.io/path: "/actuator/prometheus"
+    spec:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app
+                operator: In
+                values:
+                - api-gateway
+            topologyKey: kubernetes.io/hostname
+      terminationGracePeriodSeconds: 30
+      imagePullSecrets:
+      - name: harbor-secret
+
+      containers:
+      - name: api-gateway
+        image: registry.ilbuy.com/ilbuy/api-gateway:1.0.0
+        imagePullPolicy: Always
+        ports:
+        - name: http
+          containerPort: 8080
+        - name: management
+          containerPort: 8001
+
+        env:
+        - name: SPRING_PROFILES_ACTIVE
+          value: "prod"
+        - name: NACOS_SERVER_ADDR
+          valueFrom:
+            configMapKeyRef:
+              name: ilbuy-common-config
+              key: NACOS_SERVER_ADDR
+        - name: NACOS_NAMESPACE
+          valueFrom:
+            configMapKeyRef:
+              name: ilbuy-common-config
+              key: NACOS_NAMESPACE
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: ilbuy-secrets
+              key: JWT_SECRET
+        - name: JAVA_OPTS
+          value: >-
+            -Xms256m -Xmx512m
+            -XX:+UseG1GC
+            -Djava.security.egd=file:/dev/./urandom
+
+        resources:
+          requests:
+            cpu: "250m"
+            memory: "384Mi"
+          limits:
+            cpu: "1"
+            memory: "768Mi"
+
+        startupProbe:
+          httpGet:
+            path: /actuator/health
+            port: management
+          failureThreshold: 20
+          periodSeconds: 10
+
+        livenessProbe:
+          httpGet:
+            path: /actuator/health/liveness
+            port: management
+          periodSeconds: 20
+          timeoutSeconds: 5
+          failureThreshold: 3
+
+        readinessProbe:
+          httpGet:
+            path: /actuator/health/readiness
+            port: management
+          periodSeconds: 10
+          timeoutSeconds: 3
+          failureThreshold: 3
+
+        lifecycle:
+          preStop:
+            exec:
+              command: ["/bin/sh", "-c", "sleep 5"]
+
+---
+# Service（对外暴露，使用LoadBalancer）
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-gateway
+  namespace: ilbuy-prod
+  labels:
+    app: api-gateway
+    monitoring: "true"
+  annotations:
+    service.beta.kubernetes.io/alibaba-cloud-loadbalancer-spec: "slb.s2.small"
+    service.beta.kubernetes.io/alibaba-cloud-loadbalancer-address-type: "internet"
+spec:
+  selector:
+    app: api-gateway
+  ports:
+  - name: https
+    port: 443
+    targetPort: 8080
+    protocol: TCP
+  - name: http
+    port: 80
+    targetPort: 8080
+    protocol: TCP
+  - name: management
+    port: 8001
+    targetPort: 8001
+    protocol: TCP
+  type: LoadBalancer
+
+---
+# Ingress（使用Nginx Ingress Controller）
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ilbuy-ingress
+  namespace: ilbuy-prod
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "30"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "120"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "120"
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+spec:
+  tls:
+  - hosts:
+    - api.ilbuy.com
+    secretName: ilbuy-tls-cert
+  rules:
+  - host: api.ilbuy.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: api-gateway
+            port:
+              number: 8080
+
+---
+# HPA
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: api-gateway-hpa
+  namespace: ilbuy-prod
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: api-gateway
+  minReplicas: 3
+  maxReplicas: 15
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 60

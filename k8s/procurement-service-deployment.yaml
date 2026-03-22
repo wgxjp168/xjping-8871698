@@ -1,0 +1,298 @@
+---
+# ============================================================
+# 我来购ILbuy - 采购服务 K8s 部署配置
+# ============================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: procurement-service
+  namespace: ilbuy-prod
+  labels:
+    app: procurement-service
+    version: "1.0.0"
+    team: backend
+  annotations:
+    deployment.kubernetes.io/revision: "1"
+    description: "ILbuy采购需求管理服务"
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: procurement-service
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1          # 滚动更新时最多多出1个Pod
+      maxUnavailable: 0    # 滚动更新时最少0个Pod不可用（零停机）
+  template:
+    metadata:
+      labels:
+        app: procurement-service
+        version: "1.0.0"
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8082"
+        prometheus.io/path: "/actuator/prometheus"
+    spec:
+      serviceAccountName: ilbuy-service-account
+
+      # 确保Pod分布在不同节点（高可用）
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app
+                operator: In
+                values:
+                - procurement-service
+            topologyKey: kubernetes.io/hostname
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            preference:
+              matchExpressions:
+              - key: node-type
+                operator: In
+                values:
+                - business
+
+      # 优雅终止时间（等待请求处理完成）
+      terminationGracePeriodSeconds: 60
+
+      imagePullSecrets:
+      - name: harbor-secret
+
+      initContainers:
+      # 等待数据库就绪
+      - name: wait-for-mysql
+        image: busybox:1.35
+        command: ['sh', '-c', 'until nc -z 192.168.1.31 3306; do echo waiting for mysql; sleep 2; done']
+      # 等待Nacos就绪
+      - name: wait-for-nacos
+        image: busybox:1.35
+        command: ['sh', '-c', 'until nc -z nacos-headless.middleware 8848; do echo waiting for nacos; sleep 2; done']
+
+      containers:
+      - name: procurement-service
+        image: registry.ilbuy.com/ilbuy/procurement-service:1.0.0
+        imagePullPolicy: Always
+        ports:
+        - name: http
+          containerPort: 8082
+          protocol: TCP
+        - name: management
+          containerPort: 8083
+          protocol: TCP
+
+        env:
+        # Spring配置
+        - name: SPRING_PROFILES_ACTIVE
+          value: "prod"
+        - name: SERVER_PORT
+          value: "8082"
+        - name: MANAGEMENT_SERVER_PORT
+          value: "8083"
+
+        # Nacos配置中心
+        - name: NACOS_SERVER_ADDR
+          valueFrom:
+            configMapKeyRef:
+              name: ilbuy-common-config
+              key: NACOS_SERVER_ADDR
+        - name: NACOS_NAMESPACE
+          valueFrom:
+            configMapKeyRef:
+              name: ilbuy-common-config
+              key: NACOS_NAMESPACE
+
+        # 数据库配置
+        - name: DB_HOST
+          value: "192.168.1.31"
+        - name: DB_PORT
+          value: "3306"
+        - name: DB_NAME
+          value: "ilbuy_procurement"
+        - name: DB_USERNAME
+          value: "ilbuy"
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: ilbuy-secrets
+              key: DB_PASSWORD
+
+        # Redis配置
+        - name: REDIS_NODES
+          value: "192.168.1.41:7001,192.168.1.41:7002,192.168.1.42:7003,192.168.1.42:7004,192.168.1.43:7005,192.168.1.43:7006"
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: ilbuy-secrets
+              key: REDIS_PASSWORD
+
+        # JVM配置
+        - name: JAVA_OPTS
+          value: >-
+            -Xms512m
+            -Xmx1g
+            -XX:+UseG1GC
+            -XX:MaxGCPauseMillis=200
+            -XX:InitiatingHeapOccupancyPercent=45
+            -XX:+HeapDumpOnOutOfMemoryError
+            -XX:HeapDumpPath=/app/logs/heap-dump.hprof
+            -Djava.security.egd=file:/dev/./urandom
+            -Dfile.encoding=UTF-8
+
+        # Pod信息注入（用于日志标识）
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+
+        # 资源限制
+        resources:
+          requests:
+            cpu: "500m"
+            memory: "768Mi"
+          limits:
+            cpu: "2"
+            memory: "1.5Gi"
+
+        # 启动探针（容器启动阶段检查，避免过早判定为不健康）
+        startupProbe:
+          httpGet:
+            path: /actuator/health/liveness
+            port: management
+          failureThreshold: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+
+        # 存活探针（检查JVM是否存活）
+        livenessProbe:
+          httpGet:
+            path: /actuator/health/liveness
+            port: management
+          initialDelaySeconds: 0
+          periodSeconds: 20
+          timeoutSeconds: 5
+          failureThreshold: 3
+          successThreshold: 1
+
+        # 就绪探针（检查服务是否能接受流量）
+        readinessProbe:
+          httpGet:
+            path: /actuator/health/readiness
+            port: management
+          initialDelaySeconds: 0
+          periodSeconds: 10
+          timeoutSeconds: 3
+          failureThreshold: 3
+          successThreshold: 1
+
+        # 优雅关闭：预停止钩子
+        lifecycle:
+          preStop:
+            exec:
+              command: ["/bin/sh", "-c", "sleep 10"]  # 等待流量从LB摘除
+
+        # 日志卷挂载
+        volumeMounts:
+        - name: app-logs
+          mountPath: /app/logs
+        - name: app-config
+          mountPath: /app/config
+          readOnly: true
+
+      volumes:
+      - name: app-logs
+        emptyDir:
+          sizeLimit: 2Gi
+      - name: app-config
+        configMap:
+          name: procurement-service-config
+
+---
+# Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: procurement-service
+  namespace: ilbuy-prod
+  labels:
+    app: procurement-service
+    monitoring: "true"
+spec:
+  selector:
+    app: procurement-service
+  ports:
+  - name: http
+    port: 8082
+    targetPort: 8082
+    protocol: TCP
+  - name: management
+    port: 8083
+    targetPort: 8083
+    protocol: TCP
+  type: ClusterIP
+
+---
+# HPA自动扩缩容
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: procurement-service-hpa
+  namespace: ilbuy-prod
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: procurement-service
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 60
+      policies:
+      - type: Pods
+        value: 2
+        periodSeconds: 60
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+      - type: Pods
+        value: 1
+        periodSeconds: 120
+
+---
+# PodDisruptionBudget
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: procurement-service-pdb
+  namespace: ilbuy-prod
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: procurement-service

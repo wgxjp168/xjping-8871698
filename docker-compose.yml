@@ -1,0 +1,191 @@
+version: "3.9"
+
+# ILbuy 我来购平台 - 本地/测试环境一键启动
+# 用法: docker-compose up -d
+# 前置条件: Docker 20.10+ 已安装
+
+networks:
+  ilbuy-net:
+    driver: bridge
+
+volumes:
+  redis-data:
+  sqlite-data:
+
+services:
+
+  # ─────────────────────────────────────────
+  # 基础设施层
+  # ─────────────────────────────────────────
+  redis:
+    image: redis:7.0-alpine
+    container_name: ilbuy-redis
+    restart: unless-stopped
+    command: redis-server --requirepass ILbuy@Redis2024 --appendonly yes
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "ILbuy@Redis2024", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - ilbuy-net
+
+  # ─────────────────────────────────────────
+  # 微服务层（按依赖顺序启动）
+  # ─────────────────────────────────────────
+  user-service:
+    build:
+      context: ./services/user-service
+      dockerfile: Dockerfile
+    container_name: ilbuy-user-service
+    restart: unless-stopped
+    ports:
+      - "8001:8000"
+    environment:
+      - USER_SERVICE_PORT=8000
+      - JWT_SECRET=ILbuy@JWT@SecretKey@2024@Production
+      - DB_PATH=/data/ilbuy_user.db
+    volumes:
+      - sqlite-data:/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ilbuy-net
+
+  procurement-service:
+    build:
+      context: ./services/procurement-service
+      dockerfile: Dockerfile
+    container_name: ilbuy-procurement-service
+    restart: unless-stopped
+    ports:
+      - "8002:8000"
+    environment:
+      - PROCUREMENT_SERVICE_PORT=8000
+      - DB_PATH=/data/ilbuy_procurement.db
+    volumes:
+      - sqlite-data:/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ilbuy-net
+
+  ai-matching-service:
+    build:
+      context: ./services/ai-matching-service
+      dockerfile: Dockerfile
+    container_name: ilbuy-ai-matching-service
+    restart: unless-stopped
+    ports:
+      - "8003:8000"
+    environment:
+      - AI_SERVICE_PORT=8000
+      - DB_PATH=/data/ilbuy_ai.db
+      - PROCUREMENT_SERVICE_URL=http://procurement-service:8000
+    volumes:
+      - sqlite-data:/data
+    depends_on:
+      procurement-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ilbuy-net
+
+  order-service:
+    build:
+      context: ./services/order-service
+      dockerfile: Dockerfile
+    container_name: ilbuy-order-service
+    restart: unless-stopped
+    ports:
+      - "8004:8000"
+    environment:
+      - ORDER_SERVICE_PORT=8000
+      - DB_PATH=/data/ilbuy_order.db
+    volumes:
+      - sqlite-data:/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ilbuy-net
+
+  data-collector-service:
+    build:
+      context: ./services/data-collector-service
+      dockerfile: Dockerfile
+    container_name: ilbuy-data-collector-service
+    restart: unless-stopped
+    ports:
+      - "8005:8000"
+    environment:
+      - DATA_SERVICE_PORT=8000
+      - DB_PATH=/data/ilbuy_data.db
+    volumes:
+      - sqlite-data:/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ilbuy-net
+
+  # ─────────────────────────────────────────
+  # API 网关（最后启动，依赖所有服务）
+  # ─────────────────────────────────────────
+  api-gateway:
+    build:
+      context: ./services/api-gateway
+      dockerfile: Dockerfile
+    container_name: ilbuy-api-gateway
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      - GATEWAY_PORT=8080
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=ILbuy@Redis2024
+      - JWT_SECRET=ILbuy@JWT@SecretKey@2024@Production
+      - USER_SERVICE_URL=http://user-service:8000
+      - PROCUREMENT_SERVICE_URL=http://procurement-service:8000
+      - AI_SERVICE_URL=http://ai-matching-service:8000
+      - ORDER_SERVICE_URL=http://order-service:8000
+      - DATA_SERVICE_URL=http://data-collector-service:8000
+    depends_on:
+      redis:
+        condition: service_healthy
+      user-service:
+        condition: service_healthy
+      procurement-service:
+        condition: service_healthy
+      ai-matching-service:
+        condition: service_healthy
+      order-service:
+        condition: service_healthy
+      data-collector-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/actuator/health')"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+    networks:
+      - ilbuy-net
