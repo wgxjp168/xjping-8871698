@@ -1,0 +1,46 @@
+# ============================================================
+# ILbuy 财务/结算服务配置
+# Nacos Data ID : finance-svc.yaml
+# Nacos Group   : DEFAULT_GROUP
+# Namespace     : ilbuy-dev
+# ============================================================
+
+server:
+  port: 8086
+
+spring:
+  application:
+    name: finance-svc
+
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url:      jdbc:mysql://${MYSQL_HOST:127.0.0.1}:${MYSQL_PORT:3306}/finance_db?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+    username: ${MYSQL_USER:root}
+    password: ${MYSQL_PASSWORD:ilbuy123}
+
+mybatis-plus:
+  mapper-locations: classpath:mapper/**/*.xml
+  type-aliases-package: com.ilbuy.finance.entity
+  configuration:
+    map-underscore-to-camel-case: true
+
+# ── 财务配置 ──────────────────────────────────────────────
+ilbuy:
+  finance:
+    # 对账周期（cron 表达式：每天 1:00）
+    reconcile-cron: "0 0 1 * * ?"
+    # 结算周期（T+N 天）
+    settlement-days: 7
+    # 平台服务费率（%）
+    platform-fee-rate: 0.03
+    # 退款手续费率
+    refund-fee-rate: 0.0
+    # 开票限额（元）
+    invoice-limit: 1000000.00
+    # 支持的发票类型
+    invoice-types: [VAT_GENERAL, VAT_SPECIAL]
+    # 银行卡验证（四要素）
+    bank-verify:
+      enabled: true
+      provider: aliyun
+      api-key: ${BANK_VERIFY_KEY:}

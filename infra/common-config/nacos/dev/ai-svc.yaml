@@ -1,0 +1,106 @@
+# ============================================================
+# ILbuy AI 服务配置（大模型 API 集成）
+# Nacos Data ID : ai-svc.yaml
+# Nacos Group   : DEFAULT_GROUP
+# Namespace     : ilbuy-dev
+# ⚠️ 生产环境密钥通过 Vault 注入，此文件仅存非敏感配置
+# ============================================================
+
+server:
+  host:    0.0.0.0
+  port:    8089
+  workers: 2
+
+# ── 大模型供应商配置 ────────────────────────────────────
+llm:
+  # 默认使用的模型
+  default-provider: anthropic    # anthropic | openai | qwen | baidu
+
+  # ── Anthropic Claude ─────────────────────────────
+  anthropic:
+    api-key:       ${ANTHROPIC_API_KEY:}
+    base-url:      https://api.anthropic.com
+    model:         claude-sonnet-4-6
+    max-tokens:    4096
+    timeout-s:     60
+    retry:
+      max-attempts: 3
+      backoff-ms:   1000
+
+  # ── OpenAI GPT ───────────────────────────────────
+  openai:
+    api-key:       ${OPENAI_API_KEY:}
+    base-url:      https://api.openai.com/v1
+    model:         gpt-4o
+    max-tokens:    4096
+    timeout-s:     60
+    # 使用 Azure OpenAI 时配置以下
+    azure-enabled: false
+    azure-endpoint: ${AZURE_OPENAI_ENDPOINT:}
+    azure-api-version: 2024-02-15-preview
+
+  # ── 阿里云通义千问 ───────────────────────────────
+  qwen:
+    api-key:   ${QWEN_API_KEY:}
+    model:     qwen-turbo
+    timeout-s: 60
+
+  # ── 百度文心一言 ─────────────────────────────────
+  baidu:
+    api-key:    ${BAIDU_API_KEY:}
+    secret-key: ${BAIDU_SECRET_KEY:}
+    model:      ernie-bot-turbo
+    timeout-s:  60
+
+# ── AI 功能配置 ────────────────────────────────────────
+ilbuy:
+  ai:
+    # 商品智能搜索增强
+    smart-search:
+      enabled:       true
+      model:         anthropic
+      max-context:   2000
+      cache-ttl-s:   300      # 相同 query 缓存 5 分钟
+
+    # 供应商风险预测
+    supplier-risk:
+      enabled:       true
+      model:         anthropic
+      batch-size:    50
+      cron:          "0 2 * * *"    # 每天凌晨 2 点批量分析
+
+    # 订单异常检测
+    order-anomaly:
+      enabled:       true
+      model:         openai
+      threshold:     0.85
+
+    # 自动生成报告（PDF）
+    report-gen:
+      enabled:       true
+      model:         anthropic
+      max-length:    5000
+
+    # 智能客服
+    customer-service:
+      enabled:       false
+      model:         qwen
+      system-prompt: "你是来购ILbuy的智能助手，帮助用户解答购物和供应链相关问题。"
+
+    # 向量数据库（RAG 知识库）
+    vector-store:
+      provider:   redis   # redis (RedisSearch) | chroma | pinecone
+      dimension:  1536
+      index-name: ilbuy-knowledge
+
+    # 限流（避免 API 费用超支）
+    rate-limit:
+      requests-per-minute:  60
+      tokens-per-day:       1000000   # 1M tokens/day
+
+# ── 嵌入模型 ──────────────────────────────────────────
+embedding:
+  provider: openai
+  model:    text-embedding-3-small
+  dimension: 1536
+  batch-size: 100

@@ -1,0 +1,114 @@
+# ============================================================
+# ILbuy BIZ 数据服务配置（Python FastAPI）
+# Nacos Data ID : biz-data-svc.yaml
+# Nacos Group   : DEFAULT_GROUP
+# Namespace     : ilbuy-dev
+# ============================================================
+
+server:
+  host: 0.0.0.0
+  port: 8088
+  workers: 4
+  timeout: 60
+
+# ── SQLite（本地开发）/ MySQL（生产切换） ─────────────────
+database:
+  driver:   sqlite          # sqlite | mysql
+  path:     biz_mall.db
+  # 切换为 MySQL 时启用以下配置
+  # driver:   mysql
+  # host:     ${MYSQL_HOST:127.0.0.1}
+  # port:     ${MYSQL_PORT:3306}
+  # name:     biz_mall
+  # user:     ${MYSQL_USER:root}
+  # password: ${MYSQL_PASSWORD:ilbuy123}
+  pool-size: 10
+  echo:      false
+
+# ── Redis ─────────────────────────────────────────────────
+redis:
+  nodes:         ${REDIS_NODES:127.0.0.1:6379}
+  password:      ${REDIS_PASSWORD:}
+  max-connections: 20
+  ttl:
+    session:     86400
+    product-min: 300
+    product-max: 1800
+    rate-limit:  60
+    lock:        30
+
+# ── Elasticsearch ─────────────────────────────────────────
+elasticsearch:
+  hosts:        ${ES_HOSTS:http://127.0.0.1:9200}
+  username:     ${ES_USERNAME:elastic}
+  password:     ${ES_PASSWORD:ilbuy123}
+  index:
+    product:    ilbuy_products
+    behavior:   ilbuy_behavior_logs
+
+# ── MinIO ─────────────────────────────────────────────────
+minio:
+  endpoint:    ${MINIO_ENDPOINT:127.0.0.1:9000}
+  access-key:  ${MINIO_ACCESS_KEY:minioadmin}
+  secret-key:  ${MINIO_SECRET_KEY:minioadmin}
+  secure:      false
+  buckets:
+    reports:   ilbuy-reports
+    images:    ilbuy-images
+    contracts: ilbuy-contracts
+  presign-ttl:
+    upload:    3600
+    download:  86400
+
+# ── ClickHouse ────────────────────────────────────────────
+clickhouse:
+  host:      ${CLICKHOUSE_HOST:127.0.0.1}
+  port:      9000
+  http-port: 8123
+  user:      ${CLICKHOUSE_USER:default}
+  password:  ${CLICKHOUSE_PASSWORD:}
+  database:  ilbuy_analytics
+  batch-size: 1000
+  tables:
+    behavior:  user_behavior_log
+    order-log: order_event_log
+
+# ── RabbitMQ ──────────────────────────────────────────────
+rabbitmq:
+  host:      ${RABBITMQ_HOST:127.0.0.1}
+  port:      5672
+  user:      ${RABBITMQ_USER:guest}
+  password:  ${RABBITMQ_PASSWORD:guest}
+  vhost:     /
+  exchange:
+    async: ilbuy.async
+    sync:  ilbuy.sync
+  queues:
+    report:   q.report.generate
+    notify:   q.notify.send
+    es-sync:  q.sync.elasticsearch
+    ch-sync:  q.sync.clickhouse
+
+# ── Canal + Flink ────────────────────────────────────────
+canal:
+  host:        ${CANAL_HOST:127.0.0.1}
+  port:        11111
+  destination: ilbuy
+  username:    canal
+  password:    canal
+  watch-tables:
+    - product_db.products
+    - product_db.product_skus
+    - order_db.orders
+    - user_db.users
+
+flink:
+  checkpoint-interval-ms: 60000
+  parallelism: 2
+
+# ── 日志 ──────────────────────────────────────────────────
+logging:
+  level: INFO
+  file:  /var/log/ilbuy/biz-data-svc/app.log
+  max-bytes: 104857600    # 100MB
+  backup-count: 10

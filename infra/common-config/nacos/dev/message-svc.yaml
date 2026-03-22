@@ -1,0 +1,72 @@
+# ============================================================
+# ILbuy 消息/通知服务配置
+# Nacos Data ID : message-svc.yaml
+# Nacos Group   : DEFAULT_GROUP
+# Namespace     : ilbuy-dev
+# ============================================================
+
+server:
+  port: 8087
+
+spring:
+  application:
+    name: message-svc
+
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url:      jdbc:mysql://${MYSQL_HOST:127.0.0.1}:${MYSQL_PORT:3306}/message_db?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+    username: ${MYSQL_USER:root}
+    password: ${MYSQL_PASSWORD:ilbuy123}
+
+  # ── 邮件 ──────────────────────────────────────────────
+  mail:
+    host:     ${MAIL_HOST:smtp.qq.com}
+    port:     ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail.smtp.auth:            true
+      mail.smtp.starttls.enable: true
+      mail.smtp.timeout:         5000
+
+# ── 消息配置 ───────────────────────────────────────────────
+ilbuy:
+  message:
+    # 发件人
+    from-email: noreply@ilbuy.com
+    from-name:  来购ILbuy
+
+    # 短信
+    sms:
+      provider:         aliyun
+      access-key-id:    ${ALIYUN_SMS_AK:}
+      access-key-secret: ${ALIYUN_SMS_SK:}
+      sign-name:        来购ILbuy
+      # 模板映射
+      templates:
+        order-confirm:   SMS_xxx010
+        order-shipped:   SMS_xxx011
+        payment-success: SMS_xxx012
+        supplier-audit:  SMS_xxx013
+
+    # 微信公众号推送
+    wechat-mp:
+      enabled:    false
+      app-id:     ${WECHAT_MP_APP_ID:}
+      app-secret: ${WECHAT_MP_APP_SECRET:}
+      templates:
+        order-notify: wxtemplate001
+
+    # 推送消息（App Push）
+    push:
+      enabled:  false
+      provider: jiguang   # jiguang | getui
+      app-key:  ${PUSH_APP_KEY:}
+      secret:   ${PUSH_SECRET:}
+
+    # 消息重试
+    retry-max:    3
+    retry-delay-s: 10
+
+    # 消息记录保留天数
+    retention-days: 90

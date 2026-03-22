@@ -1,0 +1,120 @@
+# ============================================================
+# ILbuy 公共配置（所有微服务共享）
+# Nacos Data ID : application-common.yaml
+# Nacos Group   : DEFAULT_GROUP
+# Namespace     : ilbuy-dev
+# ============================================================
+
+# ── Spring Boot 公共 ──────────────────────────────────────
+spring:
+  profiles:
+    active: dev
+
+  # ── 数据源公共连接池（各服务在本服务配置中指定 url） ──
+  datasource:
+    hikari:
+      minimum-idle:            5
+      maximum-pool-size:       20
+      connection-timeout:      30000    # 30s
+      idle-timeout:            600000   # 10min
+      max-lifetime:            1800000  # 30min
+      connection-test-query:   SELECT 1
+      pool-name:               ILbuyHikariCP
+
+  # ── Redis（开发：单节点，生产覆盖为 Cluster） ──────────
+  data:
+    redis:
+      host:     ${REDIS_HOST:127.0.0.1}
+      port:     ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      database: 0
+      timeout:  3000ms
+      lettuce:
+        pool:
+          max-active:  20
+          max-idle:    10
+          min-idle:    2
+          max-wait:    -1ms
+
+  # ── RabbitMQ ──────────────────────────────────────────
+  rabbitmq:
+    host:      ${RABBITMQ_HOST:127.0.0.1}
+    port:      ${RABBITMQ_PORT:5672}
+    username:  ${RABBITMQ_USER:guest}
+    password:  ${RABBITMQ_PASSWORD:guest}
+    virtual-host: /
+    publisher-confirm-type: correlated
+    publisher-returns:      true
+    listener:
+      simple:
+        acknowledge-mode:   manual
+        retry:
+          enabled:          true
+          initial-interval: 2000ms
+          max-attempts:     3
+          multiplier:       2.0
+
+  # ── Jackson 全局序列化 ──────────────────────────────────
+  jackson:
+    date-format:         yyyy-MM-dd HH:mm:ss
+    time-zone:           Asia/Shanghai
+    default-property-inclusion: non_null
+    serialization:
+      write-dates-as-timestamps: false
+
+  # ── Feign / OpenFeign ──────────────────────────────────
+  cloud:
+    openfeign:
+      client:
+        config:
+          default:
+            connect-timeout: 5000
+            read-timeout:    10000
+            logger-level:    BASIC
+      compression:
+        request:
+          enabled: true
+          min-request-size: 2048
+        response:
+          enabled: true
+
+# ── 服务治理 ────────────────────────────────────────────
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus,loggers
+  endpoint:
+    health:
+      show-details: always
+  metrics:
+    tags:
+      application: ${spring.application.name}
+      env:         dev
+
+# ── 日志 ─────────────────────────────────────────────────
+logging:
+  level:
+    root:                INFO
+    com.ilbuy:           DEBUG
+    org.springframework: WARN
+    com.alibaba.nacos:   WARN
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level [%X{traceId}] %logger{36} - %msg%n"
+    file:    "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level [%X{traceId}] %logger{36} - %msg%n"
+  file:
+    path: /var/log/ilbuy/${spring.application.name}
+
+# ── 限流（Sentinel / Spring Cloud Gateway 共用） ─────────
+ilbuy:
+  rate-limit:
+    # 全局 API 限流（每秒）
+    global-qps:   1000
+    # 单用户限流（每分钟）
+    user-qps:     60
+    # 登录接口限流（每分钟）
+    login-qps:    10
+  # 分布式锁默认超时（秒）
+  lock-timeout-seconds: 30
+  # 分页最大条数
+  max-page-size: 200

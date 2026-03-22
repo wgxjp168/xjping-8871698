@@ -1,0 +1,78 @@
+# ============================================================
+# ILbuy 供应商服务配置（含商铺评分）
+# Nacos Data ID : supplier-svc.yaml
+# Nacos Group   : DEFAULT_GROUP
+# Namespace     : ilbuy-dev
+# ============================================================
+
+server:
+  port: 8084
+
+spring:
+  application:
+    name: supplier-svc
+
+  # ── MySQL（supplier_db + shop_db） ────────────────────
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url:      jdbc:mysql://${MYSQL_HOST:127.0.0.1}:${MYSQL_PORT:3306}/ilbuy_supplier?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+    username: ${MYSQL_USER:root}
+    password: ${MYSQL_PASSWORD:ilbuy123}
+
+mybatis:
+  mapper-locations: classpath:mapper/*.xml
+  type-aliases-package: com.ilbuy.supplier.entity
+  configuration:
+    map-underscore-to-camel-case: true
+
+# ── PageHelper ────────────────────────────────────────────
+pagehelper:
+  helper-dialect: mysql
+  reasonable:     true
+  support-methods-arguments: true
+
+# ── 供应商评分配置 ─────────────────────────────────────────
+ilbuy:
+  supplier:
+    # 评分规则（类型 -> 满分）
+    score-rules:
+      quality:   30    # 产品质量
+      delivery:  25    # 交付能力
+      cost:      20    # 价格成本
+      compliance: 10   # 资质合规
+      service:   10    # 售后服务
+      stability: 5     # 合作稳定
+    # 等级划分（分数下限）
+    level:
+      A: 90
+      B: 80
+      C: 70
+      D: 0
+    # 供应商状态
+    status:
+      normal:  1
+      suspend: 2
+      closed:  3
+    # 异常扣分上限（单次）
+    max-deduction-once: 20
+
+  # ── 商铺评分（shop_db） ─────────────────────────────
+  shop:
+    db-url:     jdbc:mysql://${MYSQL_HOST:127.0.0.1}:${MYSQL_PORT:3306}/ilbuy_shop?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+    score-rules:
+      compliance: 25   # 商品合规
+      service:    20   # 服务
+      fulfillment: 20  # 履约
+      quality:    20   # 品质
+      cooperation: 10  # 配合
+      violation:  5    # 违规扣分
+    level:
+      A: 90
+      B: 80
+      C: 70
+      D: 0
+
+  # ── Excel 导出配置 ─────────────────────────────────
+  export:
+    max-rows: 50000
+    sheet-name: 评分数据

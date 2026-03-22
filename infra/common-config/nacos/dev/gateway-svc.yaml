@@ -1,0 +1,153 @@
+# ============================================================
+# ILbuy 网关服务配置
+# Nacos Data ID : gateway-svc.yaml
+# Nacos Group   : DEFAULT_GROUP
+# Namespace     : ilbuy-dev
+# ============================================================
+
+server:
+  port: 8080
+
+spring:
+  application:
+    name: gateway-svc
+
+  cloud:
+    gateway:
+      # ── 全局 CORS ─────────────────────────────────────
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowed-origins:
+              - "http://localhost:3000"
+              - "http://localhost:5173"
+              - "https://ilbuy.com"
+            allowed-methods: [GET, POST, PUT, DELETE, OPTIONS]
+            allowed-headers: ["*"]
+            allow-credentials: true
+            max-age: 3600
+
+      # ── 路由表 ─────────────────────────────────────────
+      routes:
+        # 用户/认证服务
+        - id:           user-svc
+          uri:          lb://user-svc
+          predicates:
+            - Path=/api/user/**, /api/auth/**
+          filters:
+            - StripPrefix=1
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate:  100
+                redis-rate-limiter.burstCapacity:  200
+                key-resolver:                      "#{@ipKeyResolver}"
+
+        # 商品/商城服务
+        - id:           product-svc
+          uri:          lb://product-svc
+          predicates:
+            - Path=/api/product/**, /api/category/**, /api/cart/**
+          filters:
+            - StripPrefix=1
+            - AuthFilter
+
+        # 订单服务
+        - id:           order-svc
+          uri:          lb://order-svc
+          predicates:
+            - Path=/api/order/**, /api/payment/**
+          filters:
+            - StripPrefix=1
+            - AuthFilter
+
+        # 供应商服务
+        - id:           supplier-svc
+          uri:          lb://supplier-svc
+          predicates:
+            - Path=/api/supplier/**
+          filters:
+            - StripPrefix=1
+            - AuthFilter
+
+        # 商铺评分服务
+        - id:           shop-score-svc
+          uri:          lb://shop-score-svc
+          predicates:
+            - Path=/api/shop/**
+          filters:
+            - StripPrefix=1
+            - AuthFilter
+
+        # 财务服务
+        - id:           finance-svc
+          uri:          lb://finance-svc
+          predicates:
+            - Path=/api/finance/**
+          filters:
+            - StripPrefix=1
+            - AuthFilter
+
+        # 消息服务
+        - id:           message-svc
+          uri:          lb://message-svc
+          predicates:
+            - Path=/api/message/**, /api/notify/**
+          filters:
+            - StripPrefix=1
+            - AuthFilter
+
+        # AI 服务
+        - id:           ai-svc
+          uri:          lb://ai-svc
+          predicates:
+            - Path=/api/ai/**
+          filters:
+            - StripPrefix=1
+            - AuthFilter
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate:  20
+                redis-rate-limiter.burstCapacity:  40
+                key-resolver:                      "#{@userKeyResolver}"
+
+        # BIZ 数据层（内部调用）
+        - id:           biz-data-svc
+          uri:          lb://biz-data-svc
+          predicates:
+            - Path=/internal/biz/**
+          filters:
+            - StripPrefix=2
+            - InternalFilter       # 仅允许内部服务调用
+
+      # ── 默认过滤器 ────────────────────────────────────
+      default-filters:
+        - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials, RETAIN_UNIQUE
+        - name: Retry
+          args:
+            retries:     2
+            statuses:    BAD_GATEWAY,SERVICE_UNAVAILABLE
+            methods:     GET
+
+  # ── Redis（限流 Key Store） ───────────────────────────
+  data:
+    redis:
+      host:     ${REDIS_HOST:127.0.0.1}
+      port:     ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+
+# ── JWT 验签配置 ──────────────────────────────────────────
+ilbuy:
+  jwt:
+    secret:        ${JWT_SECRET:ilbuy-dev-jwt-secret-key-must-be-32chars}
+    expire-hours:  24
+    header:        Authorization
+    prefix:        "Bearer "
+  # 白名单（不需要 Token）
+  white-list:
+    - /api/auth/login
+    - /api/auth/register
+    - /api/auth/refresh
+    - /api/product/list
+    - /api/product/detail/**
+    - /api/category/tree
+    - /actuator/**

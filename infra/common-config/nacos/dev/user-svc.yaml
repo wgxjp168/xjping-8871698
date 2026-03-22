@@ -1,0 +1,73 @@
+# ============================================================
+# ILbuy 用户/认证服务配置
+# Nacos Data ID : user-svc.yaml
+# Nacos Group   : DEFAULT_GROUP
+# Namespace     : ilbuy-dev
+# ============================================================
+
+server:
+  port: 8081
+
+spring:
+  application:
+    name: user-svc
+
+  # ── MySQL（user_db） ──────────────────────────────────
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url:      jdbc:mysql://${MYSQL_HOST:127.0.0.1}:${MYSQL_PORT:3306}/user_db?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+    username: ${MYSQL_USER:root}
+    password: ${MYSQL_PASSWORD:ilbuy123}
+
+mybatis-plus:
+  mapper-locations: classpath:mapper/**/*.xml
+  type-aliases-package: com.ilbuy.user.entity
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  global-config:
+    db-config:
+      logic-delete-field:  is_deleted
+      logic-delete-value:  1
+      logic-not-delete-value: 0
+
+# ── JWT ──────────────────────────────────────────────────
+ilbuy:
+  jwt:
+    secret:       ${JWT_SECRET:ilbuy-dev-jwt-secret-key-must-be-32chars}
+    expire-hours: 24
+    refresh-expire-days: 7
+
+  # ── OAuth2 第三方登录 ────────────────────────────────
+  oauth2:
+    wechat:
+      app-id:     ${WECHAT_APP_ID:}
+      app-secret: ${WECHAT_APP_SECRET:}
+      redirect-uri: https://ilbuy.com/oauth2/callback/wechat
+
+  # ── 短信验证码 ────────────────────────────────────────
+  sms:
+    provider: aliyun           # aliyun | tencent
+    aliyun:
+      access-key-id:     ${ALIYUN_SMS_AK:}
+      access-key-secret: ${ALIYUN_SMS_SK:}
+      sign-name:         来购ILbuy
+      template-code:
+        register: SMS_xxx001
+        login:    SMS_xxx002
+        reset-pwd: SMS_xxx003
+    code-expire-minutes: 5
+    code-length:         6
+
+  # ── 密码策略 ──────────────────────────────────────────
+  password:
+    min-length:   8
+    require-upper: false
+    require-digit: true
+    bcrypt-strength: 10
+
+  # ── 账号安全 ──────────────────────────────────────────
+  security:
+    login-fail-max:    5        # 连续失败 N 次锁定
+    lock-minutes:      30       # 锁定时长
+    session-max:       3        # 同账号最大并发 Session

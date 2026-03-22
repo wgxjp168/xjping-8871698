@@ -1,0 +1,634 @@
+###############################################################
+# ILbuy 全栈 Docker Compose（本地集成测试）
+# 用途：一键启动所有中间件 + 微服务，供本地端到端测试
+# 前提：已构建所有微服务镜像（见 infra/scripts/build.sh）
+# 用法：
+#   docker compose up -d               # 启动全栈
+#   docker compose up -d mysql redis   # 仅启动指定服务
+#   docker compose down -v             # 停止并清除数据卷
+#   docker compose logs -f gateway-svc # 查看日志
+###############################################################
+
+version: "3.9"
+
+# ── 网络 ─────────────────────────────────────────────────
+networks:
+  ilbuy-net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.30.0.0/24
+
+# ── 数据卷 ────────────────────────────────────────────────
+volumes:
+  mysql-data:
+  redis-data:
+  es-data:
+  rabbitmq-data:
+  nacos-data:
+  minio-data:
+  clickhouse-data:
+
+###############################################################
+# ─────────────────── 中间件层 ───────────────────────────────
+###############################################################
+services:
+
+  # ── MySQL 8.0 ────────────────────────────────────────────
+  mysql:
+    image: mysql:8.0.36
+    container_name: ilbuy-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-ilbuy123}
+      TZ: Asia/Shanghai
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./infra/docker-compose/middleware/init-sql:/docker-entrypoint-initdb.d:ro
+      - ./infra/docker-compose/middleware/config/mysql/my.cnf:/etc/mysql/conf.d/ilbuy.cnf:ro
+    command: >
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_unicode_ci
+      --default-time-zone=+08:00
+      --binlog-format=ROW
+      --log-bin=mysql-bin
+      --server-id=1
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-uroot", "-p${MYSQL_ROOT_PASSWORD:-ilbuy123}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      ilbuy-net:
+        ipv4_address: 172.30.0.10
+
+  # ── Redis 7.2 ────────────────────────────────────────────
+  redis:
+    image: redis:7.2-alpine
+    container_name: ilbuy-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+      - ./infra/docker-compose/middleware/config/redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
+    command: >
+      redis-server /usr/local/etc/redis/redis.conf
+      --requirepass ${REDIS_PASSWORD:-ilbuy123}
+      --appendonly yes
+      --maxmemory 512mb
+      --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-ilbuy123}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      ilbuy-net:
+        ipv4_address: 172.30.0.11
+
+  # ── Elasticsearch 8.11 ───────────────────────────────────
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.4
+    container_name: ilbuy-es
+    restart: unless-stopped
+    environment:
+      - discovery.type=single-node
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+      - xpack.security.enabled=false
+      - xpack.security.enrollment.enabled=false
+      - TZ=Asia/Shanghai
+    ports:
+      - "9200:9200"
+    volumes:
+      - es-data:/usr/share/elasticsearch/data
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9200/_cluster/health | grep -q '\"status\"'"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+    networks:
+      ilbuy-net:
+        ipv4_address: 172.30.0.12
+
+  # ── RabbitMQ 3.12 ────────────────────────────────────────
+  rabbitmq:
+    image: rabbitmq:3.12-management
+    container_name: ilbuy-rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS:-guest}
+      TZ: Asia/Shanghai
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+      - ./infra/docker-compose/middleware/config/rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
+      - ./infra/docker-compose/middleware/config/rabbitmq/definitions.json:/etc/rabbitmq/definitions.json:ro
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_port_connectivity"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+    networks:
+      ilbuy-net:
+        ipv4_address: 172.30.0.14
+
+  # ── Nacos 2.3 ────────────────────────────────────────────
+  nacos:
+    image: nacos/nacos-server:v2.3.2
+    container_name: ilbuy-nacos
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      - MODE=standalone
+      - SPRING_DATASOURCE_PLATFORM=mysql
+      - MYSQL_SERVICE_HOST=mysql
+      - MYSQL_SERVICE_PORT=3306
+      - MYSQL_SERVICE_DB_NAME=nacos_config
+      - MYSQL_SERVICE_USER=root
+      - MYSQL_SERVICE_PASSWORD=${MYSQL_ROOT_PASSWORD:-ilbuy123}
+      - NACOS_AUTH_ENABLE=false
+      - JVM_XMS=256m
+      - JVM_XMX=512m
+      - TZ=Asia/Shanghai
+    ports:
+      - "8848:8848"
+      - "9848:9848"
+    volumes:
+      - nacos-data:/home/nacos/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8848/nacos/v1/console/health/ready"]
+      interval: 20s
+      timeout: 10s
+      retries: 10
+    networks:
+      ilbuy-net:
+        ipv4_address: 172.30.0.15
+
+  # ── MinIO ────────────────────────────────────────────────
+  minio:
+    image: minio/minio:RELEASE.2024-01-16T16-07-38Z
+    container_name: ilbuy-minio
+    restart: unless-stopped
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      TZ: Asia/Shanghai
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio-data:/data
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD-SHELL", "mc ready local || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    networks:
+      ilbuy-net:
+        ipv4_address: 172.30.0.16
+
+  minio-init:
+    image: minio/mc:latest
+    container_name: ilbuy-minio-init
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+    entrypoint: >
+      /bin/sh -c "
+        mc alias set local http://minio:9000 $$MINIO_ROOT_USER $$MINIO_ROOT_PASSWORD;
+        mc mb --ignore-existing local/ilbuy-reports;
+        mc mb --ignore-existing local/ilbuy-images;
+        mc mb --ignore-existing local/ilbuy-contracts;
+        mc anonymous set download local/ilbuy-images;
+        echo 'MinIO buckets initialized';
+      "
+    networks:
+      - ilbuy-net
+
+  # ── ClickHouse 23.12 ─────────────────────────────────────
+  clickhouse:
+    image: clickhouse/clickhouse-server:23.12
+    container_name: ilbuy-clickhouse
+    restart: unless-stopped
+    environment:
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-}
+      TZ: Asia/Shanghai
+    ports:
+      - "8123:8123"
+    volumes:
+      - clickhouse-data:/var/lib/clickhouse
+      - ./infra/docker-compose/middleware/config/clickhouse/config.xml:/etc/clickhouse-server/config.d/ilbuy.xml:ro
+      - ./infra/docker-compose/middleware/init-sql/clickhouse-init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    healthcheck:
+      test: ["CMD-SHELL", "clickhouse-client --query 'SELECT 1'"]
+      interval: 20s
+      timeout: 10s
+      retries: 5
+    networks:
+      ilbuy-net:
+        ipv4_address: 172.30.0.17
+
+  # ── Canal 1.1.7 ──────────────────────────────────────────
+  canal:
+    image: canal/canal-server:v1.1.7
+    container_name: ilbuy-canal
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      - canal.instance.mysql.slaveId=1234
+      - canal.instance.master.address=mysql:3306
+      - canal.instance.dbUsername=root
+      - canal.instance.dbPassword=${MYSQL_ROOT_PASSWORD:-ilbuy123}
+      - canal.instance.filter.regex=product_db\\..*,order_db\\..*,user_db\\..*
+      - canal.destinations=ilbuy
+    ports:
+      - "11111:11111"
+    networks:
+      ilbuy-net:
+        ipv4_address: 172.30.0.18
+
+###############################################################
+# ─────────────────── 微服务层 ───────────────────────────────
+###############################################################
+
+  # ── Nacos 配置导入（一次性任务）──────────────────────────
+  nacos-init:
+    image: curlimages/curl:latest
+    container_name: ilbuy-nacos-init
+    depends_on:
+      nacos:
+        condition: service_healthy
+    volumes:
+      - ./infra/common-config/nacos:/nacos-config:ro
+    entrypoint: >
+      /bin/sh -c "
+        echo 'Nacos is ready, configs can be imported via:';
+        echo '  bash infra/common-config/nacos/nacos-import.sh dev';
+        echo 'Skipping auto-import in local all-in-one mode.';
+      "
+    networks:
+      - ilbuy-net
+
+  # ── Gateway Service ───────────────────────────────────────
+  gateway-svc:
+    image: ${REGISTRY:-registry.cn-hangzhou.aliyuncs.com/ilbuy}/gateway-svc:${IMAGE_TAG:-latest}
+    container_name: ilbuy-gateway
+    restart: unless-stopped
+    depends_on:
+      nacos:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      - SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE:-dev}
+      - NACOS_HOST=nacos
+      - NACOS_PORT=8848
+      - NACOS_NAMESPACE=${NACOS_DEV_NS:-ilbuy-dev}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-ilbuy123}
+      - TZ=Asia/Shanghai
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8080/actuator/health | grep -q UP"]
+      interval: 20s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+    networks:
+      ilbuy-net:
+        ipv4_address: 172.30.0.30
+
+  # ── User Service ──────────────────────────────────────────
+  user-svc:
+    image: ${REGISTRY:-registry.cn-hangzhou.aliyuncs.com/ilbuy}/user-svc:${IMAGE_TAG:-latest}
+    container_name: ilbuy-user-svc
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      nacos:
+        condition: service_healthy
+    environment:
+      - SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE:-dev}
+      - NACOS_HOST=nacos
+      - NACOS_PORT=8848
+      - NACOS_NAMESPACE=${NACOS_DEV_NS:-ilbuy-dev}
+      - MYSQL_HOST=mysql
+      - MYSQL_PORT=3306
+      - MYSQL_DATABASE=user_db
+      - MYSQL_USERNAME=root
+      - MYSQL_PASSWORD=${MYSQL_ROOT_PASSWORD:-ilbuy123}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-ilbuy123}
+      - TZ=Asia/Shanghai
+    ports:
+      - "8081:8081"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8081/actuator/health | grep -q UP"]
+      interval: 20s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+    networks:
+      ilbuy-net:
+        ipv4_address: 172.30.0.31
+
+  # ── Product Service ───────────────────────────────────────
+  product-svc:
+    image: ${REGISTRY:-registry.cn-hangzhou.aliyuncs.com/ilbuy}/product-svc:${IMAGE_TAG:-latest}
+    container_name: ilbuy-product-svc
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+      nacos:
+        condition: service_healthy
+    environment:
+      - SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE:-dev}
+      - NACOS_HOST=nacos
+      - NACOS_PORT=8848
+      - NACOS_NAMESPACE=${NACOS_DEV_NS:-ilbuy-dev}
+      - MYSQL_HOST=mysql
+      - MYSQL_DATABASE=product_db
+      - MYSQL_USERNAME=root
+      - MYSQL_PASSWORD=${MYSQL_ROOT_PASSWORD:-ilbuy123}
+      - REDIS_HOST=redis
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-ilbuy123}
+      - ES_HOST=elasticsearch
+      - ES_PORT=9200
+      - MINIO_HOST=minio
+      - MINIO_PORT=9000
+      - MINIO_USER=${MINIO_ROOT_USER:-minioadmin}
+      - MINIO_PASSWORD=${MINIO_ROOT_PASSWORD:-minioadmin}
+      - TZ=Asia/Shanghai
+    ports:
+      - "8082:8082"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8082/actuator/health | grep -q UP"]
+      interval: 20s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+    networks:
+      ilbuy-net:
+        ipv4_address: 172.30.0.32
+
+  # ── Order Service ─────────────────────────────────────────
+  order-svc:
+    image: ${REGISTRY:-registry.cn-hangzhou.aliyuncs.com/ilbuy}/order-svc:${IMAGE_TAG:-latest}
+    container_name: ilbuy-order-svc
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      nacos:
+        condition: service_healthy
+    environment:
+      - SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE:-dev}
+      - NACOS_HOST=nacos
+      - NACOS_PORT=8848
+      - NACOS_NAMESPACE=${NACOS_DEV_NS:-ilbuy-dev}
+      - MYSQL_HOST=mysql
+      - MYSQL_DATABASE=order_db
+      - MYSQL_USERNAME=root
+      - MYSQL_PASSWORD=${MYSQL_ROOT_PASSWORD:-ilbuy123}
+      - REDIS_HOST=redis
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-ilbuy123}
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_PORT=5672
+      - RABBITMQ_USERNAME=${RABBITMQ_DEFAULT_USER:-guest}
+      - RABBITMQ_PASSWORD=${RABBITMQ_DEFAULT_PASS:-guest}
+      - TZ=Asia/Shanghai
+    ports:
+      - "8083:8083"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8083/actuator/health | grep -q UP"]
+      interval: 20s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+    networks:
+      ilbuy-net:
+        ipv4_address: 172.30.0.33
+
+  # ── Supplier Service ──────────────────────────────────────
+  supplier-svc:
+    image: ${REGISTRY:-registry.cn-hangzhou.aliyuncs.com/ilbuy}/supplier-svc:${IMAGE_TAG:-latest}
+    container_name: ilbuy-supplier-svc
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+      nacos:
+        condition: service_healthy
+    environment:
+      - SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE:-dev}
+      - NACOS_HOST=nacos
+      - NACOS_PORT=8848
+      - NACOS_NAMESPACE=${NACOS_DEV_NS:-ilbuy-dev}
+      - MYSQL_HOST=mysql
+      - MYSQL_DATABASE=supplier_db
+      - MYSQL_USERNAME=root
+      - MYSQL_PASSWORD=${MYSQL_ROOT_PASSWORD:-ilbuy123}
+      - REDIS_HOST=redis
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-ilbuy123}
+      - TZ=Asia/Shanghai
+    ports:
+      - "8084:8084"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8084/actuator/health | grep -q UP"]
+      interval: 20s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+    networks:
+      ilbuy-net:
+        ipv4_address: 172.30.0.34
+
+  # ── Finance Service ───────────────────────────────────────
+  finance-svc:
+    image: ${REGISTRY:-registry.cn-hangzhou.aliyuncs.com/ilbuy}/finance-svc:${IMAGE_TAG:-latest}
+    container_name: ilbuy-finance-svc
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      nacos:
+        condition: service_healthy
+    environment:
+      - SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE:-dev}
+      - NACOS_HOST=nacos
+      - NACOS_PORT=8848
+      - NACOS_NAMESPACE=${NACOS_DEV_NS:-ilbuy-dev}
+      - MYSQL_HOST=mysql
+      - MYSQL_DATABASE=finance_db
+      - MYSQL_USERNAME=root
+      - MYSQL_PASSWORD=${MYSQL_ROOT_PASSWORD:-ilbuy123}
+      - REDIS_HOST=redis
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-ilbuy123}
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_USERNAME=${RABBITMQ_DEFAULT_USER:-guest}
+      - RABBITMQ_PASSWORD=${RABBITMQ_DEFAULT_PASS:-guest}
+      - TZ=Asia/Shanghai
+    ports:
+      - "8086:8086"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8086/actuator/health | grep -q UP"]
+      interval: 20s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+    networks:
+      ilbuy-net:
+        ipv4_address: 172.30.0.36
+
+  # ── Message Service ───────────────────────────────────────
+  message-svc:
+    image: ${REGISTRY:-registry.cn-hangzhou.aliyuncs.com/ilbuy}/message-svc:${IMAGE_TAG:-latest}
+    container_name: ilbuy-message-svc
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      nacos:
+        condition: service_healthy
+    environment:
+      - SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE:-dev}
+      - NACOS_HOST=nacos
+      - NACOS_PORT=8848
+      - NACOS_NAMESPACE=${NACOS_DEV_NS:-ilbuy-dev}
+      - MYSQL_HOST=mysql
+      - MYSQL_DATABASE=message_db
+      - MYSQL_USERNAME=root
+      - MYSQL_PASSWORD=${MYSQL_ROOT_PASSWORD:-ilbuy123}
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_USERNAME=${RABBITMQ_DEFAULT_USER:-guest}
+      - RABBITMQ_PASSWORD=${RABBITMQ_DEFAULT_PASS:-guest}
+      - TZ=Asia/Shanghai
+    ports:
+      - "8087:8087"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8087/actuator/health | grep -q UP"]
+      interval: 20s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+    networks:
+      ilbuy-net:
+        ipv4_address: 172.30.0.37
+
+  # ── BizData Service（Python FastAPI）─────────────────────
+  biz-data-svc:
+    image: ${REGISTRY:-registry.cn-hangzhou.aliyuncs.com/ilbuy}/biz-data-svc:${IMAGE_TAG:-latest}
+    container_name: ilbuy-biz-data-svc
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      - APP_ENV=${SPRING_PROFILES_ACTIVE:-dev}
+      - DATABASE_URL=mysql+pymysql://root:${MYSQL_ROOT_PASSWORD:-ilbuy123}@mysql:3306/biz_data_db
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-ilbuy123}
+      - ES_HOST=http://elasticsearch:9200
+      - MINIO_ENDPOINT=http://minio:9000
+      - MINIO_ACCESS_KEY=${MINIO_ROOT_USER:-minioadmin}
+      - MINIO_SECRET_KEY=${MINIO_ROOT_PASSWORD:-minioadmin}
+      - CLICKHOUSE_HOST=clickhouse
+      - CLICKHOUSE_PORT=8123
+      - RABBITMQ_URL=amqp://${RABBITMQ_DEFAULT_USER:-guest}:${RABBITMQ_DEFAULT_PASS:-guest}@rabbitmq:5672/
+      - CANAL_HOST=canal
+      - CANAL_PORT=11111
+      - TZ=Asia/Shanghai
+    ports:
+      - "8088:8088"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8088/health | grep -q ok"]
+      interval: 20s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      ilbuy-net:
+        ipv4_address: 172.30.0.38
+
+  # ── AI Service ────────────────────────────────────────────
+  ai-svc:
+    image: ${REGISTRY:-registry.cn-hangzhou.aliyuncs.com/ilbuy}/ai-svc:${IMAGE_TAG:-latest}
+    container_name: ilbuy-ai-svc
+    restart: unless-stopped
+    depends_on:
+      redis:
+        condition: service_healthy
+      nacos:
+        condition: service_healthy
+    environment:
+      - SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE:-dev}
+      - NACOS_HOST=nacos
+      - NACOS_PORT=8848
+      - NACOS_NAMESPACE=${NACOS_DEV_NS:-ilbuy-dev}
+      - REDIS_HOST=redis
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-ilbuy123}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - TZ=Asia/Shanghai
+    ports:
+      - "8089:8089"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8089/actuator/health | grep -q UP"]
+      interval: 20s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+    networks:
+      ilbuy-net:
+        ipv4_address: 172.30.0.39

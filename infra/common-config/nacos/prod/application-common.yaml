@@ -1,0 +1,113 @@
+# ============================================================
+# ILbuy 公共配置 — 生产环境
+# Nacos Data ID : application-common.yaml
+# Nacos Group   : DEFAULT_GROUP
+# Namespace     : ilbuy-prod
+# ⚠️ 所有密钥通过 Vault/K8s Secret 注入，此文件不存明文密码
+# ============================================================
+
+spring:
+  profiles:
+    active: prod
+
+  datasource:
+    hikari:
+      minimum-idle:            10
+      maximum-pool-size:       50
+      connection-timeout:      30000
+      idle-timeout:            600000
+      max-lifetime:            1800000
+      connection-test-query:   SELECT 1
+      pool-name:               ILbuyHikariCP-Prod
+
+  # ── Redis Cluster（生产集群 6 节点） ─────────────────
+  data:
+    redis:
+      cluster:
+        nodes:
+          - ${REDIS_NODE_1:redis-node-1:6379}
+          - ${REDIS_NODE_2:redis-node-2:6379}
+          - ${REDIS_NODE_3:redis-node-3:6379}
+          - ${REDIS_NODE_4:redis-node-4:6379}
+          - ${REDIS_NODE_5:redis-node-5:6379}
+          - ${REDIS_NODE_6:redis-node-6:6379}
+        max-redirects: 3
+      password:        ${REDIS_PASSWORD}
+      timeout:         3000ms
+      lettuce:
+        cluster:
+          refresh:
+            adaptive: true
+            period:   30s
+        pool:
+          max-active: 50
+          max-idle:   20
+          min-idle:   5
+          max-wait:   2000ms
+
+  rabbitmq:
+    # 生产：RabbitMQ 集群（多地址）
+    addresses: ${RABBITMQ_ADDRESSES}
+    username:  ${RABBITMQ_USER}
+    password:  ${RABBITMQ_PASSWORD}
+    virtual-host: /ilbuy
+    ssl:
+      enabled: true
+    publisher-confirm-type: correlated
+    publisher-returns:      true
+    listener:
+      simple:
+        acknowledge-mode:   manual
+        concurrency:        5
+        max-concurrency:    20
+        retry:
+          enabled:          true
+          initial-interval: 2000ms
+          max-attempts:     3
+          multiplier:       2.0
+
+  jackson:
+    date-format: yyyy-MM-dd HH:mm:ss
+    time-zone:   Asia/Shanghai
+    default-property-inclusion: non_null
+    serialization:
+      write-dates-as-timestamps: false
+
+  cloud:
+    openfeign:
+      client:
+        config:
+          default:
+            connect-timeout: 5000
+            read-timeout:    15000
+            logger-level:    NONE
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: when-authorized
+  metrics:
+    tags:
+      application: ${spring.application.name}
+      env:         prod
+
+logging:
+  level:
+    root:      WARN
+    com.ilbuy: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level [%X{traceId}] %logger{36} - %msg%n"
+  file:
+    path: /var/log/ilbuy/${spring.application.name}
+
+ilbuy:
+  rate-limit:
+    global-qps: 5000
+    user-qps:   120
+    login-qps:  20
+  lock-timeout-seconds: 30
+  max-page-size:        200

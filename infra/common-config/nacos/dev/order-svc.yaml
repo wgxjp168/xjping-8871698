@@ -1,0 +1,72 @@
+# ============================================================
+# ILbuy 订单服务配置
+# Nacos Data ID : order-svc.yaml
+# Nacos Group   : DEFAULT_GROUP
+# Namespace     : ilbuy-dev
+# ============================================================
+
+server:
+  port: 8083
+
+spring:
+  application:
+    name: order-svc
+
+  # ── MySQL（order_db） ─────────────────────────────────
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url:      jdbc:mysql://${MYSQL_HOST:127.0.0.1}:${MYSQL_PORT:3306}/order_db?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+    username: ${MYSQL_USER:root}
+    password: ${MYSQL_PASSWORD:ilbuy123}
+
+mybatis-plus:
+  mapper-locations: classpath:mapper/**/*.xml
+  type-aliases-package: com.ilbuy.order.entity
+  configuration:
+    map-underscore-to-camel-case: true
+
+# ── 订单业务配置 ──────────────────────────────────────────
+ilbuy:
+  order:
+    # 订单未支付超时自动取消（分钟）
+    unpaid-timeout-minutes: 30
+    # 收货后自动确认（天）
+    auto-confirm-days:      7
+    # 退款申请截止（天）
+    refund-deadline-days:   15
+    # 订单号生成前缀
+    order-no-prefix:        "IL"
+
+  # ── 支付配置 ─────────────────────────────────────────
+  payment:
+    alipay:
+      enabled:      true
+      app-id:       ${ALIPAY_APP_ID:}
+      private-key:  ${ALIPAY_PRIVATE_KEY:}
+      public-key:   ${ALIPAY_PUBLIC_KEY:}
+      notify-url:   https://ilbuy.com/api/payment/alipay/notify
+      return-url:   https://ilbuy.com/order/pay/result
+      sandbox:      true    # dev 环境使用沙箱
+    wechat-pay:
+      enabled:      false
+      mch-id:       ${WECHAT_PAY_MCH_ID:}
+      api-key:      ${WECHAT_PAY_API_KEY:}
+      cert-path:    /etc/ilbuy/certs/wechat_pay_cert.p12
+      notify-url:   https://ilbuy.com/api/payment/wechat/notify
+
+  # ── 消息队列（订单事件） ──────────────────────────────
+  mq:
+    exchange:
+      order:  ilbuy.order
+    routing-key:
+      created:    order.created
+      paid:       order.paid
+      shipped:    order.shipped
+      completed:  order.completed
+      cancelled:  order.cancelled
+      refunded:   order.refunded
+
+  # ── 库存扣减策略 ──────────────────────────────────────
+  inventory:
+    deduct-mode:  PRE_DEDUCT   # PRE_DEDUCT=下单预扣 | PAY_DEDUCT=支付后扣
+    lock-timeout-seconds: 10

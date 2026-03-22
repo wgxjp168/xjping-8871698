@@ -1,0 +1,362 @@
+###############################################################
+# ILbuy 微服务 Docker Compose
+# 用途：本地开发一键启动所有微服务
+# 前提：middleware docker-compose 已启动并健康
+# 用法：
+#   docker compose --env-file .env up -d
+#   docker compose --env-file .env down
+###############################################################
+
+version: "3.9"
+
+# ── 引用中间件网络 ─────────────────────────────────────────
+networks:
+  ilbuy-net:
+    external: true
+    name: ilbuy-middleware_ilbuy-net
+
+# ── 共用配置片段 ───────────────────────────────────────────
+x-java-svc: &java-svc
+  image: ${REGISTRY:-registry.cn-hangzhou.aliyuncs.com/ilbuy}/${SERVICE_NAME}:${IMAGE_TAG:-latest}
+  restart: unless-stopped
+  environment:
+    - JAVA_OPTS=${JAVA_OPTS:--Xms256m -Xmx512m -XX:+UseG1GC}
+    - SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE:-dev}
+    - NACOS_HOST=172.30.0.15
+    - NACOS_PORT=8848
+    - NACOS_NAMESPACE=${NACOS_DEV_NS:-ilbuy-dev}
+    - MYSQL_HOST=172.30.0.10
+    - REDIS_HOST=172.30.0.11
+    - REDIS_PORT=6379
+    - REDIS_PASSWORD=${REDIS_PASSWORD:-ilbuy123}
+    - TZ=Asia/Shanghai
+  networks:
+    - ilbuy-net
+  logging:
+    driver: "json-file"
+    options:
+      max-size: "50m"
+      max-file: "5"
+
+###############################################################
+services:
+
+  # ──────────────────────────────────────────────────────────
+  #  Gateway Service（API 网关）
+  # ──────────────────────────────────────────────────────────
+  gateway-svc:
+    <<: *java-svc
+    image: ${REGISTRY:-registry.cn-hangzhou.aliyuncs.com/ilbuy}/gateway-svc:${IMAGE_TAG:-latest}
+    container_name: ilbuy-gateway
+    environment:
+      - JAVA_OPTS=${JAVA_OPTS:--Xms256m -Xmx512m -XX:+UseG1GC}
+      - SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE:-dev}
+      - NACOS_HOST=172.30.0.15
+      - NACOS_PORT=8848
+      - NACOS_NAMESPACE=${NACOS_DEV_NS:-ilbuy-dev}
+      - REDIS_HOST=172.30.0.11
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-ilbuy123}
+      - TZ=Asia/Shanghai
+    ports:
+      - "${GATEWAY_PORT:-8080}:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8080/actuator/health | grep -q UP"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+    networks:
+      ilbuy-net:
+        ipv4_address: 172.30.0.30
+
+  # ──────────────────────────────────────────────────────────
+  #  User Service（用户服务）
+  # ──────────────────────────────────────────────────────────
+  user-svc:
+    <<: *java-svc
+    image: ${REGISTRY:-registry.cn-hangzhou.aliyuncs.com/ilbuy}/user-svc:${IMAGE_TAG:-latest}
+    container_name: ilbuy-user-svc
+    environment:
+      - JAVA_OPTS=${JAVA_OPTS:--Xms256m -Xmx512m -XX:+UseG1GC}
+      - SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE:-dev}
+      - NACOS_HOST=172.30.0.15
+      - NACOS_PORT=8848
+      - NACOS_NAMESPACE=${NACOS_DEV_NS:-ilbuy-dev}
+      - MYSQL_HOST=172.30.0.10
+      - MYSQL_PORT=3306
+      - MYSQL_DATABASE=user_db
+      - MYSQL_USERNAME=root
+      - MYSQL_PASSWORD=${MYSQL_ROOT_PASSWORD:-ilbuy123}
+      - REDIS_HOST=172.30.0.11
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-ilbuy123}
+      - TZ=Asia/Shanghai
+    ports:
+      - "${USER_SVC_PORT:-8081}:8081"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8081/actuator/health | grep -q UP"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+    networks:
+      ilbuy-net:
+        ipv4_address: 172.30.0.31
+
+  # ──────────────────────────────────────────────────────────
+  #  Product Service（商品服务）
+  # ──────────────────────────────────────────────────────────
+  product-svc:
+    <<: *java-svc
+    image: ${REGISTRY:-registry.cn-hangzhou.aliyuncs.com/ilbuy}/product-svc:${IMAGE_TAG:-latest}
+    container_name: ilbuy-product-svc
+    environment:
+      - JAVA_OPTS=${JAVA_OPTS:--Xms256m -Xmx512m -XX:+UseG1GC}
+      - SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE:-dev}
+      - NACOS_HOST=172.30.0.15
+      - NACOS_PORT=8848
+      - NACOS_NAMESPACE=${NACOS_DEV_NS:-ilbuy-dev}
+      - MYSQL_HOST=172.30.0.10
+      - MYSQL_PORT=3306
+      - MYSQL_DATABASE=product_db
+      - MYSQL_USERNAME=root
+      - MYSQL_PASSWORD=${MYSQL_ROOT_PASSWORD:-ilbuy123}
+      - REDIS_HOST=172.30.0.11
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-ilbuy123}
+      - ES_HOST=172.30.0.12
+      - ES_PORT=9200
+      - MINIO_HOST=172.30.0.16
+      - MINIO_PORT=9000
+      - MINIO_USER=${MINIO_ROOT_USER:-minioadmin}
+      - MINIO_PASSWORD=${MINIO_ROOT_PASSWORD:-minioadmin}
+      - TZ=Asia/Shanghai
+    ports:
+      - "${PRODUCT_SVC_PORT:-8082}:8082"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8082/actuator/health | grep -q UP"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+    networks:
+      ilbuy-net:
+        ipv4_address: 172.30.0.32
+
+  # ──────────────────────────────────────────────────────────
+  #  Order Service（订单服务）
+  # ──────────────────────────────────────────────────────────
+  order-svc:
+    <<: *java-svc
+    image: ${REGISTRY:-registry.cn-hangzhou.aliyuncs.com/ilbuy}/order-svc:${IMAGE_TAG:-latest}
+    container_name: ilbuy-order-svc
+    environment:
+      - JAVA_OPTS=${JAVA_OPTS:--Xms256m -Xmx512m -XX:+UseG1GC}
+      - SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE:-dev}
+      - NACOS_HOST=172.30.0.15
+      - NACOS_PORT=8848
+      - NACOS_NAMESPACE=${NACOS_DEV_NS:-ilbuy-dev}
+      - MYSQL_HOST=172.30.0.10
+      - MYSQL_PORT=3306
+      - MYSQL_DATABASE=order_db
+      - MYSQL_USERNAME=root
+      - MYSQL_PASSWORD=${MYSQL_ROOT_PASSWORD:-ilbuy123}
+      - REDIS_HOST=172.30.0.11
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-ilbuy123}
+      - RABBITMQ_HOST=172.30.0.14
+      - RABBITMQ_PORT=5672
+      - RABBITMQ_USERNAME=${RABBITMQ_DEFAULT_USER:-guest}
+      - RABBITMQ_PASSWORD=${RABBITMQ_DEFAULT_PASS:-guest}
+      - TZ=Asia/Shanghai
+    ports:
+      - "${ORDER_SVC_PORT:-8083}:8083"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8083/actuator/health | grep -q UP"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+    networks:
+      ilbuy-net:
+        ipv4_address: 172.30.0.33
+
+  # ──────────────────────────────────────────────────────────
+  #  Supplier Service（供应商服务）
+  # ──────────────────────────────────────────────────────────
+  supplier-svc:
+    <<: *java-svc
+    image: ${REGISTRY:-registry.cn-hangzhou.aliyuncs.com/ilbuy}/supplier-svc:${IMAGE_TAG:-latest}
+    container_name: ilbuy-supplier-svc
+    environment:
+      - JAVA_OPTS=${JAVA_OPTS:--Xms256m -Xmx512m -XX:+UseG1GC}
+      - SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE:-dev}
+      - NACOS_HOST=172.30.0.15
+      - NACOS_PORT=8848
+      - NACOS_NAMESPACE=${NACOS_DEV_NS:-ilbuy-dev}
+      - MYSQL_HOST=172.30.0.10
+      - MYSQL_PORT=3306
+      - MYSQL_DATABASE=supplier_db
+      - MYSQL_USERNAME=root
+      - MYSQL_PASSWORD=${MYSQL_ROOT_PASSWORD:-ilbuy123}
+      - REDIS_HOST=172.30.0.11
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-ilbuy123}
+      - TZ=Asia/Shanghai
+    ports:
+      - "${SUPPLIER_SVC_PORT:-8084}:8084"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8084/actuator/health | grep -q UP"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+    networks:
+      ilbuy-net:
+        ipv4_address: 172.30.0.34
+
+  # ──────────────────────────────────────────────────────────
+  #  Finance Service（财务结算服务）
+  # ──────────────────────────────────────────────────────────
+  finance-svc:
+    <<: *java-svc
+    image: ${REGISTRY:-registry.cn-hangzhou.aliyuncs.com/ilbuy}/finance-svc:${IMAGE_TAG:-latest}
+    container_name: ilbuy-finance-svc
+    environment:
+      - JAVA_OPTS=${JAVA_OPTS:--Xms256m -Xmx512m -XX:+UseG1GC}
+      - SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE:-dev}
+      - NACOS_HOST=172.30.0.15
+      - NACOS_PORT=8848
+      - NACOS_NAMESPACE=${NACOS_DEV_NS:-ilbuy-dev}
+      - MYSQL_HOST=172.30.0.10
+      - MYSQL_PORT=3306
+      - MYSQL_DATABASE=finance_db
+      - MYSQL_USERNAME=root
+      - MYSQL_PASSWORD=${MYSQL_ROOT_PASSWORD:-ilbuy123}
+      - REDIS_HOST=172.30.0.11
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-ilbuy123}
+      - RABBITMQ_HOST=172.30.0.14
+      - RABBITMQ_PORT=5672
+      - RABBITMQ_USERNAME=${RABBITMQ_DEFAULT_USER:-guest}
+      - RABBITMQ_PASSWORD=${RABBITMQ_DEFAULT_PASS:-guest}
+      - TZ=Asia/Shanghai
+    ports:
+      - "${FINANCE_SVC_PORT:-8086}:8086"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8086/actuator/health | grep -q UP"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+    networks:
+      ilbuy-net:
+        ipv4_address: 172.30.0.36
+
+  # ──────────────────────────────────────────────────────────
+  #  Message Service（消息通知服务）
+  # ──────────────────────────────────────────────────────────
+  message-svc:
+    <<: *java-svc
+    image: ${REGISTRY:-registry.cn-hangzhou.aliyuncs.com/ilbuy}/message-svc:${IMAGE_TAG:-latest}
+    container_name: ilbuy-message-svc
+    environment:
+      - JAVA_OPTS=${JAVA_OPTS:--Xms256m -Xmx512m -XX:+UseG1GC}
+      - SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE:-dev}
+      - NACOS_HOST=172.30.0.15
+      - NACOS_PORT=8848
+      - NACOS_NAMESPACE=${NACOS_DEV_NS:-ilbuy-dev}
+      - MYSQL_HOST=172.30.0.10
+      - MYSQL_PORT=3306
+      - MYSQL_DATABASE=message_db
+      - MYSQL_USERNAME=root
+      - MYSQL_PASSWORD=${MYSQL_ROOT_PASSWORD:-ilbuy123}
+      - RABBITMQ_HOST=172.30.0.14
+      - RABBITMQ_PORT=5672
+      - RABBITMQ_USERNAME=${RABBITMQ_DEFAULT_USER:-guest}
+      - RABBITMQ_PASSWORD=${RABBITMQ_DEFAULT_PASS:-guest}
+      - TZ=Asia/Shanghai
+    ports:
+      - "${MESSAGE_SVC_PORT:-8087}:8087"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8087/actuator/health | grep -q UP"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+    networks:
+      ilbuy-net:
+        ipv4_address: 172.30.0.37
+
+  # ──────────────────────────────────────────────────────────
+  #  BizData Service（业务数据服务，Python FastAPI）
+  # ──────────────────────────────────────────────────────────
+  biz-data-svc:
+    image: ${REGISTRY:-registry.cn-hangzhou.aliyuncs.com/ilbuy}/biz-data-svc:${IMAGE_TAG:-latest}
+    container_name: ilbuy-biz-data-svc
+    restart: unless-stopped
+    environment:
+      - APP_ENV=${SPRING_PROFILES_ACTIVE:-dev}
+      - DATABASE_URL=mysql+pymysql://root:${MYSQL_ROOT_PASSWORD:-ilbuy123}@172.30.0.10:3306/biz_data_db
+      - REDIS_HOST=172.30.0.11
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-ilbuy123}
+      - ES_HOST=http://172.30.0.12:9200
+      - MINIO_ENDPOINT=http://172.30.0.16:9000
+      - MINIO_ACCESS_KEY=${MINIO_ROOT_USER:-minioadmin}
+      - MINIO_SECRET_KEY=${MINIO_ROOT_PASSWORD:-minioadmin}
+      - CLICKHOUSE_HOST=172.30.0.17
+      - CLICKHOUSE_PORT=8123
+      - RABBITMQ_URL=amqp://${RABBITMQ_DEFAULT_USER:-guest}:${RABBITMQ_DEFAULT_PASS:-guest}@172.30.0.14:5672/
+      - CANAL_HOST=172.30.0.18
+      - CANAL_PORT=11111
+      - TZ=Asia/Shanghai
+    ports:
+      - "${BIZ_DATA_PORT:-8088}:8088"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8088/health | grep -q ok"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      ilbuy-net:
+        ipv4_address: 172.30.0.38
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "5"
+
+  # ──────────────────────────────────────────────────────────
+  #  AI Service（AI 智能服务）
+  # ──────────────────────────────────────────────────────────
+  ai-svc:
+    <<: *java-svc
+    image: ${REGISTRY:-registry.cn-hangzhou.aliyuncs.com/ilbuy}/ai-svc:${IMAGE_TAG:-latest}
+    container_name: ilbuy-ai-svc
+    environment:
+      - JAVA_OPTS=${JAVA_OPTS:--Xms256m -Xmx512m -XX:+UseG1GC}
+      - SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE:-dev}
+      - NACOS_HOST=172.30.0.15
+      - NACOS_PORT=8848
+      - NACOS_NAMESPACE=${NACOS_DEV_NS:-ilbuy-dev}
+      - REDIS_HOST=172.30.0.11
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-ilbuy123}
+      # LLM keys从 Nacos / Vault 获取，这里留空安全
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - TZ=Asia/Shanghai
+    ports:
+      - "${AI_SVC_PORT:-8089}:8089"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8089/actuator/health | grep -q UP"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+    networks:
+      ilbuy-net:
+        ipv4_address: 172.30.0.39

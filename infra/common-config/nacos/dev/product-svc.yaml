@@ -1,0 +1,71 @@
+# ============================================================
+# ILbuy 商品/商城服务配置
+# Nacos Data ID : product-svc.yaml
+# Nacos Group   : DEFAULT_GROUP
+# Namespace     : ilbuy-dev
+# ============================================================
+
+server:
+  port: 8082
+
+spring:
+  application:
+    name: product-svc
+
+  # ── MySQL（product_db） ───────────────────────────────
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url:      jdbc:mysql://${MYSQL_HOST:127.0.0.1}:${MYSQL_PORT:3306}/product_db?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+    username: ${MYSQL_USER:root}
+    password: ${MYSQL_PASSWORD:ilbuy123}
+
+mybatis-plus:
+  mapper-locations: classpath:mapper/**/*.xml
+  type-aliases-package: com.ilbuy.product.entity
+  configuration:
+    map-underscore-to-camel-case: true
+
+# ── Elasticsearch 8.11 ────────────────────────────────────
+elasticsearch:
+  uris:     ${ES_HOSTS:http://127.0.0.1:9200}
+  username: ${ES_USERNAME:elastic}
+  password: ${ES_PASSWORD:ilbuy123}
+  connection-timeout: 5s
+  socket-timeout:     30s
+
+# ── MinIO ─────────────────────────────────────────────────
+minio:
+  endpoint:    ${MINIO_ENDPOINT:http://127.0.0.1:9000}
+  access-key:  ${MINIO_ACCESS_KEY:minioadmin}
+  secret-key:  ${MINIO_SECRET_KEY:minioadmin}
+  buckets:
+    images:    ilbuy-images
+    reports:   ilbuy-reports
+    contracts: ilbuy-contracts
+
+# ── 商品业务配置 ──────────────────────────────────────────
+ilbuy:
+  product:
+    # Redis 商品缓存 TTL（秒），随机抖动 ±60s 防雪崩
+    cache-ttl-seconds:    600
+    cache-ttl-jitter:     60
+    # 热门商品阈值（浏览量）
+    hot-view-threshold:   1000
+    # 库存预警阈值
+    low-stock-threshold:  10
+    # 图片压缩质量
+    image-compress-quality: 0.8
+    # 允许的图片 MIME 类型
+    allowed-image-types:  [image/jpeg, image/png, image/webp]
+    # 单图最大大小（MB）
+    max-image-size-mb:    10
+
+  # ── ES 索引 ──────────────────────────────────────────
+  es:
+    index:
+      product:      ilbuy_products
+      behavior-log: ilbuy_behavior_logs
+    product-shards:   3
+    product-replicas: 1
+    # 批量同步批次大小
+    bulk-size:        500
