@@ -1,0 +1,92 @@
+/* src/assets/styles/supplier-score.css */
+/* 供应商评分模块全局样式（生产级） */
+
+/* 主题色变量 */
+:root {
+  --score-primary: #409eff;
+  --score-success: #67c23a;
+  --score-warning: #e6a23c;
+  --score-danger: #f56c6c;
+  --score-info: #909399;
+  --score-bg: #f5f7fa;
+  --score-card-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.05);
+}
+
+/* 等级标签 */
+.level-tag-s { background-color: #67c23a; color: #fff; }
+.level-tag-a { background-color: #409eff; color: #fff; }
+.level-tag-b { background-color: #e6a23c; color: #fff; }
+.level-tag-c { background-color: #f56c6c; color: #fff; }
+.level-tag-d { background-color: #909399; color: #fff; }
+
+/* 评分卡片悬停效果 */
+.score-card-hover {
+  transition: box-shadow 0.3s ease;
+  cursor: pointer;
+}
+.score-card-hover:hover {
+  box-shadow: 0 4px 20px 0 rgba(64, 158, 255, 0.15);
+}
+
+/* 分值高亮 */
+.score-highlight {
+  color: var(--score-primary);
+  font-weight: 700;
+  font-size: 1.2em;
+}
+
+/* 进度条颜色覆盖 */
+.el-progress.score-progress-bar .el-progress-bar__inner {
+  transition: width 0.6s ease;
+}
+
+/* 自动保存动画 */
+.auto-save-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--score-primary);
+  font-size: 12px;
+  animation: fadeInOut 2s ease infinite;
+}
+
+@keyframes fadeInOut {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* 操作按钮组 */
+.score-action-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* 空状态容器 */
+.score-empty-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 300px;
+  color: var(--score-info);
+}
+
+/* 响应式布局 */
+@media screen and (max-width: 768px) {
+  .supplier-score-page {
+    padding: 12px;
+  }
+
+  .operation-bar {
+    flex-direction: column;
+    gap: 12px;
+    align-items: flex-start;
+  }
+
+  .score-form {
+    max-width: 100%;
+  }
+}
+</style>
