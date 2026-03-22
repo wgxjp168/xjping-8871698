@@ -1,0 +1,58 @@
+# ============================================================
+# ILbuy AI 智能服务配置 — 生产环境
+# Nacos Data ID : ai-svc.yaml
+# Namespace     : ilbuy-prod
+# ⚠️ LLM API Key 通过 Vault secret/ilbuy/llm 注入
+# ============================================================
+
+server:
+  port: 8089
+
+spring:
+  application:
+    name: ai-svc
+
+ilbuy:
+  ai:
+    # ── 默认模型 ────────────────────────────────────────
+    default-provider: anthropic
+
+    anthropic:
+      api-key:    ${ANTHROPIC_API_KEY}
+      model:      claude-sonnet-4-6
+      max-tokens: 4096
+      timeout-s:  60
+
+    openai:
+      api-key:    ${OPENAI_API_KEY}
+      model:      gpt-4o
+      max-tokens: 4096
+      timeout-s:  60
+
+    qwen:
+      api-key:    ${QWEN_API_KEY}
+      model:      qwen-plus
+      timeout-s:  30
+
+    # ── 功能开关 ────────────────────────────────────────
+    features:
+      smart-search:        true
+      supplier-risk:       true
+      order-anomaly:       true
+      report-generation:   true
+
+    # ── 限流（生产） ──────────────────────────────────
+    rate-limit:
+      requests-per-minute:   60
+      tokens-per-day:        2000000   # 200万 tokens/天
+
+    # ── 缓存 ────────────────────────────────────────────
+    cache:
+      enabled: true
+      ttl-seconds: 3600
+      max-entries: 10000
+
+    # ── 提示词版本管理 ────────────────────────────────
+    prompt:
+      version: v2.0
+      storage: nacos   # 从 Nacos 动态加载 prompt 模板

@@ -1,0 +1,157 @@
+{
+  "_comment": "ILbuy RabbitMQ 预置定义：交换机、队列、绑定关系",
+  "rabbit_version": "3.12.0",
+  "users": [],
+  "vhosts": [
+    { "name": "/" }
+  ],
+  "permissions": [],
+  "exchanges": [
+    {
+      "name":        "ilbuy.async",
+      "vhost":       "/",
+      "type":        "topic",
+      "durable":     true,
+      "auto_delete": false,
+      "internal":    false,
+      "arguments":   {}
+    },
+    {
+      "name":        "ilbuy.sync",
+      "vhost":       "/",
+      "type":        "topic",
+      "durable":     true,
+      "auto_delete": false,
+      "internal":    false,
+      "arguments":   {}
+    },
+    {
+      "name":        "ilbuy.dlx",
+      "vhost":       "/",
+      "type":        "direct",
+      "durable":     true,
+      "auto_delete": false,
+      "internal":    false,
+      "arguments":   {}
+    }
+  ],
+  "queues": [
+    {
+      "name":        "ilbuy.notify.queue",
+      "vhost":       "/",
+      "durable":     true,
+      "auto_delete": false,
+      "arguments": {
+        "x-dead-letter-exchange":    "ilbuy.dlx",
+        "x-dead-letter-routing-key": "dead.notify",
+        "x-message-ttl":             86400000,
+        "x-queue-type":              "classic"
+      }
+    },
+    {
+      "name":        "ilbuy.report.queue",
+      "vhost":       "/",
+      "durable":     true,
+      "auto_delete": false,
+      "arguments": {
+        "x-dead-letter-exchange":    "ilbuy.dlx",
+        "x-dead-letter-routing-key": "dead.report",
+        "x-message-ttl":             3600000,
+        "x-queue-type":              "classic"
+      }
+    },
+    {
+      "name":        "ilbuy.es.sync.queue",
+      "vhost":       "/",
+      "durable":     true,
+      "auto_delete": false,
+      "arguments": {
+        "x-dead-letter-exchange":    "ilbuy.dlx",
+        "x-dead-letter-routing-key": "dead.es.sync",
+        "x-message-ttl":             300000,
+        "x-queue-type":              "classic"
+      }
+    },
+    {
+      "name":        "ilbuy.ch.sync.queue",
+      "vhost":       "/",
+      "durable":     true,
+      "auto_delete": false,
+      "arguments": {
+        "x-dead-letter-exchange":    "ilbuy.dlx",
+        "x-dead-letter-routing-key": "dead.ch.sync",
+        "x-message-ttl":             300000,
+        "x-queue-type":              "classic"
+      }
+    },
+    {
+      "name":        "ilbuy.order.event.queue",
+      "vhost":       "/",
+      "durable":     true,
+      "auto_delete": false,
+      "arguments": {
+        "x-dead-letter-exchange":    "ilbuy.dlx",
+        "x-dead-letter-routing-key": "dead.order.event",
+        "x-message-ttl":             86400000,
+        "x-queue-type":              "classic"
+      }
+    },
+    {
+      "name":        "ilbuy.dead.queue",
+      "vhost":       "/",
+      "durable":     true,
+      "auto_delete": false,
+      "arguments":   {}
+    }
+  ],
+  "bindings": [
+    {
+      "source":           "ilbuy.async",
+      "vhost":            "/",
+      "destination":      "ilbuy.notify.queue",
+      "destination_type": "queue",
+      "routing_key":      "notify.#",
+      "arguments":        {}
+    },
+    {
+      "source":           "ilbuy.async",
+      "vhost":            "/",
+      "destination":      "ilbuy.report.queue",
+      "destination_type": "queue",
+      "routing_key":      "report.#",
+      "arguments":        {}
+    },
+    {
+      "source":           "ilbuy.async",
+      "vhost":            "/",
+      "destination":      "ilbuy.order.event.queue",
+      "destination_type": "queue",
+      "routing_key":      "order.#",
+      "arguments":        {}
+    },
+    {
+      "source":           "ilbuy.sync",
+      "vhost":            "/",
+      "destination":      "ilbuy.es.sync.queue",
+      "destination_type": "queue",
+      "routing_key":      "sync.es.#",
+      "arguments":        {}
+    },
+    {
+      "source":           "ilbuy.sync",
+      "vhost":            "/",
+      "destination":      "ilbuy.ch.sync.queue",
+      "destination_type": "queue",
+      "routing_key":      "sync.ch.#",
+      "arguments":        {}
+    },
+    {
+      "source":           "ilbuy.dlx",
+      "vhost":            "/",
+      "destination":      "ilbuy.dead.queue",
+      "destination_type": "queue",
+      "routing_key":      "#",
+      "arguments":        {}
+    }
+  ]
+}

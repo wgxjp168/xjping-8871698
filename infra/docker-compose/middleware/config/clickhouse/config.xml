@@ -1,0 +1,65 @@
+<!-- ============================================================
+     ILbuy ClickHouse 23.12 自定义配置
+     路径：/etc/clickhouse-server/config.d/ilbuy.xml（Docker 挂载）
+     此文件覆盖默认 config.xml 中的对应配置项
+     ============================================================ -->
+<clickhouse>
+
+    <!-- ── 网络监听 ──────────────────────────────────────── -->
+    <listen_host>0.0.0.0</listen_host>
+    <http_port>8123</http_port>
+    <tcp_port>9000</tcp_port>
+
+    <!-- ── 时区 ──────────────────────────────────────────── -->
+    <timezone>Asia/Shanghai</timezone>
+
+    <!-- ── 数据路径 ──────────────────────────────────────── -->
+    <path>/var/lib/clickhouse/</path>
+    <tmp_path>/var/lib/clickhouse/tmp/</tmp_path>
+    <user_data_path>/var/lib/clickhouse/user_defined/</user_data_path>
+
+    <!-- ── 日志 ──────────────────────────────────────────── -->
+    <logger>
+        <level>warning</level>
+        <console>true</console>
+        <size>100M</size>
+        <count>3</count>
+    </logger>
+
+    <!-- ── 连接数限制 ─────────────────────────────────────── -->
+    <max_connections>500</max_connections>
+    <keep_alive_timeout>10</keep_alive_timeout>
+    <max_concurrent_queries>100</max_concurrent_queries>
+    <max_server_memory_usage_to_ram_ratio>0.9</max_server_memory_usage_to_ram_ratio>
+
+    <!-- ── 查询配置 ───────────────────────────────────────── -->
+    <max_table_size_to_drop>0</max_table_size_to_drop>
+    <max_partition_size_to_drop>0</max_partition_size_to_drop>
+
+    <!-- ── 默认数据库 ─────────────────────────────────────── -->
+    <default_database>ilbuy_analytics</default_database>
+
+    <!-- ── 用户文件 ───────────────────────────────────────── -->
+    <users_config>users.xml</users_config>
+
+    <!-- ── 压缩 ──────────────────────────────────────────── -->
+    <compression>
+        <case>
+            <min_part_size>10000000000</min_part_size>
+            <min_part_size_ratio>0.01</min_part_size_ratio>
+            <method>lz4</method>
+        </case>
+    </compression>
+
+    <!-- ── Mark Cache（索引缓存）────────────────────────── -->
+    <mark_cache_size>5368709120</mark_cache_size>
+
+    <!-- ── 分布式 DDL ─────────────────────────────────────── -->
+    <distributed_ddl>
+        <path>/clickhouse/task_queue/ddl</path>
+    </distributed_ddl>
+
+    <!-- ── 格式化 ─────────────────────────────────────────── -->
+    <format_schema_path>/var/lib/clickhouse/format_schemas/</format_schema_path>
+
+</clickhouse>

@@ -1,0 +1,68 @@
+# ============================================================
+# ILbuy 消息通知服务配置 — 生产环境
+# Nacos Data ID : message-svc.yaml
+# Namespace     : ilbuy-prod
+# ============================================================
+
+server:
+  port: 8087
+
+spring:
+  application:
+    name: message-svc
+
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: >-
+      jdbc:mysql://${MYSQL_HOST}:${MYSQL_PORT:3306}/message_db
+      ?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
+      &useSSL=true&requireSSL=true&verifyServerCertificate=false
+      &rewriteBatchedStatements=true
+    username: ${MYSQL_USER}
+    password: ${MYSQL_PASSWORD}
+
+  # ── SMTP 邮件（密码通过 Vault 注入）──────────────────
+  mail:
+    host:     ${SMTP_HOST}
+    port:     ${SMTP_PORT:465}
+    username: ${SMTP_USERNAME}
+    password: ${SMTP_PASSWORD}
+    properties:
+      mail.smtp.auth: true
+      mail.smtp.ssl.enable: true
+      mail.smtp.ssl.trust: "*"
+      mail.smtp.timeout: 5000
+      mail.smtp.connectiontimeout: 5000
+
+mybatis-plus:
+  mapper-locations: classpath:mapper/**/*.xml
+  type-aliases-package: com.ilbuy.message.entity
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.nologging.NoLoggingImpl
+    default-statement-timeout: 30
+
+ilbuy:
+  message:
+    sms:
+      provider: aliyun
+      aliyun:
+        access-key-id:     ${ALIYUN_SMS_AK}
+        access-key-secret: ${ALIYUN_SMS_SK}
+        sign-name:         来购ILbuy
+      # 限流：同一手机号每日最多 10 条
+      daily-limit-per-phone: 10
+
+    push:
+      # 极光推送（生产）
+      jpush:
+        app-key:    ${JPUSH_APP_KEY}
+        master-secret: ${JPUSH_MASTER_SECRET}
+
+    # 重试策略
+    retry:
+      max-attempts:     3
+      backoff-seconds:  30
+
+    # 发件人
+    mail-from: noreply@ilbuy.com

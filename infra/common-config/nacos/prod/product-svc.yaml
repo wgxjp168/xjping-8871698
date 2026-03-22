@@ -1,0 +1,57 @@
+# ============================================================
+# ILbuy 商品服务配置 — 生产环境
+# Nacos Data ID : product-svc.yaml
+# Namespace     : ilbuy-prod
+# ============================================================
+
+server:
+  port: 8082
+
+spring:
+  application:
+    name: product-svc
+
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: >-
+      jdbc:mysql://${MYSQL_HOST}:${MYSQL_PORT:3306}/product_db
+      ?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
+      &useSSL=true&requireSSL=true&verifyServerCertificate=false
+      &rewriteBatchedStatements=true&cachePrepStmts=true
+    username: ${MYSQL_USER}
+    password: ${MYSQL_PASSWORD}
+
+mybatis-plus:
+  mapper-locations: classpath:mapper/**/*.xml
+  type-aliases-package: com.ilbuy.product.entity
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.nologging.NoLoggingImpl
+    default-statement-timeout: 30
+  global-config:
+    db-config:
+      logic-delete-field:     is_deleted
+      logic-delete-value:     1
+      logic-not-delete-value: 0
+
+ilbuy:
+  es:
+    host:          ${ES_HOST}
+    port:          ${ES_PORT:9200}
+    index-product: ilbuy_products
+    shards:        3
+    replicas:      1
+
+  minio:
+    endpoint:    ${MINIO_ENDPOINT}
+    access-key:  ${MINIO_ACCESS_KEY}
+    secret-key:  ${MINIO_SECRET_KEY}
+    bucket:
+      images:   ilbuy-images
+      contracts: ilbuy-contracts
+
+  product:
+    cache-ttl-seconds:     300
+    cache-ttl-jitter-max:  600   # 防雪崩随机抖动
+    image-max-size-mb:     10
+    image-allowed-types:   jpg,jpeg,png,webp

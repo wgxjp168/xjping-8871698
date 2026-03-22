@@ -1,0 +1,82 @@
+# ============================================================
+# ILbuy 业务数据服务配置 — 生产环境（Python FastAPI）
+# Nacos Data ID : biz-data-svc.yaml
+# Namespace     : ilbuy-prod
+# ============================================================
+
+app:
+  env: prod
+  debug: false
+  workers: 4
+
+database:
+  url: ${DATABASE_URL}   # mysql+pymysql://user:pass@host:3306/biz_data_db
+  pool-size: 20
+  max-overflow: 10
+  pool-timeout: 30
+  pool-recycle: 1800
+  echo: false            # 生产关闭 SQL 回显
+
+redis:
+  host:     ${REDIS_HOST}
+  port:     ${REDIS_PORT:6379}
+  password: ${REDIS_PASSWORD}
+  db: 0
+  max-connections: 50
+  decode-responses: true
+  ttl:
+    session:       86400    # 24h
+    product-cache: 300      # 5min 基础值，±jitter
+    jitter-max:    600      # 防雪崩最大抖动
+
+elasticsearch:
+  hosts: ${ES_HOST}
+  index:
+    product:   ilbuy_products
+    behavior:  ilbuy_behavior_logs
+  shards:   3
+  replicas: 1
+
+minio:
+  endpoint:    ${MINIO_ENDPOINT}
+  access-key:  ${MINIO_ACCESS_KEY}
+  secret-key:  ${MINIO_SECRET_KEY}
+  secure: true
+  buckets:
+    reports:   ilbuy-reports
+    images:    ilbuy-images
+    contracts: ilbuy-contracts
+
+clickhouse:
+  host:     ${CLICKHOUSE_HOST}
+  port:     ${CLICKHOUSE_PORT:8123}
+  database: ilbuy_analytics
+  username: ${CLICKHOUSE_USER:default}
+  password: ${CLICKHOUSE_PASSWORD}
+  pool-size: 5
+
+rabbitmq:
+  url:      ${RABBITMQ_URL}
+  exchange:
+    async: ilbuy.async
+    sync:  ilbuy.sync
+  queues:
+    notify:  ilbuy.notify.queue
+    report:  ilbuy.report.queue
+    es-sync: ilbuy.es.sync.queue
+    ch-sync: ilbuy.ch.sync.queue
+
+canal:
+  host: ${CANAL_HOST}
+  port: ${CANAL_PORT:11111}
+  destination: ilbuy
+  watch-tables:
+    - product_db.t_product
+    - product_db.t_product_sku
+    - order_db.t_order
+    - user_db.t_user
+
+flink:
+  parallelism: 4
+  batch-size:  500
+  flush-interval-ms: 1000

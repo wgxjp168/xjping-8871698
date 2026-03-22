@@ -24,6 +24,7 @@ mybatis-plus:
   type-aliases-package: com.ilbuy.user.entity
   configuration:
     map-underscore-to-camel-case: true
+    # dev 环境开启 SQL 日志（生产 prod 命名空间中覆盖为 NoLoggingImpl）
     log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
   global-config:
     db-config:

@@ -1,0 +1,67 @@
+# ============================================================
+# ILbuy 供应商服务配置 — 生产环境
+# Nacos Data ID : supplier-svc.yaml
+# Namespace     : ilbuy-prod
+# ============================================================
+
+server:
+  port: 8084
+
+spring:
+  application:
+    name: supplier-svc
+
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: >-
+      jdbc:mysql://${MYSQL_HOST}:${MYSQL_PORT:3306}/supplier_db
+      ?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
+      &useSSL=true&requireSSL=true&verifyServerCertificate=false
+      &rewriteBatchedStatements=true
+    username: ${MYSQL_USER}
+    password: ${MYSQL_PASSWORD}
+
+mybatis-plus:
+  mapper-locations: classpath:mapper/**/*.xml
+  type-aliases-package: com.ilbuy.supplier.entity
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.nologging.NoLoggingImpl
+    default-statement-timeout: 30
+  global-config:
+    db-config:
+      logic-delete-field:     is_deleted
+      logic-delete-value:     1
+      logic-not-delete-value: 0
+
+ilbuy:
+  supplier:
+    score:
+      # 各维度满分（合计100分）
+      full-score:
+        quality:    30
+        delivery:   25
+        cost:       20
+        compliance: 10
+        service:    10
+        stability:   5
+      # 等级阈值
+      level:
+        S: 95
+        A: 90
+        B: 80
+        C: 70
+        D: 0
+    shop:
+      score:
+        full-score:
+          product-quality: 30
+          service:         25
+          fulfillment:     25
+          price:           20
+        level:
+          S: 95
+          A: 85
+          B: 75
+          C: 60
+          D: 0

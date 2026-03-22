@@ -205,7 +205,8 @@ main() {
 
   # 汇总镜像信息
   info "已构建镜像列表："
-  docker images "${REGISTRY}/*" --format "  {{.Repository}}:{{.Tag}}\t{{.Size}}\t{{.CreatedAt}}" 2>/dev/null | grep "${IMAGE_TAG}" || true
+  docker images --filter "reference=${REGISTRY}/*:${IMAGE_TAG}" \
+    --format "  {{.Repository}}:{{.Tag}}\t{{.Size}}\t{{.CreatedAt}}" 2>/dev/null || true
 }
 
 main "$@"

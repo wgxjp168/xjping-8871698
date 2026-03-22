@@ -1,0 +1,18 @@
+# ============================================================
+# ILbuy Elasticsearch IK 分词插件安装列表
+# 用途：ES 容器启动后通过 post-start 脚本安装插件
+# 安装方式（在 ES 容器内执行）：
+#   elasticsearch-plugin install https://release.meituan.com/ik/...
+#   或：
+#   elasticsearch-plugin install analysis-ik
+# 注意：ES 8.11 中，IK 需与 ES 版本严格匹配
+# IK 插件 GitHub: https://github.com/medcl/elasticsearch-analysis-ik
+# ============================================================
+
+# ES 8.11.4 对应 IK 版本
+analysis-ik=8.11.4
+
+# 扩展词典（本地文件挂载）
+# 将自定义词典放入 config/es/ik_ext/ 目录后挂载到容器
+# ik_ext_dict=/usr/share/elasticsearch/config/ik_ext/custom.dic
+# ik_stop_dict=/usr/share/elasticsearch/config/ik_ext/stop.dic

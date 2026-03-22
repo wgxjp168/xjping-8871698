@@ -1,0 +1,73 @@
+# ============================================================
+# ILbuy 订单服务配置 — 生产环境
+# Nacos Data ID : order-svc.yaml
+# Namespace     : ilbuy-prod
+# ============================================================
+
+server:
+  port: 8083
+
+spring:
+  application:
+    name: order-svc
+
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: >-
+      jdbc:mysql://${MYSQL_HOST}:${MYSQL_PORT:3306}/order_db
+      ?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
+      &useSSL=true&requireSSL=true&verifyServerCertificate=false
+      &rewriteBatchedStatements=true&cachePrepStmts=true
+    username: ${MYSQL_USER}
+    password: ${MYSQL_PASSWORD}
+
+mybatis-plus:
+  mapper-locations: classpath:mapper/**/*.xml
+  type-aliases-package: com.ilbuy.order.entity
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.nologging.NoLoggingImpl
+    default-statement-timeout: 30
+  global-config:
+    db-config:
+      logic-delete-field:     is_deleted
+      logic-delete-value:     1
+      logic-not-delete-value: 0
+
+ilbuy:
+  order:
+    unpaid-timeout-minutes: 30
+    auto-confirm-days:      7
+    refund-deadline-days:   15
+    order-no-prefix:        "IL"
+
+  payment:
+    alipay:
+      enabled:     true
+      app-id:      ${ALIPAY_APP_ID}
+      private-key: ${ALIPAY_PRIVATE_KEY}
+      public-key:  ${ALIPAY_PUBLIC_KEY}
+      notify-url:  https://ilbuy.com/api/payment/alipay/notify
+      return-url:  https://ilbuy.com/order/pay/result
+      sandbox:     false   # 生产环境关闭沙箱
+    wechat-pay:
+      enabled:    true
+      mch-id:     ${WECHAT_PAY_MCH_ID}
+      api-key:    ${WECHAT_PAY_API_KEY}
+      cert-path:  /etc/ilbuy/certs/wechat_pay_cert.p12
+      notify-url: https://ilbuy.com/api/payment/wechat/notify
+
+  mq:
+    exchange:
+      order: ilbuy.async
+    routing-key:
+      created:   order.created
+      paid:      order.paid
+      shipped:   order.shipped
+      completed: order.completed
+      cancelled: order.cancelled
+      refunded:  order.refunded
+
+  inventory:
+    deduct-mode:           PRE_DEDUCT
+    lock-timeout-seconds:  10

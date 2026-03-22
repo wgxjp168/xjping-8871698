@@ -1,0 +1,51 @@
+# ============================================================
+# ILbuy 财务结算服务配置 — 生产环境
+# Nacos Data ID : finance-svc.yaml
+# Namespace     : ilbuy-prod
+# ============================================================
+
+server:
+  port: 8086
+
+spring:
+  application:
+    name: finance-svc
+
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: >-
+      jdbc:mysql://${MYSQL_HOST}:${MYSQL_PORT:3306}/finance_db
+      ?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
+      &useSSL=true&requireSSL=true&verifyServerCertificate=false
+      &rewriteBatchedStatements=true
+    username: ${MYSQL_USER}
+    password: ${MYSQL_PASSWORD}
+
+mybatis-plus:
+  mapper-locations: classpath:mapper/**/*.xml
+  type-aliases-package: com.ilbuy.finance.entity
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.nologging.NoLoggingImpl
+    default-statement-timeout: 30
+  global-config:
+    db-config:
+      logic-delete-field:     is_deleted
+      logic-delete-value:     1
+      logic-not-delete-value: 0
+
+ilbuy:
+  finance:
+    # T+7 结算
+    settlement-delay-days: 7
+    # 平台服务费率
+    platform-fee-rate:     0.03
+    # 对账定时任务（每天 2:00）
+    reconcile-cron:        "0 0 2 * * ?"
+    # 结算定时任务（每周一 9:00）
+    settle-cron:           "0 0 9 ? * MON"
+    # 发票验真接口
+    invoice-verify:
+      enabled: true
+      provider: ${INVOICE_VERIFY_PROVIDER:baidu}
+      api-key:  ${INVOICE_VERIFY_API_KEY}

@@ -1,0 +1,89 @@
+# ============================================================
+# ILbuy 用户服务配置 — 生产环境
+# Nacos Data ID : user-svc.yaml
+# Nacos Group   : DEFAULT_GROUP
+# Namespace     : ilbuy-prod
+# ⚠️ 密码/密钥通过 Vault 或 K8s Secret 注入，此文件不存明文
+# ============================================================
+
+server:
+  port: 8081
+
+spring:
+  application:
+    name: user-svc
+
+  # ── MySQL（生产：专用账号，SSL 开启）─────────────────────
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: >-
+      jdbc:mysql://${MYSQL_HOST}:${MYSQL_PORT:3306}/user_db
+      ?useUnicode=true
+      &characterEncoding=utf8
+      &serverTimezone=Asia/Shanghai
+      &useSSL=true
+      &requireSSL=true
+      &verifyServerCertificate=false
+      &rewriteBatchedStatements=true
+      &cachePrepStmts=true
+      &prepStmtCacheSize=250
+      &prepStmtCacheSqlLimit=2048
+    username: ${MYSQL_USER}
+    password: ${MYSQL_PASSWORD}
+
+mybatis-plus:
+  mapper-locations: classpath:mapper/**/*.xml
+  type-aliases-package: com.ilbuy.user.entity
+  configuration:
+    map-underscore-to-camel-case: true
+    # 生产关闭 SQL 控制台输出
+    log-impl: org.apache.ibatis.logging.nologging.NoLoggingImpl
+    default-fetch-size: 100
+    default-statement-timeout: 30
+  global-config:
+    db-config:
+      logic-delete-field:     is_deleted
+      logic-delete-value:     1
+      logic-not-delete-value: 0
+
+# ── JWT（secret 通过 Vault 注入）────────────────────────
+ilbuy:
+  jwt:
+    secret:              ${JWT_SECRET}
+    expire-hours:        24
+    refresh-expire-days: 7
+
+  # ── OAuth2 ────────────────────────────────────────────
+  oauth2:
+    wechat:
+      app-id:       ${WECHAT_APP_ID}
+      app-secret:   ${WECHAT_APP_SECRET}
+      redirect-uri: https://ilbuy.com/oauth2/callback/wechat
+
+  # ── 短信（生产账号通过 Vault 注入）──────────────────
+  sms:
+    provider: aliyun
+    aliyun:
+      access-key-id:     ${ALIYUN_SMS_AK}
+      access-key-secret: ${ALIYUN_SMS_SK}
+      sign-name:         来购ILbuy
+      template-code:
+        register: SMS_xxxxxx1
+        login:    SMS_xxxxxx2
+        reset-pwd: SMS_xxxxxx3
+    code-expire-minutes: 5
+    code-length:         6
+
+  # ── 密码策略（生产更严格）────────────────────────────
+  password:
+    min-length:    10
+    require-upper: true
+    require-digit: true
+    require-special: true
+    bcrypt-strength: 12   # 生产使用更高强度
+
+  # ── 账号安全 ──────────────────────────────────────────
+  security:
+    login-fail-max: 5
+    lock-minutes:   60    # 生产锁定时间更长
+    session-max:    3
