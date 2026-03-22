@@ -1,0 +1,522 @@
+---
+# ============================================================
+# 我来购ILbuy - 全量服务快速部署配置（Namespace + RBAC）
+# 使用方式：kubectl apply -f all-services-quick-deploy.yaml
+# ============================================================
+
+# Namespace
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ilbuy-prod
+  labels:
+    name: ilbuy-prod
+    environment: production
+
+---
+# ServiceAccount
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: ilbuy-service-account
+  namespace: ilbuy-prod
+
+---
+# Role
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: ilbuy-pod-reader
+  namespace: ilbuy-prod
+rules:
+- apiGroups: [""]
+  resources: ["pods", "configmaps", "secrets"]
+  verbs: ["get", "list", "watch"]
+
+---
+# RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: ilbuy-pod-reader-binding
+  namespace: ilbuy-prod
+subjects:
+- kind: ServiceAccount
+  name: ilbuy-service-account
+  namespace: ilbuy-prod
+roleRef:
+  kind: Role
+  name: ilbuy-pod-reader
+  apiGroup: rbac.authorization.k8s.io
+
+---
+# 公共ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ilbuy-common-config
+  namespace: ilbuy-prod
+data:
+  NACOS_SERVER_ADDR: "nacos-headless.middleware.svc.cluster.local:8848"
+  NACOS_NAMESPACE: "prod"
+  SPRING_PROFILES_ACTIVE: "prod"
+  DB_HOST: "192.168.1.31"
+  DB_PORT: "3306"
+  REDIS_NODES: "192.168.1.41:7001,192.168.1.41:7002,192.168.1.42:7003,192.168.1.42:7004,192.168.1.43:7005,192.168.1.43:7006"
+  KAFKA_BOOTSTRAP_SERVERS: "kafka.middleware.svc.cluster.local:9092"
+  SEATA_SERVER_ADDR: "seata-server.middleware.svc.cluster.local:8091"
+
+---
+# Secrets（生产环境请使用外部Secret管理，如Vault/AWS Secrets Manager）
+apiVersion: v1
+kind: Secret
+metadata:
+  name: ilbuy-secrets
+  namespace: ilbuy-prod
+type: Opaque
+stringData:
+  DB_PASSWORD: "ILbuy@DB2024"
+  REDIS_PASSWORD: "ILbuy@Redis2024"
+  JWT_SECRET: "ILbuy@JWT@SecretKey@2024@Production@Base64Encoded"
+  KAFKA_PASSWORD: "ILbuy@Kafka2024"
+
+---
+# ============================================================
+# user-service
+# ============================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: user-service
+  namespace: ilbuy-prod
+  labels:
+    app: user-service
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: user-service
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: user-service
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8091"
+        prometheus.io/path: "/actuator/prometheus"
+    spec:
+      imagePullSecrets:
+      - name: harbor-secret
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchLabels:
+                  app: user-service
+              topologyKey: kubernetes.io/hostname
+      containers:
+      - name: user-service
+        image: registry.ilbuy.com/ilbuy/user-service:1.0.0
+        ports:
+        - containerPort: 8081
+          name: http
+        - containerPort: 8091
+          name: management
+        envFrom:
+        - configMapRef:
+            name: ilbuy-common-config
+        env:
+        - name: DB_NAME
+          value: "ilbuy_user"
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: ilbuy-secrets
+              key: DB_PASSWORD
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: ilbuy-secrets
+              key: REDIS_PASSWORD
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: ilbuy-secrets
+              key: JWT_SECRET
+        - name: JAVA_OPTS
+          value: "-Xms256m -Xmx768m -XX:+UseG1GC -Djava.security.egd=file:/dev/./urandom"
+        resources:
+          requests:
+            cpu: "250m"
+            memory: "384Mi"
+          limits:
+            cpu: "1"
+            memory: "1Gi"
+        startupProbe:
+          httpGet:
+            path: /actuator/health
+            port: management
+          failureThreshold: 25
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /actuator/health/liveness
+            port: management
+          periodSeconds: 20
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /actuator/health/readiness
+            port: management
+          periodSeconds: 10
+          failureThreshold: 3
+        lifecycle:
+          preStop:
+            exec:
+              command: ["sh", "-c", "sleep 10"]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: user-service
+  namespace: ilbuy-prod
+  labels:
+    app: user-service
+    monitoring: "true"
+spec:
+  selector:
+    app: user-service
+  ports:
+  - name: http
+    port: 8081
+    targetPort: 8081
+  - name: management
+    port: 8091
+    targetPort: 8091
+  type: ClusterIP
+
+---
+# ============================================================
+# ai-matching-service
+# ============================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ai-matching-service
+  namespace: ilbuy-prod
+  labels:
+    app: ai-matching-service
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: ai-matching-service
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: ai-matching-service
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8093"
+        prometheus.io/path: "/actuator/prometheus"
+    spec:
+      imagePullSecrets:
+      - name: harbor-secret
+      containers:
+      - name: ai-matching-service
+        image: registry.ilbuy.com/ilbuy/ai-matching-service:1.0.0
+        ports:
+        - containerPort: 8083
+          name: http
+        - containerPort: 8093
+          name: management
+        envFrom:
+        - configMapRef:
+            name: ilbuy-common-config
+        env:
+        - name: DB_NAME
+          value: "ilbuy_matching"
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: ilbuy-secrets
+              key: DB_PASSWORD
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: ilbuy-secrets
+              key: REDIS_PASSWORD
+        - name: LLM_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: ilbuy-llm-secrets
+              key: LLM_API_KEY
+        - name: JAVA_OPTS
+          value: "-Xms512m -Xmx1g -XX:+UseG1GC -Djava.security.egd=file:/dev/./urandom"
+        resources:
+          requests:
+            cpu: "500m"
+            memory: "768Mi"
+          limits:
+            cpu: "2"
+            memory: "2Gi"
+        startupProbe:
+          httpGet:
+            path: /actuator/health
+            port: management
+          failureThreshold: 30
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /actuator/health/liveness
+            port: management
+          periodSeconds: 30
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /actuator/health/readiness
+            port: management
+          periodSeconds: 15
+          failureThreshold: 3
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ai-matching-service
+  namespace: ilbuy-prod
+  labels:
+    app: ai-matching-service
+    monitoring: "true"
+spec:
+  selector:
+    app: ai-matching-service
+  ports:
+  - name: http
+    port: 8083
+    targetPort: 8083
+  - name: management
+    port: 8093
+    targetPort: 8093
+  type: ClusterIP
+
+---
+# ============================================================
+# order-service
+# ============================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: order-service
+  namespace: ilbuy-prod
+  labels:
+    app: order-service
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: order-service
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: order-service
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8095"
+        prometheus.io/path: "/actuator/prometheus"
+    spec:
+      imagePullSecrets:
+      - name: harbor-secret
+      terminationGracePeriodSeconds: 60
+      containers:
+      - name: order-service
+        image: registry.ilbuy.com/ilbuy/order-service:1.0.0
+        ports:
+        - containerPort: 8085
+          name: http
+        - containerPort: 8095
+          name: management
+        envFrom:
+        - configMapRef:
+            name: ilbuy-common-config
+        env:
+        - name: DB_NAME
+          value: "ilbuy_order"
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: ilbuy-secrets
+              key: DB_PASSWORD
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: ilbuy-secrets
+              key: REDIS_PASSWORD
+        - name: KAFKA_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: ilbuy-secrets
+              key: KAFKA_PASSWORD
+        - name: JAVA_OPTS
+          value: "-Xms512m -Xmx1g -XX:+UseG1GC -Djava.security.egd=file:/dev/./urandom"
+        resources:
+          requests:
+            cpu: "500m"
+            memory: "768Mi"
+          limits:
+            cpu: "2"
+            memory: "1.5Gi"
+        startupProbe:
+          httpGet:
+            path: /actuator/health
+            port: management
+          failureThreshold: 30
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /actuator/health/liveness
+            port: management
+          periodSeconds: 20
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /actuator/health/readiness
+            port: management
+          periodSeconds: 10
+          failureThreshold: 3
+        lifecycle:
+          preStop:
+            exec:
+              command: ["sh", "-c", "sleep 15"]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: order-service
+  namespace: ilbuy-prod
+  labels:
+    app: order-service
+    monitoring: "true"
+spec:
+  selector:
+    app: order-service
+  ports:
+  - name: http
+    port: 8085
+    targetPort: 8085
+  - name: management
+    port: 8095
+    targetPort: 8095
+  type: ClusterIP
+
+---
+# ============================================================
+# data-collector-service
+# ============================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: data-collector-service
+  namespace: ilbuy-prod
+  labels:
+    app: data-collector-service
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: data-collector-service
+  template:
+    metadata:
+      labels:
+        app: data-collector-service
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8097"
+        prometheus.io/path: "/actuator/prometheus"
+    spec:
+      imagePullSecrets:
+      - name: harbor-secret
+      containers:
+      - name: data-collector-service
+        image: registry.ilbuy.com/ilbuy/data-collector-service:1.0.0
+        ports:
+        - containerPort: 8087
+          name: http
+        - containerPort: 8097
+          name: management
+        envFrom:
+        - configMapRef:
+            name: ilbuy-common-config
+        env:
+        - name: DB_NAME
+          value: "ilbuy_data"
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: ilbuy-secrets
+              key: DB_PASSWORD
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: ilbuy-secrets
+              key: REDIS_PASSWORD
+        # 代理IP池配置
+        - name: PROXY_POOL_URL
+          value: "http://proxy-pool-service.ilbuy-prod:5010/get"
+        - name: JAVA_OPTS
+          value: "-Xms256m -Xmx768m -XX:+UseG1GC -Djava.security.egd=file:/dev/./urandom"
+        resources:
+          requests:
+            cpu: "500m"
+            memory: "512Mi"
+          limits:
+            cpu: "2"
+            memory: "1Gi"
+        livenessProbe:
+          httpGet:
+            path: /actuator/health/liveness
+            port: management
+          periodSeconds: 30
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /actuator/health/readiness
+            port: management
+          periodSeconds: 15
+          failureThreshold: 3
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: data-collector-service
+  namespace: ilbuy-prod
+  labels:
+    app: data-collector-service
+    monitoring: "true"
+spec:
+  selector:
+    app: data-collector-service
+  ports:
+  - name: http
+    port: 8087
+    targetPort: 8087
+  - name: management
+    port: 8097
+    targetPort: 8097
+  type: ClusterIP

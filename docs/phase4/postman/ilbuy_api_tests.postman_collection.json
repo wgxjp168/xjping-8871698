@@ -1,0 +1,592 @@
+{
+  "info": {
+    "_postman_id": "ilbuy-api-collection-v1",
+    "name": "ILbuy我来购 API测试集合",
+    "description": "我来购ILbuy采购平台完整API测试集合，包含认证、采购需求、AI匹配、询价、订单、供应商等全模块接口测试",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "version": "1.0.0"
+  },
+  "variable": [
+    {"key": "base_url", "value": "https://api-test.ilbuy.com", "type": "string"},
+    {"key": "access_token", "value": "", "type": "string"},
+    {"key": "refresh_token", "value": "", "type": "string"},
+    {"key": "demand_id", "value": "", "type": "string"},
+    {"key": "inquiry_id", "value": "", "type": "string"},
+    {"key": "quote_id", "value": "", "type": "string"},
+    {"key": "order_id", "value": "", "type": "string"},
+    {"key": "supplier_id", "value": "", "type": "string"}
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [{"key": "token", "value": "{{access_token}}", "type": "string"}]
+  },
+  "item": [
+    {
+      "name": "0. 环境初始化",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/actuator/health"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('服务健康检查', () => {",
+                  "    pm.response.to.have.status(200);",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.status).to.equal('UP');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "1. 认证模块（Auth）",
+      "item": [
+        {
+          "name": "TC-API-001 用户登录（企业买家）",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "url": "{{base_url}}/api/v1/auth/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"test_buyer_001\",\n  \"password\": \"Test@123456\",\n  \"captchaToken\": \"bypass_for_test\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('TC-API-001: 响应状态码200', () => pm.response.to.have.status(200));",
+                  "pm.test('TC-API-001: 返回accessToken', () => {",
+                  "    const resp = pm.response.json();",
+                  "    pm.expect(resp.code).to.equal(0);",
+                  "    pm.expect(resp.data.accessToken).to.be.a('string').and.not.empty;",
+                  "    pm.expect(resp.data.expiresIn).to.equal(7200);",
+                  "    pm.expect(resp.data.userType).to.equal('ENTERPRISE');",
+                  "    pm.collectionVariables.set('access_token', resp.data.accessToken);",
+                  "    pm.collectionVariables.set('refresh_token', resp.data.refreshToken);",
+                  "    pm.collectionVariables.set('user_id', resp.data.userId);",
+                  "});",
+                  "pm.test('TC-API-001: 响应时间<500ms', () => pm.expect(pm.response.responseTime).to.be.below(500));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "TC-API-002 登录失败-密码错误",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "url": "{{base_url}}/api/v1/auth/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"test_buyer_001\",\n  \"password\": \"WrongPassword123\",\n  \"captchaToken\": \"bypass_for_test\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('TC-API-002: 返回401', () => pm.response.to.have.status(401));",
+                  "pm.test('TC-API-002: 错误信息正确', () => {",
+                  "    const resp = pm.response.json();",
+                  "    pm.expect(resp.code).to.equal(10001);",
+                  "    pm.expect(resp.message).to.include('密码');",
+                  "    pm.expect(resp.data).to.be.null;",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "TC-API-003 Token刷新",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "url": "{{base_url}}/api/v1/auth/refresh",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refresh_token}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('TC-API-003: Token刷新成功', () => {",
+                  "    pm.response.to.have.status(200);",
+                  "    const resp = pm.response.json();",
+                  "    pm.expect(resp.data.accessToken).to.be.a('string');",
+                  "    pm.collectionVariables.set('access_token', resp.data.accessToken);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "TC-API-070 未认证访问受保护接口",
+          "request": {
+            "auth": {"type": "noauth"},
+            "method": "GET",
+            "url": "{{base_url}}/api/v1/procurement/demands"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('TC-API-070: 未认证返回401', () => {",
+                  "    pm.response.to.have.status(401);",
+                  "    const resp = pm.response.json();",
+                  "    pm.expect(resp.code).to.equal(10002);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "2. 采购需求模块（Procurement）",
+      "item": [
+        {
+          "name": "TC-API-010 创建B2B采购需求",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "url": "{{base_url}}/api/v1/procurement/demands",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"procurementType\": \"B2B\",\n  \"categoryId\": 1,\n  \"productName\": \"A4打印纸\",\n  \"productSpec\": \"70g，500张/包，5包/箱\",\n  \"quantity\": 100,\n  \"unit\": \"箱\",\n  \"budgetAmount\": 5000.00,\n  \"currency\": \"CNY\",\n  \"deliveryDeadline\": \"2024-04-20\",\n  \"deliveryAddress\": \"北京市朝阳区建国路88号\",\n  \"contactName\": \"张采购\",\n  \"contactPhone\": \"13800138001\",\n  \"requireTaxInvoice\": true,\n  \"invoiceType\": \"SPECIAL_VAT\",\n  \"remark\": \"需要发票，品牌不限\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('TC-API-010: 创建成功返回201', () => pm.response.to.have.status(201));",
+                  "pm.test('TC-API-010: 返回demandId和orderNo', () => {",
+                  "    const data = pm.response.json().data;",
+                  "    pm.expect(data.demandId).to.be.a('number');",
+                  "    pm.expect(data.orderNo).to.match(/^PRO\\d{14}$/);",
+                  "    pm.expect(data.status).to.equal('MATCHING');",
+                  "    pm.collectionVariables.set('demand_id', data.demandId);",
+                  "    pm.collectionVariables.set('order_no', data.orderNo);",
+                  "});",
+                  "pm.test('TC-API-010: 响应时间<1000ms', () => pm.expect(pm.response.responseTime).to.be.below(1000));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "TC-API-010b 创建B2C未定品牌需求（自然语言）",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "url": "{{base_url}}/api/v1/procurement/demands",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"procurementType\": \"B2C_UNDECIDED\",\n  \"naturalLanguageInput\": \"我要采购20套办公桌椅，预算4万元，需要护腰椅和有收纳空间的桌子，3周内送到北京\",\n  \"quantity\": 20,\n  \"unit\": \"套\",\n  \"budgetAmount\": 40000.00,\n  \"deliveryAddress\": \"北京市海淀区中关村\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('TC-API-010b: 自然语言需求创建成功', () => {",
+                  "    pm.response.to.have.status(201);",
+                  "    const data = pm.response.json().data;",
+                  "    pm.expect(data.demandId).to.be.a('number');",
+                  "    pm.expect(data.aiParsedCategory).to.be.a('string');",
+                  "    pm.collectionVariables.set('b2c_demand_id', data.demandId);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "TC-API-011 查询采购需求详情",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/v1/procurement/demands/{{demand_id}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('TC-API-011: 查询成功', () => pm.response.to.have.status(200));",
+                  "pm.test('TC-API-011: 字段完整', () => {",
+                  "    const data = pm.response.json().data;",
+                  "    pm.expect(data.demandId).to.equal(parseInt(pm.collectionVariables.get('demand_id')));",
+                  "    pm.expect(data.status).to.be.oneOf(['DRAFT','PENDING_APPROVAL','APPROVED','MATCHING','QUOTED','NEGOTIATING','CONFIRMED','COMPLETED','CANCELLED']);",
+                  "    pm.expect(data.productName).to.be.a('string');",
+                  "    pm.expect(data.createdAt).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "TC-API-012 采购需求分页列表",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/v1/procurement/demands?page=0&size=10&sortBy=createdAt&direction=DESC",
+              "query": [
+                {"key": "page", "value": "0"},
+                {"key": "size", "value": "10"},
+                {"key": "sortBy", "value": "createdAt"},
+                {"key": "direction", "value": "DESC"}
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('TC-API-012: 分页结构正确', () => {",
+                  "    pm.response.to.have.status(200);",
+                  "    const data = pm.response.json().data;",
+                  "    pm.expect(data.content).to.be.an('array');",
+                  "    pm.expect(data.totalElements).to.be.a('number');",
+                  "    pm.expect(data.totalPages).to.be.a('number');",
+                  "    pm.expect(data.size).to.equal(10);",
+                  "    pm.expect(data.number).to.equal(0);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "TC-API-071 参数校验失败",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "url": "{{base_url}}/api/v1/procurement/demands",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"procurementType\": \"B2B\",\n  \"quantity\": -1,\n  \"budgetAmount\": 0\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('TC-API-071: 参数校验失败返回400', () => pm.response.to.have.status(400));",
+                  "pm.test('TC-API-071: 错误详情包含字段信息', () => {",
+                  "    const resp = pm.response.json();",
+                  "    pm.expect(resp.code).to.equal(10003);",
+                  "    pm.expect(resp.errors).to.be.an('array').with.length.above(0);",
+                  "    const errorFields = resp.errors.map(e => e.field);",
+                  "    pm.expect(errorFields).to.include('productName');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "3. AI匹配模块（Matching）",
+      "item": [
+        {
+          "name": "TC-API-020 触发AI智能匹配",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "url": "{{base_url}}/api/v1/matching/trigger",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"demandId\": {{demand_id}},\n  \"matchMode\": \"AUTO\",\n  \"maxSuppliers\": 5\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('TC-API-020: 匹配任务创建成功', () => {",
+                  "    pm.response.to.have.status(200);",
+                  "    const data = pm.response.json().data;",
+                  "    pm.expect(data.matchTaskId).to.be.a('string');",
+                  "    pm.expect(data.status).to.equal('PROCESSING');",
+                  "    pm.collectionVariables.set('match_task_id', data.matchTaskId);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "TC-API-021 查询匹配结果",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/v1/matching/result/{{match_task_id}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('TC-API-021: 匹配结果查询成功', () => {",
+                  "    pm.response.to.have.status(200);",
+                  "    const data = pm.response.json().data;",
+                  "    pm.expect(data.status).to.be.oneOf(['PROCESSING', 'COMPLETED', 'FAILED']);",
+                  "    if (data.status === 'COMPLETED') {",
+                  "        pm.expect(data.matchedSuppliers).to.be.an('array');",
+                  "        if (data.matchedSuppliers.length > 0) {",
+                  "            const supplier = data.matchedSuppliers[0];",
+                  "            pm.expect(supplier.matchScore).to.be.within(0, 100);",
+                  "            pm.expect(supplier.supplierId).to.be.a('number');",
+                  "        }",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "4. 询价报价模块（Inquiry）",
+      "item": [
+        {
+          "name": "TC-API-030 发起询价",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "url": "{{base_url}}/api/v1/inquiry",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"demandId\": {{demand_id}},\n  \"supplierIds\": [5001, 5002],\n  \"inquiryDeadline\": \"2099-12-31T18:00:00\",\n  \"message\": \"请按需求规格报价，含增值税专用发票\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('TC-API-030: 询价发起成功', () => {",
+                  "    pm.response.to.have.status(201);",
+                  "    const data = pm.response.json().data;",
+                  "    pm.expect(data.inquiryId).to.be.a('number');",
+                  "    pm.expect(data.status).to.equal('SENT');",
+                  "    pm.expect(data.supplierCount).to.equal(2);",
+                  "    pm.collectionVariables.set('inquiry_id', data.inquiryId);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "TC-API-031 供应商提交报价",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"},
+              {"key": "Authorization", "value": "Bearer {{supplier_access_token}}"}
+            ],
+            "url": "{{base_url}}/api/v1/inquiry/{{inquiry_id}}/quotes",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"unitPrice\": 46.50,\n  \"currency\": \"CNY\",\n  \"totalAmount\": 4650.00,\n  \"taxRate\": 0.13,\n  \"taxIncluded\": false,\n  \"deliveryDays\": 2,\n  \"validDays\": 7,\n  \"remark\": \"现货供应，当日可发货\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('TC-API-031: 报价提交成功', () => {",
+                  "    pm.response.to.have.status(201);",
+                  "    const data = pm.response.json().data;",
+                  "    pm.expect(data.quoteId).to.be.a('number');",
+                  "    pm.expect(data.status).to.equal('SUBMITTED');",
+                  "    pm.collectionVariables.set('quote_id', data.quoteId);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "TC-API-032 买家接受报价",
+          "request": {
+            "method": "PUT",
+            "url": "{{base_url}}/api/v1/inquiry/{{inquiry_id}}/quotes/{{quote_id}}/accept"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('TC-API-032: 接受报价成功', () => {",
+                  "    pm.response.to.have.status(200);",
+                  "    const data = pm.response.json().data;",
+                  "    pm.expect(data.orderId).to.be.a('number');",
+                  "    pm.expect(data.orderStatus).to.equal('PENDING_PAYMENT');",
+                  "    pm.collectionVariables.set('order_id', data.orderId);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "5. 订单模块（Order）",
+      "item": [
+        {
+          "name": "TC-API-040 查询订单详情",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/v1/orders/{{order_id}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('TC-API-040: 订单查询成功', () => pm.response.to.have.status(200));",
+                  "pm.test('TC-API-040: 订单字段完整', () => {",
+                  "    const order = pm.response.json().data;",
+                  "    ['orderId','orderNo','status','totalAmount','taxAmount','buyerInfo','supplierInfo','items'].forEach(field => {",
+                  "        pm.expect(order).to.have.property(field);",
+                  "    });",
+                  "    pm.expect(order.items).to.be.an('array').with.length.above(0);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "TC-API-041 确认收货",
+          "request": {
+            "method": "PUT",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "url": "{{base_url}}/api/v1/orders/{{order_id}}/confirm-receipt",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"receiptTime\": \"2024-03-25T10:00:00\",\n  \"quantity\": 100,\n  \"qualityOk\": true,\n  \"remark\": \"货物完好，数量正确\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('TC-API-041: 确认收货成功', () => {",
+                  "    pm.response.to.have.status(200);",
+                  "    const data = pm.response.json().data;",
+                  "    pm.expect(data.orderStatus).to.equal('COMPLETED');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "6. 供应商模块（Supplier）",
+      "item": [
+        {
+          "name": "TC-API-050 供应商入驻申请",
+          "request": {
+            "auth": {"type": "noauth"},
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "url": "{{base_url}}/api/v1/suppliers/register",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"companyName\": \"北京测试供应商有限公司\",\n  \"creditCode\": \"91110108MA01ABCD12\",\n  \"contactName\": \"李供应\",\n  \"contactPhone\": \"13900139001\",\n  \"contactEmail\": \"supply@testcorp.com\",\n  \"mainCategories\": [1, 2, 3],\n  \"annualSales\": 5000000.00,\n  \"bankName\": \"中国银行北京分行\",\n  \"bankAccount\": \"620000123456789\",\n  \"bankAccountName\": \"北京测试供应商有限公司\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('TC-API-050: 供应商申请成功', () => {",
+                  "    pm.response.to.have.status(201);",
+                  "    const data = pm.response.json().data;",
+                  "    pm.expect(data.supplierId).to.be.a('number');",
+                  "    pm.expect(data.status).to.equal('REVIEWING');",
+                  "    pm.collectionVariables.set('supplier_id', data.supplierId);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "7. 数据查询模块（Data）",
+      "item": [
+        {
+          "name": "TC-API-060 市场价格查询",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/v1/data/market-price?keyword=A4打印纸&categoryId=1&sources=JD,TAOBAO,PDD",
+              "query": [
+                {"key": "keyword", "value": "A4打印纸"},
+                {"key": "categoryId", "value": "1"},
+                {"key": "sources", "value": "JD,TAOBAO,PDD"}
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('TC-API-060: 价格查询成功', () => pm.response.to.have.status(200));",
+                  "pm.test('TC-API-060: 价格数据结构正确', () => {",
+                  "    const data = pm.response.json().data;",
+                  "    pm.expect(data.priceRange).to.have.keys(['min','max','avg','median']);",
+                  "    pm.expect(data.priceRange.min).to.be.a('number').and.above(0);",
+                  "    pm.expect(data.priceRange.avg).to.be.within(data.priceRange.min, data.priceRange.max);",
+                  "    pm.expect(data.sources).to.be.an('array');",
+                  "    pm.expect(data.trend).to.be.oneOf(['RISING','FALLING','STABLE']);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
