@@ -131,6 +131,29 @@ class Product:
             'updated_at': self.updated_at,
         }
 
+    @classmethod
+    def from_dict(cls, d: Dict[str, Any]) -> 'Product':
+        """从字典（Redis 缓存反序列化）恢复 Product 对象。"""
+        return cls(
+            id=d.get('id'),
+            tenant_id=d['tenant_id'],
+            category_id=d['category_id'],
+            supplier_id=d.get('supplier_id'),
+            name=d['name'],
+            subtitle=d.get('subtitle'),
+            description=d.get('description'),
+            cover_image=d.get('cover_image'),
+            unit=d.get('unit'),
+            weight=d.get('weight'),
+            status=d.get('status', 'draft'),
+            is_featured=int(d.get('is_featured', 0)),
+            tags=d.get('tags'),
+            sales_count=int(d.get('sales_count', 0)),
+            view_count=int(d.get('view_count', 0)),
+            created_at=d.get('created_at'),
+            updated_at=d.get('updated_at'),
+        )
+
 
 # --------------------------------------------------------------------------- #
 #  3. ProductSku（商品规格/SKU）                                                 #
