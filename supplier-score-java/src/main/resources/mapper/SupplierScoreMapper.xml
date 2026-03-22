@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ilbuy.supplier.mapper.SupplierScoreMapper">
+
+    <insert id="insertMain" useGeneratedKeys="true" keyProperty="mainId">
+        INSERT INTO supplier_score_main
+            (supplier_id, score_period, total_score, supplier_level,
+             score_user, score_time, opinion, create_time)
+        VALUES
+            (#{supplierId}, #{scorePeriod}, #{totalScore}, #{supplierLevel},
+             #{scoreUser}, #{scoreTime}, #{opinion, jdbcType=VARCHAR}, NOW())
+    </insert>
+
+    <insert id="batchInsertItem">
+        INSERT INTO supplier_score_item
+            (main_id, supplier_id, score_type, full_score, actual_score, remark, create_time)
+        VALUES
+        <foreach collection="list" item="i" separator=",">
+            (#{i.mainId}, #{i.supplierId}, #{i.scoreType}, #{i.fullScore}, #{i.actualScore},
+             #{i.remark, jdbcType=VARCHAR}, NOW())
+        </foreach>
+    </insert>
+
+    <select id="selectBySupplierAndPeriod" resultType="SupplierScoreMain">
+        SELECT * FROM supplier_score_main
+        WHERE supplier_id = #{supplierId} AND score_period = #{period}
+        LIMIT 1
+    </select>
+
+    <select id="selectMainById" resultType="SupplierScoreMain">
+        SELECT * FROM supplier_score_main WHERE main_id = #{mainId}
+    </select>
+
+    <!-- 评分明细：用 CASE WHEN 映射类型名 -->
+    <select id="selectItemsByMainId" resultType="com.ilbuy.supplier.vo.SupplierScoreDetailVO$ItemVO">
+        SELECT
+            i.score_type,
+            CASE i.score_type
+                WHEN 1 THEN '产品质量'
+                WHEN 2 THEN '交付能力'
+                WHEN 3 THEN '价格成本'
+                WHEN 4 THEN '资质合规'
+                WHEN 5 THEN '售后服务'
+                WHEN 6 THEN '合作稳定'
+                ELSE '未知'
+            END AS score_type_name,
+            i.full_score,
+            i.actual_score,
+            i.remark
+        FROM supplier_score_item i
+        WHERE i.main_id = #{mainId}
+        ORDER BY i.score_type ASC
+    </select>
+
+    <sql id="scoreListColumns">
+        m.main_id, m.supplier_id, s.supplier_name, m.score_period,
+        m.total_score, m.supplier_level, m.score_user, m.score_time,
+        m.opinion, m.create_time
+    </sql>
+
+    <sql id="scoreListWhere">
+        <where>
+            <if test="supplierId != null">AND m.supplier_id = #{supplierId}</if>
+            <if test="supplierName != null and supplierName != ''">
+                AND s.supplier_name LIKE CONCAT('%', #{supplierName}, '%')
+            </if>
+            <if test="scorePeriod != null and scorePeriod != ''">
+                AND m.score_period = #{scorePeriod}
+            </if>
+            <if test="supplierLevel != null and supplierLevel != ''">
+                AND m.supplier_level = #{supplierLevel}
+            </if>
+        </where>
+    </sql>
+
+    <select id="selectPage" resultType="com.ilbuy.supplier.vo.SupplierScoreMainVO">
+        SELECT <include refid="scoreListColumns"/>
+        FROM supplier_score_main m
+        LEFT JOIN supplier_info s ON m.supplier_id = s.supplier_id
+        <include refid="scoreListWhere"/>
+        ORDER BY m.create_time DESC
+    </select>
+
+    <select id="selectForExport" resultType="com.ilbuy.supplier.vo.SupplierScoreMainVO">
+        SELECT <include refid="scoreListColumns"/>
+        FROM supplier_score_main m
+        LEFT JOIN supplier_info s ON m.supplier_id = s.supplier_id
+        <include refid="scoreListWhere"/>
+        ORDER BY m.create_time DESC
+    </select>
+
+</mapper>

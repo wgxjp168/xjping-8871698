@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ilbuy.supplier.mapper.SupplierLogMapper">
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO supplier_log
+            (supplier_id, operate_type, operate_content, operate_user, operate_time)
+        VALUES
+            (#{supplierId}, #{operateType}, #{operateContent}, #{operateUser}, NOW())
+    </insert>
+
+    <sql id="logListColumns">
+        l.id, l.supplier_id, s.supplier_name, l.operate_type, l.operate_content,
+        l.operate_user, l.operate_time
+    </sql>
+
+    <sql id="logListWhere">
+        <where>
+            <if test="supplierId != null">AND l.supplier_id = #{supplierId}</if>
+            <if test="operateType != null and operateType != ''">
+                AND l.operate_type = #{operateType}
+            </if>
+            <if test="operateUser != null and operateUser != ''">
+                AND l.operate_user LIKE CONCAT('%', #{operateUser}, '%')
+            </if>
+            <if test="operateTimeStart != null and operateTimeStart != ''">
+                AND l.operate_time &gt;= #{operateTimeStart}
+            </if>
+            <if test="operateTimeEnd != null and operateTimeEnd != ''">
+                AND l.operate_time &lt;= #{operateTimeEnd}
+            </if>
+        </where>
+    </sql>
+
+    <select id="selectPage" resultType="com.ilbuy.supplier.vo.SupplierLogVO">
+        SELECT <include refid="logListColumns"/>
+        FROM supplier_log l
+        LEFT JOIN supplier_info s ON l.supplier_id = s.supplier_id
+        <include refid="logListWhere"/>
+        ORDER BY l.operate_time DESC
+    </select>
+
+    <select id="selectForExport" resultType="com.ilbuy.supplier.vo.SupplierLogVO">
+        SELECT <include refid="logListColumns"/>
+        FROM supplier_log l
+        LEFT JOIN supplier_info s ON l.supplier_id = s.supplier_id
+        <include refid="logListWhere"/>
+        ORDER BY l.operate_time DESC
+    </select>
+
+</mapper>

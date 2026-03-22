@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ilbuy.supplier.mapper.SupplierAbnormalMapper">
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO supplier_abnormal
+            (supplier_id, abn_type, abn_content, abn_time,
+             deduction_score, handle_result, create_time)
+        VALUES
+            (#{supplierId}, #{abnType}, #{abnContent}, #{abnTime},
+             #{deductionScore, jdbcType=INTEGER}, #{handleResult, jdbcType=VARCHAR}, NOW())
+    </insert>
+
+    <update id="updateById">
+        UPDATE supplier_abnormal
+        <set>
+            <if test="abnType != null and abnType != ''">abn_type = #{abnType},</if>
+            <if test="abnContent != null and abnContent != ''">abn_content = #{abnContent},</if>
+            <if test="abnTime != null">abn_time = #{abnTime},</if>
+            <if test="deductionScore != null">deduction_score = #{deductionScore},</if>
+            <if test="handleResult != null">handle_result = #{handleResult},</if>
+        </set>
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM supplier_abnormal WHERE id = #{id}
+    </delete>
+
+    <select id="selectById" resultType="SupplierAbnormal">
+        SELECT * FROM supplier_abnormal WHERE id = #{id}
+    </select>
+
+    <sql id="abnListColumns">
+        a.id, a.supplier_id, s.supplier_name, a.abn_type, a.abn_content,
+        a.abn_time, a.deduction_score, a.handle_result, a.create_time
+    </sql>
+
+    <sql id="abnListWhere">
+        <where>
+            <if test="supplierId != null">AND a.supplier_id = #{supplierId}</if>
+            <if test="supplierName != null and supplierName != ''">
+                AND s.supplier_name LIKE CONCAT('%', #{supplierName}, '%')
+            </if>
+            <if test="abnType != null and abnType != ''">
+                AND a.abn_type = #{abnType}
+            </if>
+            <if test="abnTimeStart != null and abnTimeStart != ''">
+                AND a.abn_time &gt;= #{abnTimeStart}
+            </if>
+            <if test="abnTimeEnd != null and abnTimeEnd != ''">
+                AND a.abn_time &lt;= #{abnTimeEnd}
+            </if>
+        </where>
+    </sql>
+
+    <select id="selectPage" resultType="com.ilbuy.supplier.vo.SupplierAbnormalVO">
+        SELECT <include refid="abnListColumns"/>
+        FROM supplier_abnormal a
+        LEFT JOIN supplier_info s ON a.supplier_id = s.supplier_id
+        <include refid="abnListWhere"/>
+        ORDER BY a.create_time DESC
+    </select>
+
+    <select id="selectForExport" resultType="com.ilbuy.supplier.vo.SupplierAbnormalVO">
+        SELECT <include refid="abnListColumns"/>
+        FROM supplier_abnormal a
+        LEFT JOIN supplier_info s ON a.supplier_id = s.supplier_id
+        <include refid="abnListWhere"/>
+        ORDER BY a.create_time DESC
+    </select>
+
+</mapper>
