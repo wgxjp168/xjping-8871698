@@ -1,0 +1,71 @@
+version: "3.9"
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: ilbuy-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: ILbuy@MySQL2024
+      MYSQL_DATABASE: ilbuy_test
+      MYSQL_USER: ilbuy
+      MYSQL_PASSWORD: ILbuy@DB2024
+    ports:
+      - "3306:3306"
+    volumes:
+      - ./mysql-init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-pILbuy@MySQL2024"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - ilbuy-net
+
+  redis:
+    image: redis:7.0-alpine
+    container_name: ilbuy-redis
+    command: redis-server --requirepass ILbuy@Redis2024
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "ILbuy@Redis2024", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - ilbuy-net
+
+  api:
+    build:
+      context: ./app
+      dockerfile: Dockerfile
+    container_name: ilbuy-api
+    environment:
+      MYSQL_HOST: mysql
+      MYSQL_PORT: "3306"
+      MYSQL_DB: ilbuy_test
+      MYSQL_USER: ilbuy
+      MYSQL_PASSWORD: ILbuy@DB2024
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_PASSWORD: ILbuy@Redis2024
+      JWT_SECRET: ILbuy@JWT@SecretKey@2024@Production
+      FLASK_ENV: production
+    ports:
+      - "8080:8080"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8080/actuator/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 15
+    networks:
+      - ilbuy-net
+
+networks:
+  ilbuy-net:
+    driver: bridge
