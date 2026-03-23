@@ -1,0 +1,181 @@
+version: '3.8'
+
+# ============================================================
+# 惠东县区域公卫体检集中系统 - 开发/测试环境 Docker Compose
+# ============================================================
+
+services:
+  # ==================== 基础中间件 ====================
+  mysql:
+    image: mysql:8.0.39
+    container_name: physical-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root123
+      MYSQL_DATABASE: physical_db
+      MYSQL_USER: physical_user
+      MYSQL_PASSWORD: physical_pass
+      TZ: Asia/Shanghai
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./sql:/docker-entrypoint-initdb.d
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    networks:
+      - physical-net
+
+  redis:
+    image: redis:7.2.5
+    container_name: physical-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - physical-net
+
+  zookeeper:
+    image: bitnami/zookeeper:3.8
+    container_name: physical-zookeeper
+    environment:
+      ALLOW_ANONYMOUS_LOGIN: "yes"
+    networks:
+      - physical-net
+
+  kafka:
+    image: bitnami/kafka:3.6.2
+    container_name: physical-kafka
+    environment:
+      KAFKA_CFG_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_CFG_LISTENERS: PLAINTEXT://:9092
+      KAFKA_CFG_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      ALLOW_PLAINTEXT_LISTENER: "yes"
+    ports:
+      - "9092:9092"
+    depends_on:
+      - zookeeper
+    networks:
+      - physical-net
+
+  nacos:
+    image: nacos/nacos-server:v2.3.1
+    container_name: physical-nacos
+    environment:
+      MODE: standalone
+      SPRING_DATASOURCE_PLATFORM: mysql
+      MYSQL_SERVICE_HOST: mysql
+      MYSQL_SERVICE_DB_NAME: nacos
+      MYSQL_SERVICE_USER: root
+      MYSQL_SERVICE_PASSWORD: root123
+    ports:
+      - "8848:8848"
+    depends_on:
+      - mysql
+    networks:
+      - physical-net
+
+  # ==================== 微服务 ====================
+  gateway:
+    build:
+      context: ..
+      dockerfile: deploy/docker/Dockerfile.gateway
+    container_name: physical-gateway
+    ports:
+      - "8888:8888"
+    environment:
+      NACOS_SERVER_ADDR: nacos:8848
+      REDIS_HOST: redis
+      KAFKA_SERVERS: kafka:9092
+    depends_on:
+      - nacos
+      - redis
+    networks:
+      - physical-net
+
+  physical-core:
+    build:
+      context: ..
+      dockerfile: deploy/docker/Dockerfile.core
+    container_name: physical-core
+    ports:
+      - "9001:9001"
+    environment:
+      NACOS_SERVER_ADDR: nacos:8848
+      MYSQL_HOST: mysql
+      MYSQL_USER: physical_user
+      MYSQL_PASSWORD: physical_pass
+      REDIS_HOST: redis
+      KAFKA_SERVERS: kafka:9092
+    depends_on:
+      - nacos
+      - mysql
+      - redis
+      - kafka
+    networks:
+      - physical-net
+
+  physical-protocol:
+    build:
+      context: ..
+      dockerfile: deploy/docker/Dockerfile.protocol
+    container_name: physical-protocol
+    ports:
+      - "9009:9009"
+      - "9999:9999"
+    environment:
+      NACOS_SERVER_ADDR: nacos:8848
+      KAFKA_SERVERS: kafka:9092
+    depends_on:
+      - nacos
+      - kafka
+    networks:
+      - physical-net
+
+  physical-urine:
+    build:
+      context: ..
+      dockerfile: deploy/docker/Dockerfile.urine
+    container_name: physical-urine
+    ports:
+      - "9010:9010"
+    environment:
+      NACOS_SERVER_ADDR: nacos:8848
+      REDIS_HOST: redis
+      KAFKA_SERVERS: kafka:9092
+    depends_on:
+      - nacos
+      - redis
+      - kafka
+    networks:
+      - physical-net
+
+  physical-sync:
+    build:
+      context: ..
+      dockerfile: deploy/docker/Dockerfile.sync
+    container_name: physical-sync
+    ports:
+      - "9004:9004"
+    environment:
+      NACOS_SERVER_ADDR: nacos:8848
+      MYSQL_HOST: mysql
+      MYSQL_USER: physical_user
+      MYSQL_PASSWORD: physical_pass
+      REDIS_HOST: redis
+      KAFKA_SERVERS: kafka:9092
+      COUNTY_PLATFORM_URL: http://county-platform-mock:8080
+    depends_on:
+      - nacos
+      - mysql
+      - redis
+      - kafka
+    networks:
+      - physical-net
+
+volumes:
+  mysql_data:
+  redis_data:
+
+networks:
+  physical-net:
+    driver: bridge

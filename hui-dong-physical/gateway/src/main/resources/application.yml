@@ -1,0 +1,86 @@
+server:
+  port: 8888
+
+spring:
+  application:
+    name: gateway
+  cloud:
+    nacos:
+      discovery:
+        server-addr: ${NACOS_SERVER_ADDR:127.0.0.1:8848}
+        namespace: ${NACOS_NAMESPACE:public}
+        group: PHYSICAL_GROUP
+      config:
+        server-addr: ${NACOS_SERVER_ADDR:127.0.0.1:8848}
+        namespace: ${NACOS_NAMESPACE:public}
+        group: PHYSICAL_GROUP
+        file-extension: yml
+    gateway:
+      discovery:
+        locator:
+          enabled: true
+          lower-case-service-id: true
+      routes:
+        # 核心业务服务
+        - id: physical-core
+          uri: lb://physical-core
+          predicates:
+            - Path=/api/core/**,/api/resident/**,/api/exam/**,/api/specimen/**
+          filters:
+            - StripPrefix=1
+        # 协议适配服务
+        - id: physical-protocol
+          uri: lb://physical-protocol
+          predicates:
+            - Path=/api/device/**,/api/protocol/**
+          filters:
+            - StripPrefix=1
+        # 下乡尿机专用服务
+        - id: physical-urine
+          uri: lb://physical-urine
+          predicates:
+            - Path=/api/urine/**
+          filters:
+            - StripPrefix=1
+        # 数据同步服务
+        - id: physical-sync
+          uri: lb://physical-sync
+          predicates:
+            - Path=/api/sync/**
+          filters:
+            - StripPrefix=1
+      default-filters:
+        - DedupeResponseHeader=Access-Control-Allow-Credentials Access-Control-Allow-Origin
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowedOriginPatterns: "*"
+            allowedMethods: "*"
+            allowedHeaders: "*"
+            allowCredentials: true
+  data:
+    redis:
+      host: ${REDIS_HOST:127.0.0.1}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      database: 0
+
+# Actuator 健康检查
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,gateway
+  endpoint:
+    health:
+      show-details: always
+
+# Sentinel 限流规则
+spring.cloud.sentinel:
+  transport:
+    dashboard: ${SENTINEL_DASHBOARD:127.0.0.1:8080}
+
+logging:
+  level:
+    com.huidong.physical: INFO
+    org.springframework.cloud.gateway: WARN

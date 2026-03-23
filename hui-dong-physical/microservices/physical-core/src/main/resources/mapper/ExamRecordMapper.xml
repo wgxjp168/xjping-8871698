@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.huidong.physical.core.mapper.ExamRecordMapper">
+
+    <select id="selectByExamNo" resultType="com.huidong.physical.core.entity.ExamRecord">
+        SELECT * FROM t_exam_record
+        WHERE exam_no = #{examNo} AND deleted = 0
+        LIMIT 1
+    </select>
+
+    <select id="selectPendingSync" resultType="com.huidong.physical.core.entity.ExamRecord">
+        SELECT * FROM t_exam_record
+        WHERE sync_status = 0
+          AND exam_status = 4
+          AND deleted = 0
+        ORDER BY create_time ASC
+        LIMIT #{limit}
+    </select>
+
+</mapper>

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.huidong.physical.sync.mapper.SyncLogMapper">
+
+    <select id="selectPendingRetry" resultType="com.huidong.physical.sync.entity.SyncLog">
+        SELECT * FROM t_sync_log
+        WHERE sync_status IN (2, 3)
+          AND retry_count &lt; #{maxRetry}
+          AND (next_retry_time IS NULL OR next_retry_time &lt;= #{now})
+          AND deleted = 0
+        ORDER BY next_retry_time ASC
+        LIMIT #{limit}
+    </select>
+
+</mapper>

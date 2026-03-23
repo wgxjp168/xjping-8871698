@@ -1,0 +1,61 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: physical-protocol
+  namespace: physical
+  labels:
+    app: physical-protocol
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: physical-protocol
+  template:
+    metadata:
+      labels:
+        app: physical-protocol
+    spec:
+      containers:
+        - name: physical-protocol
+          image: registry.huidong/physical/physical-protocol:1.0.0
+          ports:
+            - containerPort: 9009   # HTTP
+            - containerPort: 9999   # TCP设备接入
+          envFrom:
+            - configMapRef:
+                name: physical-config
+            - secretRef:
+                name: physical-secret
+          env:
+            - name: DEVICE_TCP_PORT
+              value: "9999"
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "300m"
+            limits:
+              memory: "512Mi"
+              cpu: "600m"
+          livenessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 9009
+            initialDelaySeconds: 40
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: physical-protocol
+  namespace: physical
+spec:
+  selector:
+    app: physical-protocol
+  ports:
+    - name: http
+      port: 9009
+      targetPort: 9009
+    - name: device-tcp
+      port: 9999
+      targetPort: 9999
+      protocol: TCP

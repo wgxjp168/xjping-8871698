@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: physical
+  labels:
+    app.kubernetes.io/name: hui-dong-physical
+    app.kubernetes.io/part-of: physical-system

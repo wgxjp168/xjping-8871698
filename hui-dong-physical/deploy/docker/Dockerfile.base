@@ -1,0 +1,17 @@
+# 基础镜像 - JDK 11
+FROM eclipse-temurin:11.0.25-jre-focal
+
+# 时区设置
+RUN ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime && \
+    echo "Asia/Shanghai" > /etc/timezone
+
+# 工作目录
+WORKDIR /app
+
+# JVM调优参数（通过环境变量覆盖）
+ENV JAVA_OPTS="-Xms256m -Xmx512m -XX:+UseG1GC -XX:MaxGCPauseMillis=200 \
+    -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/app/logs/heapdump.hprof \
+    -Djava.security.egd=file:/dev/./urandom"
+
+# 日志目录
+RUN mkdir -p /app/logs

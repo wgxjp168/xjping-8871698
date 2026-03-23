@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: physical-sync
+  namespace: physical
+  labels:
+    app: physical-sync
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: physical-sync
+  template:
+    metadata:
+      labels:
+        app: physical-sync
+    spec:
+      containers:
+        - name: physical-sync
+          image: registry.huidong/physical/physical-sync:1.0.0
+          ports:
+            - containerPort: 9004
+          envFrom:
+            - configMapRef:
+                name: physical-config
+            - secretRef:
+                name: physical-secret
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "200m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 9004
+            initialDelaySeconds: 40
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: physical-sync
+  namespace: physical
+spec:
+  selector:
+    app: physical-sync
+  ports:
+    - port: 9004
+      targetPort: 9004

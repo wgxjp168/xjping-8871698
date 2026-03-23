@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.huidong.physical.core.mapper.ResidentMapper">
+
+    <select id="selectByIdCard" resultType="com.huidong.physical.core.entity.Resident">
+        SELECT * FROM t_resident
+        WHERE id_card = #{idCard} AND deleted = 0
+        LIMIT 1
+    </select>
+
+    <select id="selectByResidentCode" resultType="com.huidong.physical.core.entity.Resident">
+        SELECT * FROM t_resident
+        WHERE resident_code = #{residentCode} AND deleted = 0
+        LIMIT 1
+    </select>
+
+</mapper>

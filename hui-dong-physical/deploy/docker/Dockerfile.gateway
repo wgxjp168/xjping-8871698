@@ -1,0 +1,13 @@
+FROM eclipse-temurin:11.0.25-jre-focal
+
+RUN ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
+WORKDIR /app
+RUN mkdir -p /app/logs
+
+ENV JAVA_OPTS="-Xms256m -Xmx512m -XX:+UseG1GC -Djava.security.egd=file:/dev/./urandom"
+
+COPY gateway/target/gateway-1.0.0.jar app.jar
+
+EXPOSE 8888
+
+ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar app.jar"]

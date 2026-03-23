@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.huidong.physical.core.mapper.LabResultMapper">
+
+    <select id="selectByExamRecordId" resultType="com.huidong.physical.core.entity.LabResult">
+        SELECT * FROM t_lab_result
+        WHERE exam_record_id = #{examRecordId} AND deleted = 0
+        ORDER BY lab_type, item_code
+    </select>
+
+    <select id="selectPendingSync" resultType="com.huidong.physical.core.entity.LabResult">
+        SELECT * FROM t_lab_result
+        WHERE sync_status = 0 AND deleted = 0
+        ORDER BY create_time ASC
+        LIMIT #{limit}
+    </select>
+
+</mapper>
