@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: physical-sync
+  namespace: physical-health
+spec:
+  type: ClusterIP
+  selector:
+    app: physical-sync
+  ports:
+    - name: http
+      port: 9004
+      targetPort: 9004

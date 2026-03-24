@@ -1,0 +1,28 @@
+spring:
+  datasource:
+    url: jdbc:mysql://${DB_HOST}:${DB_PORT:3306}/${DB_NAME}?useUnicode=true&characterEncoding=utf-8&useSSL=true&serverTimezone=Asia/Shanghai&verifyServerCertificate=false
+    username: ${DB_USER}
+    password: ${DB_PASS}
+    hikari:
+      minimum-idle: 3
+      maximum-pool-size: 10
+  redis:
+    host: ${REDIS_HOST}
+    port: ${REDIS_PORT:6379}
+    password: ${REDIS_PASS}
+jwt:
+  secret: ${JWT_SECRET}
+county:
+  api:
+    base-url: ${COUNTY_API_URL}
+    token: ${COUNTY_API_TOKEN}
+mybatis-plus:
+  configuration:
+    log-impl: org.apache.ibatis.logging.nologging.NoLoggingImpl
+logging:
+  level:
+    com.health.physical: info
+  file:
+    name: /var/log/physical/dr.log
+    max-size: 100MB
+    max-history: 30

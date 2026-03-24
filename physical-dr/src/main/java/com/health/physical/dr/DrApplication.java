@@ -3,6 +3,8 @@ package com.health.physical.dr;
 import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.scheduling.annotation.EnableAsync;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 /**
  * DR服务启动类
@@ -11,6 +13,8 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  */
 @SpringBootApplication(scanBasePackages = {"com.health.physical.dr", "com.health.physical.common"})
 @MapperScan("com.health.physical.dr.mapper")
+@EnableAsync
+@EnableScheduling
 public class DrApplication {
 
     public static void main(String[] args) {

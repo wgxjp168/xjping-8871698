@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: physical-auth
+  namespace: physical-health
+  labels:
+    app: physical-auth
+spec:
+  type: ClusterIP
+  selector:
+    app: physical-auth
+  ports:
+    - name: http
+      port: 9005
+      targetPort: 9005

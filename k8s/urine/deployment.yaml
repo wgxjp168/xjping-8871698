@@ -1,0 +1,60 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: physical-urine
+  namespace: physical-health
+  labels:
+    app: physical-urine
+    version: "1.0.0"
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: physical-urine
+  template:
+    metadata:
+      labels:
+        app: physical-urine
+        version: "1.0.0"
+    spec:
+      containers:
+        - name: physical-urine
+          image: physical/urine:1.0.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 9010
+          envFrom:
+            - configMapRef:
+                name: physical-config-prod
+            - secretRef:
+                name: physical-secret
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "128Mi"
+            limits:
+              cpu: "300m"
+              memory: "384Mi"
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 9010
+            initialDelaySeconds: 60
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 9010
+            initialDelaySeconds: 40
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          volumeMounts:
+            - name: log-volume
+              mountPath: /var/log/physical
+      volumes:
+        - name: log-volume
+          emptyDir: {}
+      terminationGracePeriodSeconds: 30

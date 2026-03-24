@@ -1,0 +1,21 @@
+spring:
+  redis:
+    host: ${REDIS_HOST}
+    port: ${REDIS_PORT:6379}
+    password: ${REDIS_PASS}
+jwt:
+  secret: ${JWT_SECRET}
+gateway:
+  white-list:
+    - /api/auth/login
+    - /api/auth/validate
+    - /api/dr/register
+    - /actuator/health
+logging:
+  level:
+    org.springframework.cloud.gateway: warn
+    com.health.physical: info
+  file:
+    name: /var/log/physical/gateway.log
+    max-size: 100MB
+    max-history: 30

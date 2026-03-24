@@ -1,0 +1,9 @@
+spring:
+  redis:
+    host: localhost
+    port: 6379
+    password:
+logging:
+  level:
+    org.springframework.cloud.gateway: debug
+    com.health.physical: debug

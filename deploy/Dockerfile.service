@@ -1,20 +1,56 @@
 # 惠东县区域公卫体检集中系统 - 微服务通用Dockerfile
-# 构建时通过 --build-arg SERVICE_NAME=physical-auth 指定服务
-# 例如: docker build --build-arg SERVICE_NAME=physical-auth -t physical/auth:1.0.0 -f Dockerfile.service .
+# 用法（从项目根目录执行）：
+#   docker build --build-arg SERVICE_NAME=physical-auth \
+#                --build-arg SERVICE_PORT=9005 \
+#                -t physical/auth:1.0.0 \
+#                -f deploy/Dockerfile.service .
 
-FROM eclipse-temurin:11-jre-alpine
+FROM eclipse-temurin:11-jre-alpine AS runtime
+
+# ---- 构建参数 ----
 ARG SERVICE_NAME
-ENV SERVICE_NAME=${SERVICE_NAME}
+ARG SERVICE_PORT=8080
+ARG JAR_FILE
 
-# 安装时区工具
-RUN apk add --no-cache tzdata && cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime && echo "Asia/Shanghai" > /etc/timezone
+# ---- 环境变量 ----
+ENV SERVICE_NAME=${SERVICE_NAME} \
+    SERVER_PORT=${SERVICE_PORT} \
+    TZ=Asia/Shanghai \
+    JAVA_OPTS="-server \
+      -Xms256m -Xmx512m \
+      -XX:+UseG1GC \
+      -XX:MaxGCPauseMillis=200 \
+      -XX:+HeapDumpOnOutOfMemoryError \
+      -XX:HeapDumpPath=/var/log/physical/heapdump.hprof \
+      -Djava.security.egd=file:/dev/./urandom \
+      -Dfile.encoding=UTF-8 \
+      -Duser.timezone=Asia/Shanghai"
+
+# ---- 时区 & 工具 ----
+RUN apk add --no-cache tzdata curl && \
+    cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime && \
+    echo "Asia/Shanghai" > /etc/timezone && \
+    # 创建日志目录
+    mkdir -p /var/log/physical && \
+    # 创建非root运行用户，减小攻击面
+    addgroup -S physical && adduser -S -G physical physical
 
 WORKDIR /app
+
+# ---- 复制jar包（Maven构建产物） ----
+# JAR_FILE 格式示例：physical-auth/target/physical-auth-1.0.0.jar
 COPY ${SERVICE_NAME}/target/${SERVICE_NAME}-*.jar app.jar
 
-# JVM优化参数（适配院内服务器环境）
-ENV JAVA_OPTS="-server -Xms256m -Xmx512m -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Djava.security.egd=file:/dev/./urandom -Dfile.encoding=UTF-8 -Duser.timezone=Asia/Shanghai"
+# 以非root用户运行
+USER physical
 
-EXPOSE 8888 9001 9004 9005 9010 9011
+EXPOSE ${SERVICE_PORT}
 
-ENTRYPOINT ["sh", "-c", "java ${JAVA_OPTS} -jar app.jar"]
+# 健康检查（使用Actuator）
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD curl -f http://localhost:${SERVICE_PORT}/actuator/health/liveness || exit 1
+
+ENTRYPOINT ["sh", "-c", "exec java ${JAVA_OPTS} \
+  -Dserver.port=${SERVER_PORT} \
+  -Dspring.profiles.active=${SPRING_PROFILES_ACTIVE:-prod} \
+  -jar app.jar"]

@@ -1,0 +1,93 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: physical-gateway
+  namespace: physical-health
+  labels:
+    app: physical-gateway
+    version: "1.0.0"
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: physical-gateway
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: physical-gateway
+        version: "1.0.0"
+    spec:
+      # 亲和性：不将两个副本调度到同一Node（高可用）
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app
+                      operator: In
+                      values: [physical-gateway]
+                topologyKey: kubernetes.io/hostname
+      containers:
+        - name: physical-gateway
+          image: physical/gateway:1.0.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8888
+              name: http
+          envFrom:
+            - configMapRef:
+                name: physical-config-prod
+            - secretRef:
+                name: physical-secret
+          env:
+            - name: AUTH_SERVICE_HOST
+              value: "physical-auth"
+            - name: DR_SERVICE_HOST
+              value: "physical-dr"
+            - name: CORE_SERVICE_HOST
+              value: "physical-core"
+            - name: SYNC_SERVICE_HOST
+              value: "physical-sync"
+            - name: URINE_SERVICE_HOST
+              value: "physical-urine"
+            - name: WEB_SERVICE_HOST
+              value: "physical-web"
+          # 资源限制
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+          # 存活探针 - 进程级别
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 8888
+            initialDelaySeconds: 60
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+          # 就绪探针 - 流量级别（就绪才接受请求）
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 8888
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          # 优雅关闭
+          lifecycle:
+            preStop:
+              exec:
+                command: ["/bin/sh", "-c", "sleep 10"]
+      terminationGracePeriodSeconds: 30

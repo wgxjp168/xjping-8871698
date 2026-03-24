@@ -1,17 +1,51 @@
-# 惠东县区域公卫体检集中系统 - 前端Dockerfile
-# 化验室网页端
+# 惠东县区域公卫体检集中系统 - 前端网页端Dockerfile
+# 用法（从项目根目录执行）：
+#   docker build -t physical/web:1.0.0 -f deploy/Dockerfile.web .
 
-# Stage 1: 构建
+# ========================================
+# Stage 1: 前端构建（Node.js 18 Alpine）
+# ========================================
 FROM node:18-alpine AS builder
+
 WORKDIR /app
-COPY physical-web/package.json .
+
+# 先复制package.json以利用Docker层缓存
+COPY physical-web/package.json physical-web/package-lock.json* ./
+
+# 使用国内镜像加速
 RUN npm install --registry=https://registry.npmmirror.com
+
 COPY physical-web/ .
+
+# 接受构建时环境变量（API网关地址）
+ARG VITE_API_BASE_URL=/api
+ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
+
 RUN npm run build
 
-# Stage 2: 生产（Nginx）
-FROM nginx:1.25-alpine
+# ========================================
+# Stage 2: 生产（Nginx 1.25 Alpine）
+# ========================================
+FROM nginx:1.25-alpine AS production
+
+# 安装时区
+RUN apk add --no-cache tzdata && \
+    cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime && \
+    echo "Asia/Shanghai" > /etc/timezone
+
+# 复制构建产物
 COPY --from=builder /app/dist /usr/share/nginx/html
+
+# 复制Nginx配置
 COPY deploy/nginx.conf /etc/nginx/nginx.conf
+
+# 创建日志目录
+RUN mkdir -p /var/log/nginx
+
 EXPOSE 80
+
+# 健康检查
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+    CMD wget -q -O- http://localhost/health || exit 1
+
 CMD ["nginx", "-g", "daemon off;"]

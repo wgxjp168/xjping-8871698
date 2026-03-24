@@ -1,0 +1,91 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: physical-redis
+  namespace: physical-health
+  labels:
+    app: physical-redis
+spec:
+  serviceName: physical-redis-headless
+  replicas: 1
+  selector:
+    matchLabels:
+      app: physical-redis
+  template:
+    metadata:
+      labels:
+        app: physical-redis
+    spec:
+      containers:
+        - name: redis
+          image: redis:7.2-alpine
+          ports:
+            - containerPort: 6379
+          command:
+            - redis-server
+            - "--save"
+            - "60"
+            - "1"
+            - "--appendonly"
+            - "yes"
+            - "--requirepass"
+            - "$(REDIS_PASS)"
+          env:
+            - name: REDIS_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: physical-secret
+                  key: REDIS_PASS
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+          livenessProbe:
+            exec:
+              command:
+                - redis-cli
+                - ping
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            exec:
+              command:
+                - redis-cli
+                - ping
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          volumeMounts:
+            - name: redis-data
+              mountPath: /data
+  volumeClaimTemplates:
+    - metadata:
+        name: redis-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 10Gi
+        storageClassName: standard
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: physical-redis-headless
+  namespace: physical-health
+  labels:
+    app: physical-redis
+spec:
+  clusterIP: None
+  selector:
+    app: physical-redis
+  ports:
+    - port: 6379
+      name: redis

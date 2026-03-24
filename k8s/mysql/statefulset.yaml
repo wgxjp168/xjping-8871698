@@ -1,0 +1,100 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: physical-mysql
+  namespace: physical-health
+  labels:
+    app: physical-mysql
+spec:
+  serviceName: physical-mysql-headless
+  replicas: 1
+  selector:
+    matchLabels:
+      app: physical-mysql
+  template:
+    metadata:
+      labels:
+        app: physical-mysql
+    spec:
+      containers:
+        - name: mysql
+          image: mysql:8.0
+          ports:
+            - containerPort: 3306
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: physical-secret
+                  key: DB_PASS
+            - name: MYSQL_DATABASE
+              value: "physical_health"
+            - name: TZ
+              value: "Asia/Shanghai"
+          args:
+            - "--character-set-server=utf8mb4"
+            - "--collation-server=utf8mb4_unicode_ci"
+            - "--default-time-zone=+08:00"
+            - "--max-connections=500"
+            - "--innodb-buffer-pool-size=512M"
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "1Gi"
+            limits:
+              cpu: "2000m"
+              memory: "2Gi"
+          livenessProbe:
+            exec:
+              command:
+                - bash
+                - -c
+                - "mysqladmin ping -h localhost -uroot -p${MYSQL_ROOT_PASSWORD}"
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            exec:
+              command:
+                - bash
+                - -c
+                - "mysql -h localhost -uroot -p${MYSQL_ROOT_PASSWORD} -e 'SELECT 1'"
+            initialDelaySeconds: 20
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          volumeMounts:
+            - name: mysql-data
+              mountPath: /var/lib/mysql
+            - name: mysql-init
+              mountPath: /docker-entrypoint-initdb.d
+      volumes:
+        - name: mysql-init
+          configMap:
+            name: physical-mysql-init
+  volumeClaimTemplates:
+    - metadata:
+        name: mysql-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 50Gi
+        storageClassName: standard  # 生产环境替换为高性能SSD StorageClass
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: physical-mysql-headless
+  namespace: physical-health
+  labels:
+    app: physical-mysql
+spec:
+  clusterIP: None
+  selector:
+    app: physical-mysql
+  ports:
+    - port: 3306
+      name: mysql

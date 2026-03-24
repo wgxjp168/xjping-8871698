@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: physical-gateway
+  namespace: physical-health
+  labels:
+    app: physical-gateway
+spec:
+  type: NodePort   # 生产可改为 LoadBalancer 或配合 Ingress
+  selector:
+    app: physical-gateway
+  ports:
+    - name: http
+      port: 8888
+      targetPort: 8888
+      nodePort: 30888  # 对外暴露端口（院内防火墙放行此端口）

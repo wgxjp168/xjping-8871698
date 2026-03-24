@@ -2,6 +2,8 @@ server:
   port: 9010
 
 spring:
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:dev}
   application:
     name: physical-urine
   datasource:
@@ -29,3 +31,19 @@ knife4j:
 logging:
   level:
     com.health.physical: debug
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: when-authorized
+      probes:
+        enabled: true
+  health:
+    livenessState:
+      enabled: true
+    readinessState:
+      enabled: true

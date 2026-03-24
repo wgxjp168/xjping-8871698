@@ -1,0 +1,60 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: physical-sync
+  namespace: physical-health
+  labels:
+    app: physical-sync
+    version: "1.0.0"
+spec:
+  replicas: 1   # 同步服务单副本，避免重复同步
+  selector:
+    matchLabels:
+      app: physical-sync
+  template:
+    metadata:
+      labels:
+        app: physical-sync
+        version: "1.0.0"
+    spec:
+      containers:
+        - name: physical-sync
+          image: physical/sync:1.0.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 9004
+          envFrom:
+            - configMapRef:
+                name: physical-config-prod
+            - secretRef:
+                name: physical-secret
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "128Mi"
+            limits:
+              cpu: "300m"
+              memory: "384Mi"
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 9004
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 9004
+            initialDelaySeconds: 40
+            periodSeconds: 15
+            timeoutSeconds: 3
+            failureThreshold: 3
+          volumeMounts:
+            - name: log-volume
+              mountPath: /var/log/physical
+      volumes:
+        - name: log-volume
+          emptyDir: {}
+      terminationGracePeriodSeconds: 60
