@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.health.physical.auth.mapper.DocPermissionMapper">
+
+    <resultMap id="BaseResultMap" type="com.health.physical.auth.entity.DocPermission">
+        <id column="id" property="id"/>
+        <result column="doc_id" property="docId"/>
+        <result column="doc_name" property="docName"/>
+        <result column="dept" property="dept"/>
+        <result column="dept_name" property="deptName"/>
+        <result column="project_code" property="projectCode"/>
+        <result column="project_name" property="projectName"/>
+        <result column="operate_type" property="operateType"/>
+        <result column="scope" property="scope"/>
+        <result column="zone_codes" property="zoneCodes"/>
+        <result column="status" property="status"/>
+        <result column="granted_by" property="grantedBy"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+
+    <!-- 查询医生有效权限 -->
+    <select id="selectByDocId" resultMap="BaseResultMap">
+        SELECT *
+        FROM physical_doc_permission
+        WHERE doc_id = #{docId}
+          AND status = 1
+        ORDER BY project_code, operate_type
+    </select>
+
+    <!-- 校验权限 -->
+    <select id="countPermission" resultType="int">
+        SELECT COUNT(1)
+        FROM physical_doc_permission
+        WHERE doc_id = #{docId}
+          AND project_code = #{projectCode}
+          AND operate_type = #{operateType}
+          AND status = 1
+    </select>
+
+    <!-- 批量插入或更新（ON DUPLICATE KEY UPDATE） -->
+    <insert id="batchInsertOrUpdate">
+        INSERT INTO physical_doc_permission
+            (doc_id, doc_name, dept, dept_name, project_code, project_name, operate_type, scope, zone_codes, status, granted_by, create_time, update_time)
+        VALUES
+        <foreach collection="list" item="item" separator=",">
+            (#{item.docId}, #{item.docName}, #{item.dept}, #{item.deptName},
+             #{item.projectCode}, #{item.projectName}, #{item.operateType},
+             #{item.scope}, #{item.zoneCodes}, #{item.status}, #{item.grantedBy},
+             NOW(), NOW())
+        </foreach>
+        ON DUPLICATE KEY UPDATE
+            doc_name    = VALUES(doc_name),
+            dept        = VALUES(dept),
+            dept_name   = VALUES(dept_name),
+            project_name = VALUES(project_name),
+            operate_type = VALUES(operate_type),
+            scope       = VALUES(scope),
+            zone_codes  = VALUES(zone_codes),
+            status      = VALUES(status),
+            update_time = NOW()
+    </insert>
+
+</mapper>

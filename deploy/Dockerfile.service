@@ -1,0 +1,20 @@
+# 惠东县区域公卫体检集中系统 - 微服务通用Dockerfile
+# 构建时通过 --build-arg SERVICE_NAME=physical-auth 指定服务
+# 例如: docker build --build-arg SERVICE_NAME=physical-auth -t physical/auth:1.0.0 -f Dockerfile.service .
+
+FROM eclipse-temurin:11-jre-alpine
+ARG SERVICE_NAME
+ENV SERVICE_NAME=${SERVICE_NAME}
+
+# 安装时区工具
+RUN apk add --no-cache tzdata && cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime && echo "Asia/Shanghai" > /etc/timezone
+
+WORKDIR /app
+COPY ${SERVICE_NAME}/target/${SERVICE_NAME}-*.jar app.jar
+
+# JVM优化参数（适配院内服务器环境）
+ENV JAVA_OPTS="-server -Xms256m -Xmx512m -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Djava.security.egd=file:/dev/./urandom -Dfile.encoding=UTF-8 -Duser.timezone=Asia/Shanghai"
+
+EXPOSE 8888 9001 9004 9005 9010 9011
+
+ENTRYPOINT ["sh", "-c", "java ${JAVA_OPTS} -jar app.jar"]

@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.health.physical.core.mapper.LabResultMapper">
+
+    <select id="selectByPhysicalIdAndProject" resultType="com.health.physical.core.entity.LabResult">
+        SELECT * FROM physical_lab_result
+        WHERE physical_id = #{physicalId}
+          AND project_code = #{projectCode}
+          AND deleted = 0
+        ORDER BY item_code
+    </select>
+
+    <insert id="batchInsertOrUpdate">
+        INSERT INTO physical_lab_result
+            (physical_id, resident_id, project_code, project_name, item_code, item_name,
+             result_value, result_num, unit, ref_low, ref_high, abnormal_flag,
+             device_code, operator, exam_time, sync_status, status, create_time, update_time)
+        VALUES
+        <foreach collection="list" item="item" separator=",">
+            (#{item.physicalId}, #{item.residentId}, #{item.projectCode}, #{item.projectName},
+             #{item.itemCode}, #{item.itemName}, #{item.resultValue}, #{item.resultNum},
+             #{item.unit}, #{item.refLow}, #{item.refHigh}, #{item.abnormalFlag},
+             #{item.deviceCode}, #{item.operator}, #{item.examTime}, 0, 1, NOW(), NOW())
+        </foreach>
+        ON DUPLICATE KEY UPDATE
+            result_value  = VALUES(result_value),
+            result_num    = VALUES(result_num),
+            abnormal_flag = VALUES(abnormal_flag),
+            exam_time     = VALUES(exam_time),
+            update_time   = NOW()
+    </insert>
+
+</mapper>

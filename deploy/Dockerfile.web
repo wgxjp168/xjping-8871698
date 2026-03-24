@@ -1,0 +1,17 @@
+# 惠东县区域公卫体检集中系统 - 前端Dockerfile
+# 化验室网页端
+
+# Stage 1: 构建
+FROM node:18-alpine AS builder
+WORKDIR /app
+COPY physical-web/package.json .
+RUN npm install --registry=https://registry.npmmirror.com
+COPY physical-web/ .
+RUN npm run build
+
+# Stage 2: 生产（Nginx）
+FROM nginx:1.25-alpine
+COPY --from=builder /app/dist /usr/share/nginx/html
+COPY deploy/nginx.conf /etc/nginx/nginx.conf
+EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]

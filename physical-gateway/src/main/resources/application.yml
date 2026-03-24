@@ -1,0 +1,98 @@
+server:
+  port: 8888
+
+spring:
+  application:
+    name: physical-gateway
+  redis:
+    host: ${REDIS_HOST:localhost}
+    port: ${REDIS_PORT:6379}
+    password: ${REDIS_PASS:}
+    database: 0
+  cloud:
+    gateway:
+      globalcors:
+        corsConfigurations:
+          '[/**]':
+            allowedOriginPatterns: "*"
+            allowedMethods:
+              - GET
+              - POST
+              - PUT
+              - DELETE
+              - OPTIONS
+            allowedHeaders: "*"
+            allowCredentials: true
+            maxAge: 3600
+      routes:
+        # 权限服务路由
+        - id: physical-auth
+          uri: http://${AUTH_SERVICE_HOST:localhost}:9005
+          predicates:
+            - Path=/api/auth/**
+          filters:
+            - StripPrefix=1
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 20
+                redis-rate-limiter.burstCapacity: 40
+
+        # DR服务路由
+        - id: physical-dr
+          uri: http://${DR_SERVICE_HOST:localhost}:9011
+          predicates:
+            - Path=/api/dr/**
+          filters:
+            - StripPrefix=1
+            - AuthFilter
+
+        # 核心业务服务路由
+        - id: physical-core
+          uri: http://${CORE_SERVICE_HOST:localhost}:9001
+          predicates:
+            - Path=/api/core/**
+          filters:
+            - StripPrefix=1
+            - AuthFilter
+
+        # 同步服务路由
+        - id: physical-sync
+          uri: http://${SYNC_SERVICE_HOST:localhost}:9004
+          predicates:
+            - Path=/api/sync/**
+          filters:
+            - StripPrefix=1
+            - AuthFilter
+
+        # 尿机服务路由
+        - id: physical-urine
+          uri: http://${URINE_SERVICE_HOST:localhost}:9010
+          predicates:
+            - Path=/api/urine/**
+          filters:
+            - StripPrefix=1
+            - AuthFilter
+
+        # 网页端静态资源（Vue3前端）
+        - id: physical-web
+          uri: http://${WEB_SERVICE_HOST:localhost}:80
+          predicates:
+            - Path=/web/**
+          filters:
+            - StripPrefix=1
+
+# JWT配置
+jwt:
+  secret: ${JWT_SECRET:physical_health_system_jwt_secret_key_2024_secure_enough}
+
+# 白名单路径（不需要鉴权）
+gateway:
+  white-list:
+    - /api/auth/login
+    - /api/auth/validate
+    - /api/dr/register   # 县域回调注册DR开单
+
+logging:
+  level:
+    org.springframework.cloud.gateway: info
+    com.health.physical: debug

@@ -1,0 +1,57 @@
+server:
+  port: 9005
+  servlet:
+    context-path: /
+
+spring:
+  application:
+    name: physical-auth
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:physical_health}?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+    username: ${DB_USER:root}
+    password: ${DB_PASS:physical@2024}
+    hikari:
+      minimum-idle: 5
+      maximum-pool-size: 20
+      connection-timeout: 30000
+  redis:
+    host: ${REDIS_HOST:localhost}
+    port: ${REDIS_PORT:6379}
+    password: ${REDIS_PASS:}
+    database: 0
+    timeout: 3000ms
+
+mybatis-plus:
+  mapper-locations: classpath*:mapper/**/*.xml
+  type-aliases-package: com.health.physical.auth.entity,com.health.physical.common.entity
+  global-config:
+    db-config:
+      logic-delete-field: deleted
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+
+# JWT配置
+jwt:
+  secret: ${JWT_SECRET:physical_health_system_jwt_secret_key_2024_secure_enough}
+  expire-seconds: 43200  # 12小时
+
+# 县域公卫系统接口
+county:
+  api:
+    base-url: ${COUNTY_API_URL:http://county-gateway:8080}
+    token: ${COUNTY_API_TOKEN:}
+
+# Knife4j文档
+knife4j:
+  enable: true
+  setting:
+    language: zh_cn
+
+logging:
+  level:
+    com.health.physical: debug
+    org.springframework.security: warn

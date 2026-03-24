@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.health.physical.dr.mapper.DrRecordMapper">
+
+    <resultMap id="BaseResultMap" type="com.health.physical.dr.entity.DrRecord">
+        <id column="id" property="id"/>
+        <result column="dr_code" property="drCode"/>
+        <result column="resident_id" property="residentId"/>
+        <result column="resident_name" property="residentName"/>
+        <result column="id_card" property="idCard"/>
+        <result column="physical_id" property="physicalId"/>
+        <result column="apply_no" property="applyNo"/>
+        <result column="exam_part" property="examPart"/>
+        <result column="exam_doctor_id" property="examDoctorId"/>
+        <result column="exam_doctor" property="examDoctor"/>
+        <result column="exam_time" property="examTime"/>
+        <result column="dr_result" property="drResult"/>
+        <result column="conclusion" property="conclusion"/>
+        <result column="image_path" property="imagePath"/>
+        <result column="report_path" property="reportPath"/>
+        <result column="status" property="status"/>
+        <result column="scan_operator" property="scanOperator"/>
+        <result column="scan_time" property="scanTime"/>
+        <result column="sync_time" property="syncTime"/>
+        <result column="remark" property="remark"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+
+    <!-- 按DR条码查询 -->
+    <select id="selectByDrCode" resultMap="BaseResultMap">
+        SELECT *
+        FROM physical_dr_record
+        WHERE dr_code = #{drCode}
+          AND deleted = 0
+        LIMIT 1
+    </select>
+
+    <!-- 查询待同步记录 -->
+    <select id="selectPendingSync" resultMap="BaseResultMap">
+        SELECT *
+        FROM physical_dr_record
+        WHERE status = 2
+          AND sync_time IS NULL
+          AND deleted = 0
+        ORDER BY exam_time ASC
+        LIMIT #{limit}
+    </select>
+
+    <!-- 分页查询 -->
+    <select id="selectPageWithFilter" resultMap="BaseResultMap">
+        SELECT *
+        FROM physical_dr_record
+        WHERE deleted = 0
+        <if test="batchNo != null and batchNo != ''">
+            AND physical_id IN (
+                SELECT id FROM physical_record WHERE batch_no = #{batchNo} AND deleted = 0
+            )
+        </if>
+        <if test="examDoctorId != null and examDoctorId != ''">
+            AND exam_doctor_id = #{examDoctorId}
+        </if>
+        <if test="status != null">
+            AND status = #{status}
+        </if>
+        <if test="startDate != null and startDate != ''">
+            AND DATE(exam_time) >= #{startDate}
+        </if>
+        <if test="endDate != null and endDate != ''">
+            AND DATE(exam_time) &lt;= #{endDate}
+        </if>
+        ORDER BY create_time DESC
+    </select>
+
+    <!-- 更新同步状态 -->
+    <update id="updateSyncStatus">
+        UPDATE physical_dr_record
+        SET status = 3,
+            sync_time = #{syncTime},
+            update_time = NOW()
+        WHERE id = #{id}
+          AND deleted = 0
+    </update>
+
+</mapper>

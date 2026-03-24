@@ -1,0 +1,210 @@
+version: '3.8'
+
+# 惠东县区域公卫体检集中系统 - 生产级Docker Compose部署
+# 启动命令: docker-compose up -d
+
+services:
+  # ============================================================
+  # 基础设施层
+  # ============================================================
+  mysql:
+    image: mysql:8.0
+    container_name: physical-mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: physical@2024
+      MYSQL_DATABASE: physical_health
+      MYSQL_CHARSET: utf8mb4
+      MYSQL_COLLATION: utf8mb4_unicode_ci
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ../sql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci --default-time-zone=+08:00
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-pphysical@2024"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - physical-net
+
+  redis:
+    image: redis:7.2-alpine
+    container_name: physical-redis
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --save 60 1 --loglevel warning
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - physical-net
+
+  # ============================================================
+  # 微服务层
+  # ============================================================
+  physical-gateway:
+    image: physical/gateway:1.0.0
+    container_name: physical-gateway
+    restart: always
+    ports:
+      - "8888:8888"
+    environment:
+      REDIS_HOST: redis
+      AUTH_SERVICE_HOST: physical-auth
+      DR_SERVICE_HOST: physical-dr
+      CORE_SERVICE_HOST: physical-core
+      SYNC_SERVICE_HOST: physical-sync
+      URINE_SERVICE_HOST: physical-urine
+      WEB_SERVICE_HOST: physical-web
+      JWT_SECRET: ${JWT_SECRET:-physical_health_system_jwt_secret_key_2024_secure_enough}
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - physical-net
+
+  physical-auth:
+    image: physical/auth:1.0.0
+    container_name: physical-auth
+    restart: always
+    ports:
+      - "9005:9005"
+    environment:
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_NAME: physical_health
+      DB_USER: root
+      DB_PASS: physical@2024
+      REDIS_HOST: redis
+      COUNTY_API_URL: ${COUNTY_API_URL:-http://county-gateway:8080}
+      COUNTY_API_TOKEN: ${COUNTY_API_TOKEN:-}
+      JWT_SECRET: ${JWT_SECRET:-physical_health_system_jwt_secret_key_2024_secure_enough}
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - physical-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9005/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  physical-dr:
+    image: physical/dr:1.0.0
+    container_name: physical-dr
+    restart: always
+    ports:
+      - "9011:9011"
+    environment:
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_NAME: physical_health
+      DB_USER: root
+      DB_PASS: physical@2024
+      REDIS_HOST: redis
+      AUTH_SERVICE_URL: http://physical-auth:9005
+      COUNTY_API_URL: ${COUNTY_API_URL:-http://county-gateway:8080}
+      JWT_SECRET: ${JWT_SECRET:-physical_health_system_jwt_secret_key_2024_secure_enough}
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - physical-net
+
+  physical-core:
+    image: physical/core:1.0.0
+    container_name: physical-core
+    restart: always
+    ports:
+      - "9001:9001"
+    environment:
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_NAME: physical_health
+      DB_USER: root
+      DB_PASS: physical@2024
+      REDIS_HOST: redis
+      JWT_SECRET: ${JWT_SECRET:-physical_health_system_jwt_secret_key_2024_secure_enough}
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - physical-net
+
+  physical-sync:
+    image: physical/sync:1.0.0
+    container_name: physical-sync
+    restart: always
+    ports:
+      - "9004:9004"
+    environment:
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_NAME: physical_health
+      DB_USER: root
+      DB_PASS: physical@2024
+      COUNTY_API_URL: ${COUNTY_API_URL:-http://county-gateway:8080}
+      COUNTY_API_TOKEN: ${COUNTY_API_TOKEN:-}
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - physical-net
+
+  physical-urine:
+    image: physical/urine:1.0.0
+    container_name: physical-urine
+    restart: always
+    ports:
+      - "9010:9010"
+    environment:
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_NAME: physical_health
+      DB_USER: root
+      DB_PASS: physical@2024
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - physical-net
+
+  # ============================================================
+  # 前端层（网页端，化验室/DR室电脑浏览器访问）
+  # ============================================================
+  physical-web:
+    image: physical/web:1.0.0
+    container_name: physical-web
+    restart: always
+    ports:
+      - "80:80"
+    depends_on:
+      - physical-gateway
+    networks:
+      - physical-net
+
+volumes:
+  mysql_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  physical-net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/24

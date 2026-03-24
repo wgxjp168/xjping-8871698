@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.health.physical.core.mapper.PhysicalRecordMapper">
+
+    <select id="selectLatestByResidentId" resultType="com.health.physical.common.entity.PhysicalRecord">
+        SELECT * FROM physical_record
+        WHERE resident_id = #{residentId} AND deleted = 0
+        ORDER BY exam_date DESC, create_time DESC
+        LIMIT 1
+    </select>
+
+    <select id="selectPageWithResident" resultType="com.health.physical.common.entity.PhysicalRecord">
+        SELECT pr.*
+        FROM physical_record pr
+        WHERE pr.deleted = 0
+        <if test="batchNo != null and batchNo != ''">
+            AND pr.batch_no = #{batchNo}
+        </if>
+        <if test="orgName != null and orgName != ''">
+            AND pr.org_name LIKE CONCAT('%', #{orgName}, '%')
+        </if>
+        <if test="status != null">
+            AND pr.status = #{status}
+        </if>
+        ORDER BY pr.create_time DESC
+    </select>
+
+    <select id="selectPendingSync" resultType="com.health.physical.common.entity.PhysicalRecord">
+        SELECT * FROM physical_record
+        WHERE sync_status = 0 AND status = 2 AND deleted = 0
+        ORDER BY exam_date ASC
+        LIMIT #{limit}
+    </select>
+
+</mapper>

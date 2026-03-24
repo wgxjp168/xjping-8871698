@@ -1,0 +1,31 @@
+server:
+  port: 9010
+
+spring:
+  application:
+    name: physical-urine
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:physical_health}?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+    username: ${DB_USER:root}
+    password: ${DB_PASS:physical@2024}
+
+mybatis-plus:
+  mapper-locations: classpath*:mapper/**/*.xml
+  configuration:
+    map-underscore-to-camel-case: true
+
+# 尿机协议配置
+urine:
+  device:
+    # 优利特尿机型号
+    model: ${URINE_MODEL:Urit-500B}
+    # 采集数据超时（秒）
+    timeout: 30
+
+knife4j:
+  enable: true
+
+logging:
+  level:
+    com.health.physical: debug

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.health.physical.core.mapper.ResidentMapper">
+
+    <select id="selectByIdCard" resultType="com.health.physical.common.entity.Resident">
+        SELECT * FROM physical_resident
+        WHERE id_card = #{idCard} AND deleted = 0
+        LIMIT 1
+    </select>
+
+    <select id="selectByCountyId" resultType="com.health.physical.common.entity.Resident">
+        SELECT * FROM physical_resident
+        WHERE county_resident_id = #{countyResidentId} AND deleted = 0
+        LIMIT 1
+    </select>
+
+</mapper>
