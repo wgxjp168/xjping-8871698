@@ -1,5 +1,7 @@
 server:
   port: 9004
+  servlet:
+    context-path: /
 
 spring:
   profiles:
@@ -11,11 +13,10 @@ spring:
     url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:physical_health}?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
     username: ${DB_USER:root}
     password: ${DB_PASS:physical@2024}
-  redis:
-    host: ${REDIS_HOST:localhost}
-    port: ${REDIS_PORT:6379}
-    password: ${REDIS_PASS:}
-    database: 0
+    hikari:
+      minimum-idle: 2
+      maximum-pool-size: 10
+      connection-timeout: 30000
 
 mybatis-plus:
   mapper-locations: classpath*:mapper/**/*.xml
@@ -36,6 +37,8 @@ county:
 
 knife4j:
   enable: true
+  setting:
+    language: zh_cn
 
 logging:
   level:

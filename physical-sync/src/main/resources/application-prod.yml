@@ -3,14 +3,17 @@ spring:
     url: jdbc:mysql://${DB_HOST}:${DB_PORT:3306}/${DB_NAME}?useUnicode=true&characterEncoding=utf-8&useSSL=true&serverTimezone=Asia/Shanghai&verifyServerCertificate=false
     username: ${DB_USER}
     password: ${DB_PASS}
-  redis:
-    host: ${REDIS_HOST}
-    port: ${REDIS_PORT:6379}
-    password: ${REDIS_PASS}
+    hikari:
+      minimum-idle: 2
+      maximum-pool-size: 10
+      connection-timeout: 30000
 county:
   api:
     base-url: ${COUNTY_API_URL}
     token: ${COUNTY_API_TOKEN}
+mybatis-plus:
+  configuration:
+    log-impl: org.apache.ibatis.logging.nologging.NoLoggingImpl
 logging:
   level:
     com.health.physical: info

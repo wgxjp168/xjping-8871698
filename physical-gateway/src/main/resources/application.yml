@@ -11,6 +11,7 @@ spring:
     port: ${REDIS_PORT:6379}
     password: ${REDIS_PASS:}
     database: 0
+    timeout: 3000ms
   cloud:
     gateway:
       globalcors:
@@ -27,7 +28,7 @@ spring:
             allowCredentials: true
             maxAge: 3600
       routes:
-        # 权限服务路由
+        # 权限服务路由（login/validate 无 AuthFilter，由白名单放行）
         - id: physical-auth
           uri: http://${AUTH_SERVICE_HOST:localhost}:9005
           predicates:
@@ -83,16 +84,15 @@ spring:
           filters:
             - StripPrefix=1
 
-# JWT配置
-jwt:
-  secret: ${JWT_SECRET:physical_health_system_jwt_secret_key_2024_secure_enough}
-
-# 白名单路径（不需要鉴权）
+# Gateway 配置属性（GatewayProperties 绑定）
 gateway:
+  jwt-secret: ${JWT_SECRET:physical_health_system_jwt_secret_key_2024_secure_enough}
   white-list:
     - /api/auth/login
     - /api/auth/validate
-    - /api/dr/register   # 县域回调注册DR开单
+    - /api/dr/register        # 县域回调注册DR开单，无需鉴权
+    - /actuator/health/liveness
+    - /actuator/health/readiness
 
 logging:
   level:

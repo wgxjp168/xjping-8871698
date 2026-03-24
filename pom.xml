@@ -13,6 +13,7 @@
 
     <modules>
         <module>physical-common</module>
+        <module>physical-protocol</module>
         <module>physical-gateway</module>
         <module>physical-auth</module>
         <module>physical-dr</module>
@@ -109,6 +110,11 @@
             <dependency>
                 <groupId>com.health.physical</groupId>
                 <artifactId>physical-common</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.health.physical</groupId>
+                <artifactId>physical-protocol</artifactId>
                 <version>${project.version}</version>
             </dependency>
         </dependencies>

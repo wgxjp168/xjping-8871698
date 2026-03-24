@@ -4,11 +4,11 @@ import com.alibaba.fastjson2.JSON;
 import com.health.physical.common.constant.PermissionConstants;
 import com.health.physical.common.dto.Result;
 import com.health.physical.common.util.JwtUtil;
+import com.health.physical.gateway.config.GatewayProperties;
 import io.jsonwebtoken.Claims;
 import lombok.extern.slf4j.Slf4j;
 import org.redisson.api.RBucket;
 import org.redisson.api.RedissonClient;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cloud.gateway.filter.GatewayFilter;
 import org.springframework.cloud.gateway.filter.factory.AbstractGatewayFilterFactory;
 import org.springframework.core.io.buffer.DataBuffer;
@@ -22,11 +22,12 @@ import org.springframework.util.AntPathMatcher;
 import reactor.core.publisher.Mono;
 
 import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
-import java.util.List;
 
 /**
  * JWT鉴权网关过滤器
+ * <p>
+ * 修复：原 @Value("#{'${gateway.white-list}'.split(',')}") 在 YAML list 格式下
+ * 会抛 ConversionFailedException，改为注入 GatewayProperties（@ConfigurationProperties）。
  */
 @Slf4j
 @Component
@@ -34,16 +35,12 @@ public class AuthFilter extends AbstractGatewayFilterFactory<AuthFilter.Config> 
 
     private static final AntPathMatcher PATH_MATCHER = new AntPathMatcher();
 
-    @Value("${jwt.secret:physical_health_system_jwt_secret_key_2024_secure_enough}")
-    private String jwtSecret;
-
-    @Value("#{'${gateway.white-list:/api/auth/login}'.split(',')}")
-    private List<String> whiteList;
-
+    private final GatewayProperties gatewayProperties;
     private final RedissonClient redissonClient;
 
-    public AuthFilter(RedissonClient redissonClient) {
+    public AuthFilter(GatewayProperties gatewayProperties, RedissonClient redissonClient) {
         super(Config.class);
+        this.gatewayProperties = gatewayProperties;
         this.redissonClient = redissonClient;
     }
 
@@ -53,12 +50,12 @@ public class AuthFilter extends AbstractGatewayFilterFactory<AuthFilter.Config> 
             ServerHttpRequest request = exchange.getRequest();
             String path = request.getURI().getPath();
 
-            // 白名单跳过鉴权
+            // 白名单直接放行
             if (isWhiteListed(path)) {
                 return chain.filter(exchange);
             }
 
-            // 获取Token
+            // 获取 Authorization 头
             String authorization = request.getHeaders().getFirst(PermissionConstants.TOKEN_HEADER);
             if (authorization == null || !authorization.startsWith(PermissionConstants.TOKEN_PREFIX)) {
                 return writeUnauthorized(exchange.getResponse(), "未携带Token，请先登录");
@@ -66,24 +63,24 @@ public class AuthFilter extends AbstractGatewayFilterFactory<AuthFilter.Config> 
 
             String token = authorization.substring(PermissionConstants.TOKEN_PREFIX.length());
 
-            // 验证JWT
-            Claims claims = JwtUtil.parseToken(token, jwtSecret);
+            // 验证 JWT 签名及有效期
+            Claims claims = JwtUtil.parseToken(token, gatewayProperties.getJwtSecret());
             if (claims == null) {
                 return writeUnauthorized(exchange.getResponse(), "Token无效或已过期，请重新登录");
             }
 
-            // 检查Redis中Token是否有效（防logout后重用）
+            // 验证 Redis 中 Token 是否仍存活（防止 logout 后重用）
             String tokenKey = PermissionConstants.REDIS_TOKEN_PREFIX + token;
             RBucket<String> tokenBucket = redissonClient.getBucket(tokenKey);
             if (!tokenBucket.isExists()) {
                 return writeUnauthorized(exchange.getResponse(), "Token已失效，请重新登录");
             }
 
-            // 将医生信息注入请求头，供下游服务使用
-            String docId = (String) claims.get("docId");
+            // 将医生标识注入下游请求头
+            String docId   = (String) claims.get("docId");
             String docName = (String) claims.get("name");
             ServerHttpRequest mutatedRequest = request.mutate()
-                    .header("X-Doc-Id", docId != null ? docId : "")
+                    .header("X-Doc-Id",   docId   != null ? docId   : "")
                     .header("X-Doc-Name", docName != null ? docName : "")
                     .build();
 
@@ -93,7 +90,7 @@ public class AuthFilter extends AbstractGatewayFilterFactory<AuthFilter.Config> 
     }
 
     private boolean isWhiteListed(String path) {
-        for (String pattern : whiteList) {
+        for (String pattern : gatewayProperties.getWhiteList()) {
             if (PATH_MATCHER.match(pattern.trim(), path)) {
                 return true;
             }

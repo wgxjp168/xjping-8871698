@@ -4,9 +4,7 @@ import com.health.physical.common.dto.PageResult;
 import com.health.physical.common.dto.Result;
 import com.health.physical.common.entity.PhysicalRecord;
 import com.health.physical.core.entity.LabResult;
-import com.health.physical.core.mapper.LabResultMapper;
-import com.health.physical.core.mapper.PhysicalRecordMapper;
-import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.health.physical.core.service.PhysicalRecordService;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import lombok.RequiredArgsConstructor;
@@ -23,8 +21,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class PhysicalRecordController {
 
-    private final PhysicalRecordMapper physicalRecordMapper;
-    private final LabResultMapper labResultMapper;
+    private final PhysicalRecordService physicalRecordService;
 
     @ApiOperation("分页查询体检记录")
     @GetMapping("/page")
@@ -34,48 +31,44 @@ public class PhysicalRecordController {
             @RequestParam(required = false) String batchNo,
             @RequestParam(required = false) String orgName,
             @RequestParam(required = false) Integer status) {
-        Page<PhysicalRecord> page = new Page<>(current, size);
-        physicalRecordMapper.selectPageWithResident(page, batchNo, orgName, status);
-        return Result.ok(PageResult.of(page));
+        return Result.ok(PageResult.of(physicalRecordService.pageQuery(current, size, batchNo, orgName, status)));
     }
 
-    @ApiOperation("查询体检记录详情（含检验结果）")
+    @ApiOperation("查询体检记录详情")
     @GetMapping("/{id}")
     public Result<PhysicalRecord> getDetail(@PathVariable Long id) {
-        PhysicalRecord record = physicalRecordMapper.selectById(id);
-        if (record == null) {
-            return Result.fail(404, "体检记录不存在");
-        }
-        return Result.ok(record);
+        return Result.ok(physicalRecordService.getById(id));
     }
 
-    @ApiOperation("查询体检记录检验结果")
+    @ApiOperation("查询体检单检验结果")
     @GetMapping("/{id}/lab/{projectCode}")
     public Result<List<LabResult>> getLabResults(
             @PathVariable Long id,
             @PathVariable String projectCode) {
-        List<LabResult> results = labResultMapper.selectByPhysicalIdAndProject(id, projectCode);
-        return Result.ok(results);
+        return Result.ok(physicalRecordService.getLabResults(id, projectCode));
     }
 
     @ApiOperation("新建体检记录")
     @PostMapping
     public Result<PhysicalRecord> create(@RequestBody PhysicalRecord record) {
-        record.setSyncStatus(0);
-        record.setStatus(1);
-        physicalRecordMapper.insert(record);
-        return Result.ok("创建成功", record);
+        return Result.ok("创建成功", physicalRecordService.create(record));
     }
 
-    @ApiOperation("上传检验结果（批量）")
+    @ApiOperation("批量上传检验结果")
     @PostMapping("/{id}/lab/batch")
     public Result<Void> uploadLabResults(
             @PathVariable Long id,
             @RequestBody List<LabResult> results) {
-        results.forEach(r -> r.setPhysicalId(id));
-        if (!results.isEmpty()) {
-            labResultMapper.batchInsertOrUpdate(results);
-        }
+        physicalRecordService.uploadLabResults(id, results);
         return Result.ok("检验结果上传成功，共" + results.size() + "条");
+    }
+
+    @ApiOperation("完成体检（触发同步）")
+    @PostMapping("/{id}/complete")
+    public Result<Void> complete(
+            @PathVariable Long id,
+            @RequestHeader(value = "X-Doc-Id", defaultValue = "") String docId) {
+        physicalRecordService.complete(id, docId);
+        return Result.ok("体检已完成");
     }
 }
