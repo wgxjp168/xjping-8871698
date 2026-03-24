@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.health.mapper.CheckOrderMapper">
+
+    <resultMap id="CheckOrderVOMap" type="com.health.vo.CheckOrderVO">
+        <id column="id" property="id"/>
+        <result column="order_no" property="orderNo"/>
+        <result column="patient_id" property="patientId"/>
+        <result column="patient_name" property="patientName"/>
+        <result column="patient_phone" property="patientPhone"/>
+        <result column="patient_gender" property="patientGender"/>
+        <result column="package_id" property="packageId"/>
+        <result column="package_name" property="packageName"/>
+        <result column="check_date" property="checkDate"/>
+        <result column="doctor_id" property="doctorId"/>
+        <result column="doctor_name" property="doctorName"/>
+        <result column="status" property="status"/>
+        <result column="total_score" property="totalScore"/>
+        <result column="summary" property="summary"/>
+        <result column="create_time" property="createTime"/>
+    </resultMap>
+
+    <select id="queryOrderPage" resultMap="CheckOrderVOMap">
+        SELECT co.*,
+               u.real_name AS patient_name,
+               u.phone AS patient_phone,
+               u.gender AS patient_gender,
+               cp.name AS package_name,
+               d.real_name AS doctor_name
+        FROM check_order co
+        LEFT JOIN sys_user u ON co.patient_id = u.id
+        LEFT JOIN check_package cp ON co.package_id = cp.id
+        LEFT JOIN sys_user d ON co.doctor_id = d.id
+        WHERE co.deleted = 0
+        <if test="query.orderNo != null and query.orderNo != ''">
+            AND co.order_no LIKE CONCAT('%', #{query.orderNo}, '%')
+        </if>
+        <if test="query.patientId != null">
+            AND co.patient_id = #{query.patientId}
+        </if>
+        <if test="query.patientName != null and query.patientName != ''">
+            AND u.real_name LIKE CONCAT('%', #{query.patientName}, '%')
+        </if>
+        <if test="query.status != null and query.status != ''">
+            AND co.status = #{query.status}
+        </if>
+        <if test="query.checkDateStart != null and query.checkDateStart != ''">
+            AND co.check_date >= #{query.checkDateStart}
+        </if>
+        <if test="query.checkDateEnd != null and query.checkDateEnd != ''">
+            AND co.check_date &lt;= #{query.checkDateEnd}
+        </if>
+        ORDER BY co.create_time DESC
+    </select>
+
+    <select id="getOrderDetail" resultMap="CheckOrderVOMap">
+        SELECT co.*,
+               u.real_name AS patient_name,
+               u.phone AS patient_phone,
+               u.gender AS patient_gender,
+               cp.name AS package_name,
+               d.real_name AS doctor_name
+        FROM check_order co
+        LEFT JOIN sys_user u ON co.patient_id = u.id
+        LEFT JOIN check_package cp ON co.package_id = cp.id
+        LEFT JOIN sys_user d ON co.doctor_id = d.id
+        WHERE co.id = #{orderId} AND co.deleted = 0
+    </select>
+
+</mapper>

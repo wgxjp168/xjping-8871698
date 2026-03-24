@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.health.mapper.DeviceMapper">
+
+    <resultMap id="DeviceVOMap" type="com.health.vo.DeviceVO">
+        <id column="id" property="id"/>
+        <result column="name" property="name"/>
+        <result column="code" property="code"/>
+        <result column="type" property="type"/>
+        <result column="model" property="model"/>
+        <result column="manufacturer" property="manufacturer"/>
+        <result column="serial_no" property="serialNo"/>
+        <result column="dept_id" property="deptId"/>
+        <result column="dept_name" property="deptName"/>
+        <result column="ip_address" property="ipAddress"/>
+        <result column="port" property="port"/>
+        <result column="protocol" property="protocol"/>
+        <result column="status" property="status"/>
+        <result column="last_heartbeat" property="lastHeartbeat"/>
+        <result column="calibration_date" property="calibrationDate"/>
+        <result column="description" property="description"/>
+        <result column="create_time" property="createTime"/>
+    </resultMap>
+
+    <select id="queryDevicePage" resultMap="DeviceVOMap">
+        SELECT d.*,
+               dept.name AS dept_name
+        FROM device d
+        LEFT JOIN dept dept ON d.dept_id = dept.id
+        WHERE d.deleted = 0
+        <if test="query.name != null and query.name != ''">
+            AND d.name LIKE CONCAT('%', #{query.name}, '%')
+        </if>
+        <if test="query.code != null and query.code != ''">
+            AND d.code LIKE CONCAT('%', #{query.code}, '%')
+        </if>
+        <if test="query.type != null and query.type != ''">
+            AND d.type = #{query.type}
+        </if>
+        <if test="query.status != null and query.status != ''">
+            AND d.status = #{query.status}
+        </if>
+        <if test="query.deptId != null">
+            AND d.dept_id = #{query.deptId}
+        </if>
+        ORDER BY d.create_time DESC
+    </select>
+
+</mapper>

@@ -1,0 +1,64 @@
+server:
+  port: 8080
+  servlet:
+    context-path: /api
+
+spring:
+  application:
+    name: health-backend
+  datasource:
+    url: jdbc:mysql://localhost:3306/health_check?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+    username: root
+    password: root123
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      minimum-idle: 5
+      maximum-pool-size: 20
+      idle-timeout: 30000
+      pool-name: HealthHikariCP
+      max-lifetime: 1800000
+      connection-timeout: 30000
+  jackson:
+    date-format: yyyy-MM-dd HH:mm:ss
+    time-zone: Asia/Shanghai
+    default-property-inclusion: non_null
+
+mybatis-plus:
+  mapper-locations: classpath:mapper/**/*.xml
+  type-aliases-package: com.health.entity
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  global-config:
+    db-config:
+      id-type: auto
+      logic-delete-field: deleted
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+
+knife4j:
+  enable: true
+  openapi:
+    title: 健康检查系统 API
+    description: 带设备集成的健康检查管理系统接口文档
+    version: 1.0.0
+    concat: 健康中心
+    license: Apache 2.0
+    license-url: https://www.apache.org/licenses/LICENSE-2.0
+    terms-of-service-url: /
+
+# JWT 配置
+health:
+  jwt:
+    secret: HealthCheckSystem2024SecretKey@xjping
+    expiration: 86400000  # 24小时(毫秒)
+    header: Authorization
+    prefix: "Bearer "
+  device:
+    heartbeat-timeout: 60  # 设备心跳超时秒数
+    data-poll-interval: 5  # 设备数据轮询间隔(秒)
+
+logging:
+  level:
+    com.health: debug
+    org.springframework.security: info
