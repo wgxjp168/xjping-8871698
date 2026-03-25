@@ -1,0 +1,37 @@
+server:
+  port: 8004
+
+spring:
+  application:
+    name: hd-check
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/hd_public_health?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&allowMultiQueries=true
+    username: root
+    password: root123
+
+mybatis-plus:
+  mapper-locations: classpath:mapper/*.xml
+  type-aliases-package: com.hd.check.entity
+  configuration:
+    map-underscore-to-camel-case: true
+  global-config:
+    db-config:
+      logic-delete-field: deleted
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+
+knife4j:
+  enable: true
+  openapi:
+    title: 体检业务服务接口文档
+    version: 1.0.0
+    group:
+      default:
+        api-rule: package
+        api-rule-resources:
+          - com.hd.check.controller
+
+logging:
+  level:
+    com.hd.check: debug

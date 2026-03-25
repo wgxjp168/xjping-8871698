@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.hd.resident.mapper.ResidentMapper">
+
+    <select id="selectResidentPage" resultType="com.hd.resident.entity.Resident">
+        SELECT * FROM resident
+        WHERE deleted = 0
+        <if test="name != null and name != ''">
+            AND name LIKE CONCAT('%', #{name}, '%')
+        </if>
+        <if test="idCard != null and idCard != ''">
+            AND id_card LIKE CONCAT('%', #{idCard}, '%')
+        </if>
+        <if test="town != null and town != ''">
+            AND town = #{town}
+        </if>
+        <if test="deptId != null">
+            AND dept_id = #{deptId}
+        </if>
+        ORDER BY create_time DESC
+    </select>
+
+</mapper>

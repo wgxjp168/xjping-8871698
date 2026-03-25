@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.hd.auth.mapper.SysUserMapper">
+
+    <resultMap id="UserVOMap" type="com.hd.auth.vo.UserVO">
+        <id column="id" property="id"/>
+        <result column="username" property="username"/>
+        <result column="real_name" property="realName"/>
+        <result column="phone" property="phone"/>
+        <result column="dept_id" property="deptId"/>
+        <result column="dept_name" property="deptName"/>
+        <result column="user_type" property="userType"/>
+        <result column="status" property="status"/>
+        <result column="last_login_time" property="lastLoginTime"/>
+        <result column="create_time" property="createTime"/>
+    </resultMap>
+
+    <select id="selectUserPage" resultMap="UserVOMap">
+        SELECT u.id, u.username, u.real_name, u.phone, u.dept_id, d.dept_name,
+               u.user_type, u.status, u.last_login_time, u.create_time
+        FROM sys_user u
+        LEFT JOIN sys_dept d ON u.dept_id = d.id
+        WHERE u.deleted = 0
+        <if test="username != null and username != ''">
+            AND u.username LIKE CONCAT('%', #{username}, '%')
+        </if>
+        <if test="realName != null and realName != ''">
+            AND u.real_name LIKE CONCAT('%', #{realName}, '%')
+        </if>
+        <if test="deptId != null">
+            AND u.dept_id = #{deptId}
+        </if>
+        <if test="status != null">
+            AND u.status = #{status}
+        </if>
+        ORDER BY u.create_time DESC
+    </select>
+
+    <select id="selectUserVOById" resultMap="UserVOMap">
+        SELECT u.id, u.username, u.real_name, u.phone, u.dept_id, d.dept_name,
+               u.user_type, u.status, u.last_login_time, u.create_time
+        FROM sys_user u
+        LEFT JOIN sys_dept d ON u.dept_id = d.id
+        WHERE u.id = #{id} AND u.deleted = 0
+    </select>
+
+</mapper>

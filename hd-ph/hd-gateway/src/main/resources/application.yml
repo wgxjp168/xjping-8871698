@@ -1,0 +1,111 @@
+server:
+  port: 9090
+
+spring:
+  application:
+    name: hd-gateway
+
+  cloud:
+    gateway:
+      routes:
+        # 认证服务
+        - id: hd-auth
+          uri: http://localhost:8001
+          predicates:
+            - Path=/api/auth/**
+          filters:
+            - StripPrefix=0
+
+        # 居民服务
+        - id: hd-resident
+          uri: http://localhost:8002
+          predicates:
+            - Path=/api/resident/**
+          filters:
+            - StripPrefix=0
+
+        # 设备服务
+        - id: hd-device
+          uri: http://localhost:8003
+          predicates:
+            - Path=/api/device/**
+          filters:
+            - StripPrefix=0
+
+        # 体检服务 (check / vital / consult / order / upload)
+        - id: hd-check
+          uri: http://localhost:8004
+          predicates:
+            - Path=/api/check/**,/api/vital/**,/api/consult/**,/api/order/**,/api/upload/**
+          filters:
+            - StripPrefix=0
+
+        # 医生/处方服务
+        - id: hd-dr
+          uri: http://localhost:8005
+          predicates:
+            - Path=/api/dr/**
+          filters:
+            - StripPrefix=0
+
+      # 全局默认过滤器
+      default-filters:
+        - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials, RETAIN_FIRST
+
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowedOriginPatterns: "*"
+            allowedMethods:
+              - GET
+              - POST
+              - PUT
+              - DELETE
+              - OPTIONS
+              - PATCH
+            allowedHeaders: "*"
+            allowCredentials: true
+            maxAge: 3600
+
+  # Redis 配置
+  redis:
+    host: localhost
+    port: 6379
+    database: 0
+    timeout: 5000ms
+    lettuce:
+      pool:
+        max-active: 8
+        max-idle: 8
+        min-idle: 0
+        max-wait: -1ms
+
+# JWT 配置
+hd:
+  jwt:
+    secret: HuiDongPublicHealth2024@SecretKey
+    expiration: 86400
+  gateway:
+    white-list:
+      - /api/auth/login
+      - /api/auth/logout
+      - /api/device/data/receive/**
+      - /actuator/**
+
+# 日志配置
+logging:
+  level:
+    com.hd.gateway: DEBUG
+    org.springframework.cloud.gateway: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+
+# Actuator
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,gateway
+  endpoint:
+    health:
+      show-details: always

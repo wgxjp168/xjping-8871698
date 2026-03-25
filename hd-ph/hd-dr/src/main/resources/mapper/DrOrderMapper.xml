@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.hd.dr.mapper.DrOrderMapper">
+
+    <select id="selectOrderPage" resultType="com.hd.dr.entity.DrOrder">
+        SELECT * FROM dr_order
+        WHERE deleted = 0
+        <if test="residentName != null and residentName != ''">
+            AND resident_name LIKE CONCAT('%', #{residentName}, '%')
+        </if>
+        <if test="idCard != null and idCard != ''">
+            AND id_card LIKE CONCAT('%', #{idCard}, '%')
+        </if>
+        <if test="status != null">
+            AND status = #{status}
+        </if>
+        <if test="applyDeptId != null">
+            AND apply_dept_id = #{applyDeptId}
+        </if>
+        ORDER BY create_time DESC
+    </select>
+
+</mapper>
