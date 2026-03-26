@@ -35,6 +35,9 @@ public class AuthService {
     @Autowired
     private StringRedisTemplate redisTemplate;
 
+    @Autowired
+    private JwtUtils jwtUtils;
+
     public Map<String, Object> login(LoginDTO dto) {
         try {
             Authentication authentication = authenticationManager.authenticate(
@@ -54,9 +57,8 @@ public class AuthService {
         }
 
         List<String> permissions = sysPermissionMapper.selectPermCodesByUserId(user.getId());
-        String permStr = String.join(",", permissions);
 
-        String token = JwtUtils.generateToken(user.getId(), user.getUsername(), permStr);
+        String token = jwtUtils.generateToken(user.getId(), user.getUsername(), permissions);
 
         // 更新最后登录时间
         SysUser update = new SysUser();
@@ -79,9 +81,9 @@ public class AuthService {
             token = token.substring(7);
         }
         if (token != null && !token.isEmpty()) {
-            // 加入黑名单，保留24小时
+            // 加入黑名单，保留24小时（key需与Gateway的JwtAuthFilter一致）
             redisTemplate.opsForValue().set(
-                    "jwt:blacklist:" + token, "1", 24, TimeUnit.HOURS
+                    "token:logout:" + token, "1", 24, TimeUnit.HOURS
             );
         }
     }
