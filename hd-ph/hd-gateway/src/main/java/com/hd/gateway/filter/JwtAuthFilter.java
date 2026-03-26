@@ -3,7 +3,7 @@ package com.hd.gateway.filter;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hd.common.util.JwtUtils;
-import com.hd.gateway.config.GatewayProperties;
+import com.hd.gateway.config.HdGatewayProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
@@ -36,13 +36,13 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
     private static final String BLACKLIST_KEY_PREFIX = "token:logout:";
 
     private final JwtUtils jwtUtils;
-    private final GatewayProperties gatewayProperties;
+    private final HdGatewayProperties gatewayProperties;
     private final ReactiveStringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper;
     private final AntPathMatcher pathMatcher = new AntPathMatcher();
 
     public JwtAuthFilter(JwtUtils jwtUtils,
-                         GatewayProperties gatewayProperties,
+                         HdGatewayProperties gatewayProperties,
                          ReactiveStringRedisTemplate redisTemplate,
                          ObjectMapper objectMapper) {
         this.jwtUtils = jwtUtils;

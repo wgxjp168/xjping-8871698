@@ -8,7 +8,7 @@ import java.util.List;
 
 @Component
 @ConfigurationProperties(prefix = "hd.gateway")
-public class GatewayProperties {
+public class HdGatewayProperties {
 
     private List<String> whiteList = new ArrayList<>();
 
