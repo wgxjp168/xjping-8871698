@@ -9,6 +9,9 @@ server:
 spring:
   application:
     name: hd-auth
+  mvc:
+    pathmatch:
+      matching-strategy: ant_path_matcher
 
   # 数据源配置
   datasource:
