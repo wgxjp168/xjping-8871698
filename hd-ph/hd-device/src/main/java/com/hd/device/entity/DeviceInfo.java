@@ -14,6 +14,7 @@ public class DeviceInfo implements Serializable {
     private Long id;
 
     /** 设备编号 */
+    @TableField("device_code")
     private String deviceNo;
 
     /** 设备名称 */
@@ -28,6 +29,7 @@ public class DeviceInfo implements Serializable {
     /**
      * 设备类型: BIOCHEM=生化, BLOOD=血常规, URINE=尿常规, HBA1C=糖化血红蛋白
      */
+    @TableField("category")
     private String deviceType;
 
     /**
@@ -39,14 +41,17 @@ public class DeviceInfo implements Serializable {
     private Long deptId;
 
     /** 设备IP地址（主动上传模式下填写） */
+    @TableField("comm_host")
     private String ipAddress;
 
     /** 设备端口 */
+    @TableField("comm_port")
     private Integer port;
 
     /**
      * 连接模式: TCP_SERVER=TCP监听, TCP_CLIENT=TCP主动
      */
+    @TableField("comm_type")
     private String connectMode;
 
     /** 状态：0=离线, 1=在线 */
