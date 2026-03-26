@@ -20,7 +20,7 @@ spring:
         - id: hd-resident
           uri: http://localhost:8002
           predicates:
-            - Path=/api/resident/**
+            - Path=/api/residents/**
           filters:
             - StripPrefix=0
 
@@ -28,23 +28,23 @@ spring:
         - id: hd-device
           uri: http://localhost:8003
           predicates:
-            - Path=/api/device/**
+            - Path=/api/devices/**
           filters:
             - StripPrefix=0
 
-        # 体检服务 (check / vital / consult / order / upload)
+        # 体检服务
         - id: hd-check
           uri: http://localhost:8004
           predicates:
-            - Path=/api/check/**,/api/vital/**,/api/consult/**,/api/order/**,/api/upload/**
+            - Path=/api/check-orders/**,/api/check-results/**,/api/vital-signs/**,/api/consultations/**,/api/upload/**
           filters:
             - StripPrefix=0
 
-        # 医生/处方服务
+        # DR服务
         - id: hd-dr
           uri: http://localhost:8005
           predicates:
-            - Path=/api/dr/**
+            - Path=/api/dr-orders/**,/api/dr-reports/**
           filters:
             - StripPrefix=0
 
@@ -89,7 +89,7 @@ hd:
     white-list:
       - /api/auth/login
       - /api/auth/logout
-      - /api/device/data/receive/**
+      - /api/devices/data/receive/**
       - /actuator/**
 
 # 日志配置
