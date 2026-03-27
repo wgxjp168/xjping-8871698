@@ -14,6 +14,7 @@ public class DrOrder implements Serializable {
     private Long id;
 
     /** DR申请单号 */
+    @TableField("order_no")
     private String drOrderNo;
 
     /** 体检单ID */
@@ -29,18 +30,22 @@ public class DrOrder implements Serializable {
     private String idCard;
 
     /** 申请机构ID（县级） */
+    @TableField(exist = false)
     private Long applyDeptId;
 
     /** 检查机构ID（有DR设备的机构） */
+    @TableField(exist = false)
     private Long checkDeptId;
 
     /** 条码号（打印后粘贴到申请单） */
+    @TableField("barcode")
     private String barcodeNo;
 
     /** 检查部位：胸部/腹部等 */
     private String bodyPart;
 
     /** 检查项目描述 */
+    @TableField("clinical_info")
     private String description;
 
     /**
@@ -49,18 +54,22 @@ public class DrOrder implements Serializable {
     private Integer status;
 
     /** 申请时间 */
+    @TableField(exist = false)
     private LocalDateTime applyTime;
 
     /** 扫码时间 */
     private LocalDateTime scanTime;
 
     /** 完成时间 */
+    @TableField(exist = false)
     private LocalDateTime finishTime;
 
     /** 申请人ID */
+    @TableField("create_doctor_id")
     private Long applyUserId;
 
     /** 扫码人ID */
+    @TableField(exist = false)
     private Long scanUserId;
 
     @TableField(fill = FieldFill.INSERT)
