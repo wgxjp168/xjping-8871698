@@ -24,7 +24,6 @@ public class DrReportService {
         return reportMapper.selectOne(
                 new LambdaQueryWrapper<DrReport>()
                         .eq(DrReport::getDrOrderId, orderId)
-                        .eq(DrReport::getDeleted, 0)
         );
     }
 

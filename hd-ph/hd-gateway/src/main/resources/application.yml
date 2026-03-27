@@ -8,11 +8,11 @@ spring:
   cloud:
     gateway:
       routes:
-        # 认证服务
+        # 认证服务（登录/用户/机构/角色）
         - id: hd-auth
           uri: http://localhost:8001
           predicates:
-            - Path=/api/auth/**
+            - Path=/api/auth/**,/api/users/**,/api/depts/**,/api/roles/**
           filters:
             - StripPrefix=0
 

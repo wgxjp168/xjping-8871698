@@ -17,18 +17,21 @@ public class DrReport implements Serializable {
     private Long drOrderId;
 
     /** 报告编号 */
+    @TableField("order_no")
     private String reportNo;
 
     /** 影像所见 */
     private String findings;
 
     /** 诊断意见 */
+    @TableField("impression")
     private String diagnosis;
 
     /** 影像文件路径（相对路径） */
     private String imagePath;
 
     /** 报告PDF路径 */
+    @TableField(exist = false)
     private String reportPath;
 
     /** 报告医生ID */
@@ -46,6 +49,7 @@ public class DrReport implements Serializable {
     private LocalDateTime uploadTime;
 
     /** 上传错误信息 */
+    @TableField(exist = false)
     private String uploadError;
 
     @TableField(fill = FieldFill.INSERT)
@@ -54,7 +58,7 @@ public class DrReport implements Serializable {
     @TableField(fill = FieldFill.INSERT_UPDATE)
     private LocalDateTime updateTime;
 
-    @TableLogic
+    @TableField(exist = false)
     private Integer deleted;
 
     public Long getId() { return id; }
