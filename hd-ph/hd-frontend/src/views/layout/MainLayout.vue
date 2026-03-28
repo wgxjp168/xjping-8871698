@@ -58,7 +58,11 @@
             <span>系统管理</span>
           </template>
           <el-menu-item index="/users">用户管理</el-menu-item>
-          <el-menu-item index="/depts">机构管理</el-menu-item>
+          <el-menu-item index="/depts">医疗机构管理</el-menu-item>
+          <el-menu-item index="/roles">角色权限管理</el-menu-item>
+          <el-menu-item index="/areas">区域地址管理</el-menu-item>
+          <el-menu-item index="/doctors">责任医生查询</el-menu-item>
+          <el-menu-item index="/doctor-filters">医生筛选条件配置</el-menu-item>
         </el-sub-menu>
       </el-menu>
     </el-aside>

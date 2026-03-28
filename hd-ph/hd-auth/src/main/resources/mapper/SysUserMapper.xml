@@ -45,4 +45,22 @@
         WHERE u.id = #{id} AND u.deleted = 0
     </select>
 
+    <select id="selectDoctors" resultMap="UserVOMap">
+        SELECT u.id, u.username, u.real_name, u.phone, u.dept_id, d.dept_name,
+               u.user_type, u.status, u.last_login_time, u.create_time
+        FROM sys_user u
+        LEFT JOIN sys_dept d ON u.dept_id = d.id
+        WHERE u.deleted = 0 AND u.user_type = 2
+        <if test="realName != null and realName != ''">
+            AND u.real_name LIKE CONCAT('%', #{realName}, '%')
+        </if>
+        <if test="deptId != null">
+            AND u.dept_id = #{deptId}
+        </if>
+        <if test="status != null">
+            AND u.status = #{status}
+        </if>
+        ORDER BY u.dept_id, u.real_name
+    </select>
+
 </mapper>

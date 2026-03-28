@@ -8,6 +8,7 @@ import com.hd.common.result.Result;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -16,6 +17,15 @@ public class UserController {
 
     @Autowired
     private UserService userService;
+
+    /** 查询所有责任医生（userType=2） */
+    @GetMapping("/doctors")
+    public Result<List<UserVO>> listDoctors(
+            @RequestParam(required = false) String realName,
+            @RequestParam(required = false) Long deptId,
+            @RequestParam(required = false) Integer status) {
+        return Result.success(userService.listDoctors(realName, deptId, status));
+    }
 
     @GetMapping
     public Result<IPage<UserVO>> page(

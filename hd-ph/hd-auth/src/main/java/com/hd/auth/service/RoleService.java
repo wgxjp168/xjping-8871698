@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 public class RoleService {
@@ -21,7 +22,20 @@ public class RoleService {
     private SysRolePermissionMapper rolePermissionMapper;
 
     public List<SysRole> listAll() {
-        return roleMapper.selectList(new LambdaQueryWrapper<SysRole>().eq(SysRole::getStatus, 1));
+        return roleMapper.selectList(new LambdaQueryWrapper<SysRole>().orderByAsc(SysRole::getId));
+    }
+
+    public void updateStatus(Long id, Integer status) {
+        SysRole role = new SysRole();
+        role.setId(id);
+        role.setStatus(status);
+        roleMapper.updateById(role);
+    }
+
+    public List<String> getPermCodesByRoleId(Long roleId) {
+        return rolePermissionMapper.selectList(
+                new LambdaQueryWrapper<SysRolePermission>().eq(SysRolePermission::getRoleId, roleId)
+        ).stream().map(SysRolePermission::getPermCode).collect(java.util.stream.Collectors.toList());
     }
 
     public SysRole getById(Long id) {

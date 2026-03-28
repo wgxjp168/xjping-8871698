@@ -76,7 +76,31 @@ const routes = [
         path: 'depts',
         name: 'DeptList',
         component: () => import('@/views/admin/DeptList.vue'),
-        meta: { title: '机构管理' }
+        meta: { title: '医疗机构管理' }
+      },
+      {
+        path: 'roles',
+        name: 'RoleList',
+        component: () => import('@/views/admin/RoleList.vue'),
+        meta: { title: '角色权限管理' }
+      },
+      {
+        path: 'areas',
+        name: 'AreaList',
+        component: () => import('@/views/admin/AreaList.vue'),
+        meta: { title: '区域地址管理' }
+      },
+      {
+        path: 'doctors',
+        name: 'DoctorList',
+        component: () => import('@/views/admin/DoctorList.vue'),
+        meta: { title: '责任医生查询' }
+      },
+      {
+        path: 'doctor-filters',
+        name: 'DoctorFilterConfig',
+        component: () => import('@/views/admin/DoctorFilterConfig.vue'),
+        meta: { title: '医生筛选条件配置' }
       }
     ]
   },

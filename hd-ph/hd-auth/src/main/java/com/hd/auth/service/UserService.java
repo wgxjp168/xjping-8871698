@@ -28,6 +28,10 @@ public class UserService {
     @Autowired
     private PasswordEncoder passwordEncoder;
 
+    public List<UserVO> listDoctors(String realName, Long deptId, Integer status) {
+        return userMapper.selectDoctors(realName, deptId, status);
+    }
+
     public IPage<UserVO> pageUsers(int current, int size, String username, String realName, Long deptId, Integer status) {
         Page<UserVO> page = new Page<>(current, size);
         return userMapper.selectUserPage(page, username, realName, deptId, status);

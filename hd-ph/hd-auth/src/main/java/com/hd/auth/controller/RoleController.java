@@ -45,6 +45,17 @@ public class RoleController {
         return Result.success(null);
     }
 
+    @PutMapping("/{id}/status")
+    public Result<Void> updateStatus(@PathVariable Long id, @RequestBody Map<String, Integer> body) {
+        roleService.updateStatus(id, body.get("status"));
+        return Result.success(null);
+    }
+
+    @GetMapping("/{id}/permissions")
+    public Result<List<String>> getPermissions(@PathVariable Long id) {
+        return Result.success(roleService.getPermCodesByRoleId(id));
+    }
+
     @PutMapping("/{id}/permissions")
     public Result<Void> assignPermissions(@PathVariable Long id, @RequestBody Map<String, List<String>> body) {
         roleService.assignPermissions(id, body.get("permCodes"));

@@ -18,4 +18,8 @@ public interface SysUserMapper extends BaseMapper<SysUser> {
                                  @Param("status") Integer status);
 
     UserVO selectUserVOById(@Param("id") Long id);
+
+    List<UserVO> selectDoctors(@Param("realName") String realName,
+                               @Param("deptId") Long deptId,
+                               @Param("status") Integer status);
 }
