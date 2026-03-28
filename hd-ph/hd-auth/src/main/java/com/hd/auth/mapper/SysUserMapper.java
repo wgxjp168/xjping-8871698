@@ -8,6 +8,8 @@ import com.hd.auth.vo.UserVO;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
+import java.util.List;
+
 @Mapper
 public interface SysUserMapper extends BaseMapper<SysUser> {
 
