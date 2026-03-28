@@ -11,29 +11,27 @@ USE `hd_public_health`;
 -- --------------------------------------------------------
 -- 注: 若列已存在此语句会报错，忽略即可
 ALTER TABLE `check_result`
-  ADD COLUMN IF NOT EXISTS `device_code`  VARCHAR(50)  DEFAULT NULL COMMENT '设备编码' AFTER `device_id`,
-  ADD COLUMN IF NOT EXISTS `device_model` VARCHAR(100) DEFAULT NULL COMMENT '设备型号'  AFTER `device_code`,
-  ADD COLUMN IF NOT EXISTS `data_source`  VARCHAR(20)  DEFAULT 'DEVICE' COMMENT 'DEVICE/MANUAL' AFTER `device_model`,
-  ADD COLUMN IF NOT EXISTS `sample_id`    VARCHAR(50)  DEFAULT NULL COMMENT '样本号' AFTER `data_source`,
-  ADD COLUMN IF NOT EXISTS `check_time`   DATETIME     DEFAULT NULL COMMENT '检验时间' AFTER `sample_id`,
-  ADD COLUMN IF NOT EXISTS `upload_status` TINYINT     DEFAULT 0   COMMENT '0未上传 1已上传' AFTER `check_time`;
+  ADD COLUMN `device_code`  VARCHAR(50)  DEFAULT NULL COMMENT '设备编码' AFTER `device_id`,
+  ADD COLUMN `device_model` VARCHAR(100) DEFAULT NULL COMMENT '设备型号'  AFTER `device_code`,
+  ADD COLUMN `data_source`  VARCHAR(20)  DEFAULT 'DEVICE' COMMENT 'DEVICE/MANUAL' AFTER `device_model`,
+  ADD COLUMN `sample_id`    VARCHAR(50)  DEFAULT NULL COMMENT '样本号' AFTER `data_source`,
+  ADD COLUMN `check_time`   DATETIME     DEFAULT NULL COMMENT '检验时间' AFTER `sample_id`,
+  ADD COLUMN `upload_status` TINYINT     DEFAULT 0   COMMENT '0未上传 1已上传' AFTER `check_time`;
 
 -- --------------------------------------------------------
 -- 2. 修复 device_raw_data 表（添加patient_id/sample_id字段）
 -- --------------------------------------------------------
 ALTER TABLE `device_raw_data`
-  ADD COLUMN IF NOT EXISTS `patient_id`  VARCHAR(50) DEFAULT NULL COMMENT '患者ID' AFTER `device_id`,
-  ADD COLUMN IF NOT EXISTS `sample_id`   VARCHAR(50) DEFAULT NULL COMMENT '样本号'  AFTER `patient_id`;
+  ADD COLUMN `patient_id`  VARCHAR(50) DEFAULT NULL COMMENT '患者ID' AFTER `device_id`,
+  ADD COLUMN `sample_id`   VARCHAR(50) DEFAULT NULL COMMENT '样本号'  AFTER `patient_id`;
 
 -- --------------------------------------------------------
 -- 3. 新增串口/文件模式设备配置
 -- 将comm_type='TCP'改为'SERIAL'/'FILE'，comm_host改为COM口/目录路径
 -- --------------------------------------------------------
 
--- 更新现有设备的 status 为数字类型（若fix_status_columns.sql已执行则忽略报错）
-UPDATE `device_info` SET `status` = 0 WHERE `status` = 'OFFLINE' OR `status` IS NULL;
-UPDATE `device_info` SET `status` = 1 WHERE `status` = 'ONLINE';
-UPDATE `device_info` SET `status` = 2 WHERE `status` = 'ERROR';
+-- 确保现有设备状态为数字（新库默认已是数字类型，此步可跳过）
+UPDATE `device_info` SET `status` = 0 WHERE `status` IS NULL;
 
 -- 串口设备配置示例（根据实际COM口修改comm_host）
 -- 说明：comm_type=SERIAL, comm_host=COM口名, baud_rate=波特率

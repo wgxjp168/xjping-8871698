@@ -10,9 +10,9 @@ USE `hd_public_health`;
 -- 1. 补充 sys_dept 表缺失字段
 -- --------------------------------------------------------
 ALTER TABLE `sys_dept`
-  ADD COLUMN IF NOT EXISTS `dept_type`     TINYINT      DEFAULT 1    COMMENT '1=卫生院 2=村卫生室 3=社区卫生中心 9=其他' AFTER `dept_code`,
-  ADD COLUMN IF NOT EXISTS `address`       VARCHAR(200) DEFAULT NULL  COMMENT '地址' AFTER `sort`,
-  ADD COLUMN IF NOT EXISTS `contact_phone` VARCHAR(20)  DEFAULT NULL  COMMENT '联系电话' AFTER `address`;
+  ADD COLUMN `dept_type`     TINYINT      DEFAULT 1    COMMENT '1=卫生院 2=村卫生室 3=社区卫生中心 9=其他' AFTER `dept_code`,
+  ADD COLUMN `address`       VARCHAR(200) DEFAULT NULL  COMMENT '地址' AFTER `sort`,
+  ADD COLUMN `contact_phone` VARCHAR(20)  DEFAULT NULL  COMMENT '联系电话' AFTER `address`;
 
 -- --------------------------------------------------------
 -- 2. 区域地址表
