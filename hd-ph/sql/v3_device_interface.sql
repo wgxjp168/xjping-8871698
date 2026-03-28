@@ -7,16 +7,8 @@
 USE `hd_public_health`;
 
 -- --------------------------------------------------------
--- 1. 修复 check_result 表字段（与entity对应）
+-- 1. check_result 表字段已在 hd_public_health.sql 中定义，无需重复添加
 -- --------------------------------------------------------
--- 注: 若列已存在此语句会报错，忽略即可
-ALTER TABLE `check_result`
-  ADD COLUMN `device_code`  VARCHAR(50)  DEFAULT NULL COMMENT '设备编码' AFTER `device_id`,
-  ADD COLUMN `device_model` VARCHAR(100) DEFAULT NULL COMMENT '设备型号'  AFTER `device_code`,
-  ADD COLUMN `data_source`  VARCHAR(20)  DEFAULT 'DEVICE' COMMENT 'DEVICE/MANUAL' AFTER `device_model`,
-  ADD COLUMN `sample_id`    VARCHAR(50)  DEFAULT NULL COMMENT '样本号' AFTER `data_source`,
-  ADD COLUMN `check_time`   DATETIME     DEFAULT NULL COMMENT '检验时间' AFTER `sample_id`,
-  ADD COLUMN `upload_status` TINYINT     DEFAULT 0   COMMENT '0未上传 1已上传' AFTER `check_time`;
 
 -- --------------------------------------------------------
 -- 2. 修复 device_raw_data 表（添加patient_id/sample_id字段）
