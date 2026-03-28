@@ -44,9 +44,13 @@ public class DeviceInfo implements Serializable {
     @TableField("comm_host")
     private String ipAddress;
 
-    /** 设备端口 */
+    /** 设备端口（TCP模式）或COM口号（串口模式） */
     @TableField("comm_port")
     private Integer port;
+
+    /** 串口波特率（串口模式，默认9600） */
+    @TableField("baud_rate")
+    private Integer baudRate;
 
     /**
      * 连接模式: TCP_SERVER=TCP监听, TCP_CLIENT=TCP主动
@@ -86,6 +90,8 @@ public class DeviceInfo implements Serializable {
     public void setIpAddress(String ipAddress) { this.ipAddress = ipAddress; }
     public Integer getPort() { return port; }
     public void setPort(Integer port) { this.port = port; }
+    public Integer getBaudRate() { return baudRate; }
+    public void setBaudRate(Integer baudRate) { this.baudRate = baudRate; }
     public String getConnectMode() { return connectMode; }
     public void setConnectMode(String connectMode) { this.connectMode = connectMode; }
     public Integer getStatus() { return status; }

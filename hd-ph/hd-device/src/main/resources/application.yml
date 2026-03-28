@@ -28,11 +28,28 @@ mybatis-plus:
       logic-delete-value: 1
       logic-not-delete-value: 0
 
-# ASTM TCP Server configuration
+# ===== 设备通信配置 =====
 device:
+  # TCP服务端 7100端口，等待所有TCP设备主动连接
   tcp:
     port: 7100
     enabled: true
+  # 串口设备监听（优利特/理邦/雷诺华）
+  serial:
+    enabled: true
+  # 文件监控（迈瑞BS330/万瑞BS830 LIS文件输出）
+  file:
+    enabled: true
+    charset: GBK
+
+# ===== 惠东县公卫平台上传配置 =====
+# 配置正式接口地址和密钥后将enabled改为true启用自动上传
+pubhealth:
+  upload:
+    enabled: false
+    url: ""                       # 公卫系统上传接口（由卫生局提供）
+    api-key: ""                   # 接入密钥（由卫生局分配）
+    hospital-code: "HD_DEFAULT"   # 本机构在公卫系统的编码
 
 knife4j:
   enable: true
