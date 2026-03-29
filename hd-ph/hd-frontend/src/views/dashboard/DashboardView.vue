@@ -51,7 +51,10 @@
 
 <script setup>
 import { ref, onMounted, markRaw } from 'vue'
-import { getCheckOrders } from '@/api/check'
+import { getCheckOrders, getCheckOrderYearCount } from '@/api/check'
+import { getResidentCount } from '@/api/resident'
+import { getDrOrderMonthCount } from '@/api/dr'
+import { getDeviceOnlineCount } from '@/api/device'
 import * as echarts from 'echarts'
 
 const chartRef = ref()
@@ -69,6 +72,20 @@ const statusText = (s) => ['待体检','体检中','已完成','已作废'][s] |
 const statusType = (s) => ['info','warning','success','danger'][s] || 'info'
 
 onMounted(async () => {
+  // 加载统计数据
+  try {
+    const [residentRes, checkRes, drRes, deviceRes] = await Promise.allSettled([
+      getResidentCount(),
+      getCheckOrderYearCount(),
+      getDrOrderMonthCount(),
+      getDeviceOnlineCount()
+    ])
+    if (residentRes.status === 'fulfilled') stats.value[0].value = residentRes.value.data ?? '0'
+    if (checkRes.status === 'fulfilled') stats.value[1].value = checkRes.value.data ?? '0'
+    if (drRes.status === 'fulfilled') stats.value[2].value = drRes.value.data ?? '0'
+    if (deviceRes.status === 'fulfilled') stats.value[3].value = deviceRes.value.data ?? '0'
+  } catch {}
+
   // 加载最新体检单
   try {
     const res = await getCheckOrders({ current: 1, size: 8 })

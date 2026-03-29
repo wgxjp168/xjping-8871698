@@ -66,6 +66,11 @@ public class DrOrderController {
         return Result.success(null);
     }
 
+    @GetMapping("/count/month")
+    public Result<Long> countThisMonth() {
+        return Result.success(orderService.countThisMonth());
+    }
+
     @DeleteMapping("/{id}")
     public Result<Void> delete(@PathVariable Long id) {
         orderService.delete(id);

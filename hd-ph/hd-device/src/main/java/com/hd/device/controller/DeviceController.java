@@ -71,6 +71,11 @@ public class DeviceController {
         return Result.success(null);
     }
 
+    @GetMapping("/count/online")
+    public Result<Long> countOnline() {
+        return Result.success(deviceInfoService.countOnline());
+    }
+
     @GetMapping("/pending-data")
     public Result<List<DeviceRawData>> pendingData() {
         return Result.success(deviceDataService.listPendingData());

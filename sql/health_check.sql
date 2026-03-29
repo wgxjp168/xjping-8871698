@@ -177,25 +177,57 @@ CREATE TABLE IF NOT EXISTS `check_appointment` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='体检预约表';
 
 -- =====================================================
+-- 8.5 居民信息表 (resident)
+-- =====================================================
+CREATE TABLE IF NOT EXISTS `resident` (
+  `id`           BIGINT       NOT NULL AUTO_INCREMENT COMMENT '居民ID',
+  `name`         VARCHAR(50)  NOT NULL COMMENT '姓名',
+  `id_card`      VARCHAR(18)  NOT NULL COMMENT '身份证号',
+  `gender`       TINYINT(1)   DEFAULT 1 COMMENT '性别 1男 2女',
+  `birth_date`   DATE         DEFAULT NULL COMMENT '出生日期',
+  `phone`        VARCHAR(20)  DEFAULT NULL COMMENT '手机号',
+  `address`      VARCHAR(200) DEFAULT NULL COMMENT '住址',
+  `village`      VARCHAR(100) DEFAULT NULL COMMENT '所属村/社区',
+  `town`         VARCHAR(100) DEFAULT NULL COMMENT '所属乡镇/街道',
+  `district`     VARCHAR(100) DEFAULT NULL COMMENT '所属县区',
+  `ethnicity`    VARCHAR(50)  DEFAULT NULL COMMENT '民族',
+  `blood_type`   VARCHAR(10)  DEFAULT NULL COMMENT '血型',
+  `chronic_flag` INT          DEFAULT 0 COMMENT '慢病标记：高血压=1, 糖尿病=2, 精神=4 (位运算组合)',
+  `archive_no`   VARCHAR(50)  DEFAULT NULL COMMENT '档案编号',
+  `dept_id`      BIGINT       DEFAULT NULL COMMENT '所属医疗机构ID',
+  `status`       TINYINT(1)   DEFAULT 1 COMMENT '状态 1正常',
+  `create_time`  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `update_time`  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  `deleted`      TINYINT(1)   DEFAULT 0 COMMENT '逻辑删除 0正常 1删除',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_id_card` (`id_card`),
+  KEY `idx_name` (`name`),
+  KEY `idx_town` (`town`),
+  KEY `idx_dept_id` (`dept_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='居民信息表';
+
+-- =====================================================
 -- 9. 体检单表 (check_order)
 -- =====================================================
 CREATE TABLE IF NOT EXISTS `check_order` (
   `id`              BIGINT       NOT NULL AUTO_INCREMENT COMMENT '体检单ID',
   `order_no`        VARCHAR(50)  NOT NULL COMMENT '体检单号',
-  `patient_id`      BIGINT       NOT NULL COMMENT '患者ID',
-  `appointment_id`  BIGINT       DEFAULT NULL COMMENT '预约ID',
-  `package_id`      BIGINT       DEFAULT NULL COMMENT '套餐ID',
+  `resident_id`     BIGINT       DEFAULT NULL COMMENT '居民ID',
+  `resident_name`   VARCHAR(50)  DEFAULT NULL COMMENT '居民姓名',
+  `id_card`         VARCHAR(18)  DEFAULT NULL COMMENT '居民身份证',
+  `check_year`      INT          DEFAULT NULL COMMENT '体检年度',
   `check_date`      DATE         DEFAULT NULL COMMENT '体检日期',
-  `doctor_id`       BIGINT       DEFAULT NULL COMMENT '负责医生',
-  `status`          VARCHAR(20)  DEFAULT 'CREATED' COMMENT '状态 CREATED/IN_PROGRESS/REVIEWING/COMPLETED',
-  `total_score`     INT          DEFAULT NULL COMMENT '健康评分',
-  `summary`         TEXT         DEFAULT NULL COMMENT '体检总结',
+  `dept_id`         BIGINT       DEFAULT NULL COMMENT '体检机构ID',
+  `check_type`      TINYINT(1)   DEFAULT NULL COMMENT '体检类型 1老年人 2高血压 3糖尿病 4孕产妇',
+  `status`          TINYINT(1)   DEFAULT 0 COMMENT '状态 0待体检 1体检中 2已完成 3已作废',
+  `remark`          VARCHAR(500) DEFAULT NULL COMMENT '备注',
   `create_time`     DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `update_time`     DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `deleted`         TINYINT(1)   DEFAULT 0,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_order_no` (`order_no`),
-  KEY `idx_patient_id` (`patient_id`),
+  KEY `idx_resident_id` (`resident_id`),
+  KEY `idx_id_card` (`id_card`),
   KEY `idx_check_date` (`check_date`),
   KEY `idx_status` (`status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='体检单表';

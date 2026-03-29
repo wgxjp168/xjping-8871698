@@ -54,6 +54,11 @@ public class ResidentController {
         return Result.success(null);
     }
 
+    @GetMapping("/count")
+    public Result<Long> count() {
+        return Result.success(residentService.count());
+    }
+
     @GetMapping("/health")
     public Result<String> health() {
         return Result.success("hd-resident OK");

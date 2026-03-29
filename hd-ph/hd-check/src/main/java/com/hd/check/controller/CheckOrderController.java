@@ -57,6 +57,11 @@ public class CheckOrderController {
         return Result.success(null);
     }
 
+    @GetMapping("/count/year")
+    public Result<Long> countThisYear(@RequestParam(required = false) Integer year) {
+        return Result.success(orderService.countByYear(year));
+    }
+
     @DeleteMapping("/{id}")
     public Result<Void> delete(@PathVariable Long id) {
         orderService.delete(id);

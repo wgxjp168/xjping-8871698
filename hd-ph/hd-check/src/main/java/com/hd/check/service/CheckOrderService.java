@@ -8,6 +8,7 @@ import com.hd.check.mapper.CheckOrderMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 
@@ -52,6 +53,15 @@ public class CheckOrderService {
         order.setId(id);
         order.setStatus(status);
         orderMapper.updateById(order);
+    }
+
+    public long countByYear(Integer year) {
+        if (year == null) year = LocalDate.now().getYear();
+        return orderMapper.selectCount(
+                new LambdaQueryWrapper<CheckOrder>()
+                        .eq(CheckOrder::getCheckYear, year)
+                        .eq(CheckOrder::getDeleted, 0)
+        );
     }
 
     public void delete(Long id) {

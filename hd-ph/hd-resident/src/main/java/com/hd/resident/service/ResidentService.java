@@ -42,6 +42,12 @@ public class ResidentService {
         residentMapper.updateById(resident);
     }
 
+    public long count() {
+        return residentMapper.selectCount(
+                new LambdaQueryWrapper<Resident>().eq(Resident::getDeleted, 0)
+        );
+    }
+
     public void delete(Long id) {
         Resident r = new Resident();
         r.setId(id);

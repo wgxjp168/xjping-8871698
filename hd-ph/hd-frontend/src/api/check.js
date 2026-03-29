@@ -8,6 +8,7 @@ export const createCheckOrder = (data) => request.post('/check-orders', data)
 export const updateCheckOrder = (id, data) => request.put(`/check-orders/${id}`, data)
 export const updateCheckOrderStatus = (id, status) => request.put(`/check-orders/${id}/status`, { status })
 export const deleteCheckOrder = (id) => request.delete(`/check-orders/${id}`)
+export const getCheckOrderYearCount = (year) => request.get('/check-orders/count/year', { params: { year } })
 
 // 体检结果
 export const getResultsByOrder = (orderId, category) => request.get(`/check-results/order/${orderId}`, { params: { category } })

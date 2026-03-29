@@ -32,6 +32,14 @@ public class DeviceInfoService {
         deviceInfoMapper.updateById(device);
     }
 
+    public long countOnline() {
+        return deviceInfoMapper.selectCount(
+                new LambdaQueryWrapper<DeviceInfo>()
+                        .eq(DeviceInfo::getStatus, 1)
+                        .eq(DeviceInfo::getDeleted, 0)
+        );
+    }
+
     public void delete(Long id) {
         DeviceInfo d = new DeviceInfo();
         d.setId(id);

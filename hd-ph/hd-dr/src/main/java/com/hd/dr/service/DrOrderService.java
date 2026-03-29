@@ -8,6 +8,8 @@ import com.hd.dr.mapper.DrOrderMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
@@ -73,6 +75,18 @@ public class DrOrderService {
             order.setFinishTime(LocalDateTime.now());
         }
         orderMapper.updateById(order);
+    }
+
+    public long countThisMonth() {
+        LocalDate now = LocalDate.now();
+        LocalDateTime monthStart = now.withDayOfMonth(1).atStartOfDay();
+        LocalDateTime monthEnd = now.plusMonths(1).withDayOfMonth(1).atStartOfDay();
+        return orderMapper.selectCount(
+                new LambdaQueryWrapper<DrOrder>()
+                        .ge(DrOrder::getCreateTime, monthStart)
+                        .lt(DrOrder::getCreateTime, monthEnd)
+                        .eq(DrOrder::getDeleted, 0)
+        );
     }
 
     public void delete(Long id) {
