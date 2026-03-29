@@ -8,7 +8,6 @@ import com.hd.check.mapper.CheckOrderMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 
