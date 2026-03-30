@@ -14,15 +14,18 @@ USE `hd_public_health`;
 -- ========================================================
 DROP TABLE IF EXISTS `sys_dept`;
 CREATE TABLE `sys_dept` (
-  `id`          BIGINT       NOT NULL AUTO_INCREMENT COMMENT '科室ID',
-  `dept_name`   VARCHAR(100) NOT NULL                COMMENT '科室名称',
-  `dept_code`   VARCHAR(50)  DEFAULT NULL            COMMENT '科室编码',
-  `parent_id`   BIGINT       DEFAULT 0               COMMENT '父科室ID',
-  `sort`        INT          DEFAULT 0               COMMENT '排序',
-  `status`      TINYINT      DEFAULT 1               COMMENT '状态 1启用 0停用',
-  `create_time` DATETIME     DEFAULT CURRENT_TIMESTAMP,
-  `update_time` DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  `deleted`     TINYINT      DEFAULT 0               COMMENT '逻辑删除',
+  `id`            BIGINT       NOT NULL AUTO_INCREMENT COMMENT '科室ID',
+  `dept_name`     VARCHAR(100) NOT NULL                COMMENT '科室名称',
+  `dept_code`     VARCHAR(50)  DEFAULT NULL            COMMENT '科室编码',
+  `dept_type`     TINYINT      DEFAULT 1               COMMENT '部门类型 1卫生院 2村卫生室 3社区卫生中心 9其他',
+  `parent_id`     BIGINT       DEFAULT 0               COMMENT '父科室ID',
+  `sort`          INT          DEFAULT 0               COMMENT '排序',
+  `address`       VARCHAR(200) DEFAULT NULL            COMMENT '地址',
+  `contact_phone` VARCHAR(20)  DEFAULT NULL            COMMENT '联系电话',
+  `status`        TINYINT      DEFAULT 1               COMMENT '状态 1启用 0停用',
+  `create_time`   DATETIME     DEFAULT CURRENT_TIMESTAMP,
+  `update_time`   DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted`       TINYINT      DEFAULT 0               COMMENT '逻辑删除',
   PRIMARY KEY (`id`),
   KEY `idx_parent_id` (`parent_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='系统科室表';
