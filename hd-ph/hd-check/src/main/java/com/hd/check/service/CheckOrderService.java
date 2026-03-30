@@ -54,13 +54,13 @@ public class CheckOrderService {
         orderMapper.updateById(order);
     }
 
-    public long countByYear(Integer year) {
+    public long countByYear(Integer year, Long deptId) {
         if (year == null) year = LocalDate.now().getYear();
-        return orderMapper.selectCount(
-                new LambdaQueryWrapper<CheckOrder>()
-                        .eq(CheckOrder::getCheckYear, year)
-                        .eq(CheckOrder::getDeleted, 0)
-        );
+        LambdaQueryWrapper<CheckOrder> wrapper = new LambdaQueryWrapper<CheckOrder>()
+                .eq(CheckOrder::getCheckYear, year)
+                .eq(CheckOrder::getDeleted, 0);
+        if (deptId != null) wrapper.eq(CheckOrder::getDeptId, deptId);
+        return orderMapper.selectCount(wrapper);
     }
 
     public void delete(Long id) {

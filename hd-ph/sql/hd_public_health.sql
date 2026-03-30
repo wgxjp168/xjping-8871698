@@ -462,6 +462,8 @@ INSERT INTO `sys_permission` (`perm_code`,`perm_name`,`perm_type`,`parent_code`,
 ('SYS:USER','用户管理',2,'SYS:ADMIN',1),
 ('SYS:ROLE','角色管理',2,'SYS:ADMIN',2),
 ('SYS:DEVICE','设备管理',2,'SYS:ADMIN',3),
+('SYS:DEPT','机构管理',2,'SYS:ADMIN',4),
+('SYS:AREA','区域管理',2,'SYS:ADMIN',5),
 ('RESIDENT:VIEW','居民查询',2,NULL,10),
 ('ORDER:VIEW','体检单查询',2,NULL,11),
 ('ORDER:CREATE','创建体检单',2,NULL,12),
@@ -479,22 +481,35 @@ INSERT INTO `sys_permission` (`perm_code`,`perm_name`,`perm_type`,`parent_code`,
 ('HBA1C:EDIT','糖化血红蛋白编辑',2,NULL,61),
 ('DR:VIEW','DR报告查看',2,NULL,70),
 ('DR:EDIT','DR报告编辑',2,NULL,71),
+('ULTRASOUND:VIEW','B超结果查看',2,NULL,72),
+('ULTRASOUND:EDIT','B超结果编辑',2,NULL,73),
+('ECG:VIEW','心电图结果查看',2,NULL,74),
+('ECG:EDIT','心电图结果编辑',2,NULL,75),
 ('UPLOAD:EXEC','上传到公卫系统',2,NULL,80);
 
 -- 角色
+-- userType: 3=超级管理员, 4=卫生院管理员, 2=责任医生, 1=普通操作员
 INSERT INTO `sys_role` (`id`,`role_code`,`role_name`,`description`) VALUES
-(1,'ROLE_ADMIN','系统管理员','拥有所有权限'),
-(2,'ROLE_BIOCHEM_DOCTOR','生化医生','负责生化检验项目'),
-(3,'ROLE_BLOOD_DOCTOR','血常规医生','负责血常规项目'),
-(4,'ROLE_URINE_DOCTOR','尿常规医生','负责尿常规项目，含下乡尿机'),
-(5,'ROLE_HBA1C_DOCTOR','糖化血红蛋白医生','负责糖化血红蛋白项目'),
-(6,'ROLE_DR_DOCTOR','DR放射医生','负责DR放射项目'),
-(7,'ROLE_NURSE','护士/操作员','负责生命体征、问诊录入'),
-(8,'ROLE_OPERATOR','数据操作员','扫码、录入、基础查询');
+(1, 'ROLE_ADMIN','超级管理员','拥有所有权限，管理全系统'),
+(2, 'ROLE_BIOCHEM_DOCTOR','生化医生','负责生化检验项目'),
+(3, 'ROLE_BLOOD_DOCTOR','血常规医生','负责血常规项目'),
+(4, 'ROLE_URINE_DOCTOR','尿常规医生','负责尿常规项目，含下乡尿机'),
+(5, 'ROLE_HBA1C_DOCTOR','糖化血红蛋白医生','负责糖化血红蛋白项目'),
+(6, 'ROLE_DR_DOCTOR','DR放射医生','负责DR放射项目'),
+(7, 'ROLE_NURSE','护士/操作员','负责生命体征、问诊录入'),
+(8, 'ROLE_OPERATOR','数据操作员','扫码、录入、基础查询'),
+(9, 'ROLE_HOSPITAL_ADMIN','卫生院管理员','管理本卫生院用户和医生，查看本院数据'),
+(10,'ROLE_ULTRASOUND_DOCTOR','B超医生','负责B超检查项目'),
+(11,'ROLE_ECG_DOCTOR','心电图医生','负责心电图检查项目');
 
--- 管理员权限（全部）
+-- 超级管理员权限（全部）
 INSERT INTO `sys_role_permission` (`role_id`,`perm_code`)
 SELECT 1, `perm_code` FROM `sys_permission`;
+
+-- 卫生院管理员（本院用户管理+医生管理+查看数据）
+INSERT INTO `sys_role_permission` (`role_id`,`perm_code`) VALUES
+(9,'SYS:USER'),(9,'RESIDENT:VIEW'),(9,'ORDER:VIEW'),(9,'ORDER:CREATE'),
+(9,'VITAL:VIEW'),(9,'SYS:DEVICE'),(9,'UPLOAD:EXEC');
 
 -- 生化医生
 INSERT INTO `sys_role_permission` (`role_id`,`perm_code`) VALUES
@@ -516,6 +531,14 @@ INSERT INTO `sys_role_permission` (`role_id`,`perm_code`) VALUES
 INSERT INTO `sys_role_permission` (`role_id`,`perm_code`) VALUES
 (6,'RESIDENT:VIEW'),(6,'ORDER:VIEW'),(6,'DR:VIEW'),(6,'DR:EDIT'),(6,'UPLOAD:EXEC');
 
+-- B超医生
+INSERT INTO `sys_role_permission` (`role_id`,`perm_code`) VALUES
+(10,'RESIDENT:VIEW'),(10,'ORDER:VIEW'),(10,'ULTRASOUND:VIEW'),(10,'ULTRASOUND:EDIT'),(10,'UPLOAD:EXEC');
+
+-- 心电图医生
+INSERT INTO `sys_role_permission` (`role_id`,`perm_code`) VALUES
+(11,'RESIDENT:VIEW'),(11,'ORDER:VIEW'),(11,'ECG:VIEW'),(11,'ECG:EDIT'),(11,'UPLOAD:EXEC');
+
 -- 护士
 INSERT INTO `sys_role_permission` (`role_id`,`perm_code`) VALUES
 (7,'RESIDENT:VIEW'),(7,'ORDER:VIEW'),(7,'ORDER:CREATE'),
@@ -528,19 +551,23 @@ INSERT INTO `sys_role_permission` (`role_id`,`perm_code`) VALUES
 
 -- 用户 (密码均为 hd2024 的BCrypt加密)
 -- BCrypt of 'hd2024': $2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBpwTTyigZGaFS
+-- userType: 3=超级管理员, 4=卫生院管理员, 2=责任医生, 1=普通操作员
 INSERT INTO `sys_user` (`id`,`username`,`password`,`real_name`,`phone`,`dept_id`,`user_type`,`status`) VALUES
-(1,'admin','$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBpwTTyigZGaFS','系统管理员','13800000001',1,3,1),
-(2,'biochem01','$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBpwTTyigZGaFS','陈生化医生','13800000002',2,2,1),
-(3,'blood01','$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBpwTTyigZGaFS','李血常规医生','13800000003',2,2,1),
-(4,'urine01','$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBpwTTyigZGaFS','王尿检医生','13800000004',2,2,1),
-(5,'hba1c01','$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBpwTTyigZGaFS','张糖化医生','13800000005',2,2,1),
-(6,'dr01','$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBpwTTyigZGaFS','刘放射医生','13800000006',3,2,1),
-(7,'nurse01','$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBpwTTyigZGaFS','护士小梅','13800000007',1,1,1),
-(8,'operator01','$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBpwTTyigZGaFS','操作员小李','13800000008',1,1,1);
+(1, 'admin',      '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBpwTTyigZGaFS','超级管理员','13800000001',1,3,1),
+(2, 'biochem01',  '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBpwTTyigZGaFS','陈生化医生','13800000002',2,2,1),
+(3, 'blood01',    '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBpwTTyigZGaFS','李血常规医生','13800000003',2,2,1),
+(4, 'urine01',    '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBpwTTyigZGaFS','王尿检医生','13800000004',2,2,1),
+(5, 'hba1c01',    '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBpwTTyigZGaFS','张糖化医生','13800000005',2,2,1),
+(6, 'dr01',       '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBpwTTyigZGaFS','刘放射医生','13800000006',3,2,1),
+(7, 'nurse01',    '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBpwTTyigZGaFS','护士小梅','13800000007',1,1,1),
+(8, 'operator01', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBpwTTyigZGaFS','操作员小李','13800000008',1,1,1),
+(9, 'hosadmin01', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBpwTTyigZGaFS','卫生院管理员','13800000009',1,4,1),
+(10,'us01',       '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBpwTTyigZGaFS','赵B超医生','13800000010',4,2,1),
+(11,'ecg01',      '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBpwTTyigZGaFS','孙心电图医生','13800000011',4,2,1);
 
 -- 用户角色
 INSERT INTO `sys_user_role` (`user_id`,`role_id`) VALUES
-(1,1),(2,2),(3,3),(4,4),(5,5),(6,6),(7,7),(8,8);
+(1,1),(2,2),(3,3),(4,4),(5,5),(6,6),(7,7),(8,8),(9,9),(10,10),(11,11);
 
 -- 设备信息（所有设备）
 INSERT INTO `device_info`

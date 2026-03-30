@@ -3,6 +3,8 @@ package com.hd.auth.service;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.hd.auth.dto.LoginDTO;
 import com.hd.auth.entity.SysUser;
+import com.hd.auth.entity.SysDept;
+import com.hd.auth.mapper.SysDeptMapper;
 import com.hd.auth.mapper.SysPermissionMapper;
 import com.hd.auth.mapper.SysUserMapper;
 import com.hd.common.util.JwtUtils;
@@ -31,6 +33,9 @@ public class AuthService {
 
     @Autowired
     private SysPermissionMapper sysPermissionMapper;
+
+    @Autowired
+    private SysDeptMapper sysDeptMapper;
 
     @Autowired
     private StringRedisTemplate redisTemplate;
@@ -66,12 +71,21 @@ public class AuthService {
         update.setLastLoginTime(LocalDateTime.now());
         sysUserMapper.updateById(update);
 
+        // 查询所属机构名称
+        String deptName = null;
+        if (user.getDeptId() != null) {
+            SysDept dept = sysDeptMapper.selectById(user.getDeptId());
+            if (dept != null) deptName = dept.getDeptName();
+        }
+
         Map<String, Object> result = new HashMap<>();
         result.put("token", token);
         result.put("userId", user.getId());
         result.put("username", user.getUsername());
         result.put("realName", user.getRealName());
         result.put("userType", user.getUserType());
+        result.put("deptId", user.getDeptId());
+        result.put("deptName", deptName);
         result.put("permissions", permissions);
         return result;
     }

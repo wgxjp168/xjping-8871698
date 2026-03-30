@@ -58,8 +58,9 @@ public class CheckOrderController {
     }
 
     @GetMapping("/count/year")
-    public Result<Long> countThisYear(@RequestParam(required = false) Integer year) {
-        return Result.success(orderService.countByYear(year));
+    public Result<Long> countThisYear(@RequestParam(required = false) Integer year,
+                                       @RequestParam(required = false) Long deptId) {
+        return Result.success(orderService.countByYear(year, deptId));
     }
 
     @DeleteMapping("/{id}")

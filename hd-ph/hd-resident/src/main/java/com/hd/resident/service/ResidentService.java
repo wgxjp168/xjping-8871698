@@ -42,10 +42,10 @@ public class ResidentService {
         residentMapper.updateById(resident);
     }
 
-    public long count() {
-        return residentMapper.selectCount(
-                new LambdaQueryWrapper<Resident>().eq(Resident::getDeleted, 0)
-        );
+    public long count(Long deptId) {
+        LambdaQueryWrapper<Resident> wrapper = new LambdaQueryWrapper<Resident>().eq(Resident::getDeleted, 0);
+        if (deptId != null) wrapper.eq(Resident::getDeptId, deptId);
+        return residentMapper.selectCount(wrapper);
     }
 
     public void delete(Long id) {

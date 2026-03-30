@@ -19,7 +19,8 @@
           <template #title>首页概览</template>
         </el-menu-item>
 
-        <el-sub-menu index="resident">
+        <!-- 居民管理：超级管理员、卫生院管理员可见 -->
+        <el-sub-menu index="resident" v-if="isSuperAdmin || isHospitalAdmin">
           <template #title>
             <el-icon><UserFilled /></el-icon>
             <span>居民管理</span>
@@ -27,7 +28,8 @@
           <el-menu-item index="/residents">居民档案</el-menu-item>
         </el-sub-menu>
 
-        <el-sub-menu index="check">
+        <!-- 体检管理：超级管理员、卫生院管理员、有ORDER权限的医生可见 -->
+        <el-sub-menu index="check" v-if="isSuperAdmin || isHospitalAdmin || hasPerm('ORDER:VIEW')">
           <template #title>
             <el-icon><Document /></el-icon>
             <span>体检管理</span>
@@ -35,7 +37,8 @@
           <el-menu-item index="/check-orders">体检单管理</el-menu-item>
         </el-sub-menu>
 
-        <el-sub-menu index="dr">
+        <!-- DR影像：超级管理员、卫生院管理员、DR医生可见 -->
+        <el-sub-menu index="dr" v-if="isSuperAdmin || isHospitalAdmin || hasPerm('DR:VIEW')">
           <template #title>
             <el-icon><Camera /></el-icon>
             <span>DR影像</span>
@@ -44,7 +47,8 @@
           <el-menu-item index="/dr-scan">DR扫码签到</el-menu-item>
         </el-sub-menu>
 
-        <el-sub-menu index="device">
+        <!-- 设备管理：超级管理员、卫生院管理员可见 -->
+        <el-sub-menu index="device" v-if="isSuperAdmin || isHospitalAdmin">
           <template #title>
             <el-icon><Monitor /></el-icon>
             <span>设备管理</span>
@@ -52,7 +56,8 @@
           <el-menu-item index="/devices">设备列表</el-menu-item>
         </el-sub-menu>
 
-        <el-sub-menu index="admin" v-if="isAdmin">
+        <!-- 系统管理：超级管理员全部可见 -->
+        <el-sub-menu index="admin" v-if="isSuperAdmin">
           <template #title>
             <el-icon><Setting /></el-icon>
             <span>系统管理</span>
@@ -63,6 +68,16 @@
           <el-menu-item index="/areas">区域地址管理</el-menu-item>
           <el-menu-item index="/doctors">责任医生查询</el-menu-item>
           <el-menu-item index="/doctor-filters">医生筛选条件配置</el-menu-item>
+        </el-sub-menu>
+
+        <!-- 卫生院管理：卫生院管理员可见（用户管理+医生管理） -->
+        <el-sub-menu index="hospital-admin" v-if="isHospitalAdmin">
+          <template #title>
+            <el-icon><Setting /></el-icon>
+            <span>卫生院管理</span>
+          </template>
+          <el-menu-item index="/users">用户管理</el-menu-item>
+          <el-menu-item index="/doctors">责任医生管理</el-menu-item>
         </el-sub-menu>
       </el-menu>
     </el-aside>
@@ -80,6 +95,7 @@
           </el-breadcrumb>
         </div>
         <div class="header-right">
+          <el-tag v-if="roleLabel" :type="roleTagType" size="small" class="role-tag">{{ roleLabel }}</el-tag>
           <el-dropdown @command="handleCommand">
             <span class="user-info">
               <el-icon><Avatar /></el-icon>
@@ -117,7 +133,32 @@ const userInfo = computed(() => {
   try { return JSON.parse(localStorage.getItem('userInfo') || '{}') } catch { return {} }
 })
 
-const isAdmin = computed(() => userInfo.value.userType === 3)
+// userType: 3=超级管理员, 4=卫生院管理员, 2=责任医生, 1=普通操作员
+const isSuperAdmin = computed(() => userInfo.value.userType === 3)
+const isHospitalAdmin = computed(() => userInfo.value.userType === 4)
+const isDoctor = computed(() => userInfo.value.userType === 2)
+
+const hasPerm = (code) => {
+  const perms = userInfo.value.permissions || []
+  return perms.includes(code)
+}
+
+const roleLabel = computed(() => {
+  const ut = userInfo.value.userType
+  if (ut === 3) return '超级管理员'
+  if (ut === 4) return '卫生院管理员'
+  if (ut === 2) return '责任医生'
+  return '操作员'
+})
+
+const roleTagType = computed(() => {
+  const ut = userInfo.value.userType
+  if (ut === 3) return 'danger'
+  if (ut === 4) return 'warning'
+  if (ut === 2) return ''
+  return 'info'
+})
+
 const currentPath = computed(() => route.path)
 const currentTitle = computed(() => route.meta?.title || '')
 
@@ -165,6 +206,11 @@ const handleCommand = async (cmd) => {
 }
 .header-left { display: flex; align-items: center; gap: 16px; }
 .collapse-btn { font-size: 18px; cursor: pointer; color: #666; }
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
 .header-right .user-info {
   cursor: pointer;
   display: flex;
@@ -172,5 +218,6 @@ const handleCommand = async (cmd) => {
   gap: 6px;
   color: #333;
 }
+.role-tag { margin-right: 4px; }
 .main-content { background: #f0f2f5; padding: 20px; overflow-y: auto; }
 </style>

@@ -1,5 +1,9 @@
 <template>
   <div class="dashboard">
+    <!-- 卫生院管理员显示本院名称 -->
+    <el-alert v-if="isHospitalAdmin && deptName" :title="'当前卫生院：' + deptName" type="info"
+              :closable="false" show-icon class="dept-alert" />
+
     <el-row :gutter="16" class="stat-cards">
       <el-col :span="6" v-for="item in stats" :key="item.label">
         <el-card class="stat-card" shadow="hover">
@@ -50,7 +54,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, markRaw } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { getCheckOrders, getCheckOrderYearCount } from '@/api/check'
 import { getResidentCount } from '@/api/resident'
 import { getDrOrderMonthCount } from '@/api/dr'
@@ -60,6 +64,15 @@ import * as echarts from 'echarts'
 const chartRef = ref()
 const pieRef = ref()
 const recentOrders = ref([])
+
+const userInfo = computed(() => {
+  try { return JSON.parse(localStorage.getItem('userInfo') || '{}') } catch { return {} }
+})
+
+// userType=4 是卫生院管理员，需要按deptId过滤数据
+const isHospitalAdmin = computed(() => userInfo.value.userType === 4)
+const deptId = computed(() => isHospitalAdmin.value ? userInfo.value.deptId : undefined)
+const deptName = computed(() => userInfo.value.deptName || '')
 
 const stats = ref([
   { label: '居民档案总数', value: '—', icon: 'UserFilled', color: '#1a73e8' },
@@ -72,11 +85,11 @@ const statusText = (s) => ['待体检','体检中','已完成','已作废'][s] |
 const statusType = (s) => ['info','warning','success','danger'][s] || 'info'
 
 onMounted(async () => {
-  // 加载统计数据
+  // 加载统计数据（卫生院管理员按deptId过滤）
   try {
     const [residentRes, checkRes, drRes, deviceRes] = await Promise.allSettled([
-      getResidentCount(),
-      getCheckOrderYearCount(),
+      getResidentCount(deptId.value),
+      getCheckOrderYearCount(undefined, deptId.value),
       getDrOrderMonthCount(),
       getDeviceOnlineCount()
     ])
@@ -86,9 +99,11 @@ onMounted(async () => {
     if (deviceRes.status === 'fulfilled') stats.value[3].value = deviceRes.value.data ?? '0'
   } catch {}
 
-  // 加载最新体检单
+  // 加载最新体检单（卫生院管理员按deptId过滤）
   try {
-    const res = await getCheckOrders({ current: 1, size: 8 })
+    const params = { current: 1, size: 8 }
+    if (deptId.value) params.deptId = deptId.value
+    const res = await getCheckOrders(params)
     recentOrders.value = res.data?.records || res.records || []
   } catch {}
 
@@ -98,7 +113,7 @@ onMounted(async () => {
     tooltip: { trigger: 'axis' },
     xAxis: {
       type: 'category',
-      data: ['3-19','3-20','3-21','3-22','3-23','3-24','3-25']
+      data: ['3-24','3-25','3-26','3-27','3-28','3-29','3-30']
     },
     yAxis: { type: 'value' },
     series: [{
@@ -131,6 +146,7 @@ onMounted(async () => {
 
 <style scoped>
 .dashboard { }
+.dept-alert { margin-bottom: 16px; }
 .stat-cards { margin-bottom: 16px; }
 .stat-card .stat-content {
   display: flex;

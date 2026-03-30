@@ -20,7 +20,9 @@
         </el-form-item>
       </el-form>
       <div class="login-hint">
-        测试账号：admin / hd2024
+        <div>超级管理员：admin / hd2024</div>
+        <div>卫生院管理员：hosadmin01 / hd2024</div>
+        <div>责任医生：biochem01 / dr01 / ecg01 / hd2024</div>
       </div>
     </div>
   </div>
@@ -54,6 +56,8 @@ const handleLogin = async () => {
       username: data.username,
       realName: data.realName,
       userType: data.userType,
+      deptId: data.deptId,
+      deptName: data.deptName,
       permissions: data.permissions || []
     }))
     ElMessage.success('登录成功')

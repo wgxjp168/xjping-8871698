@@ -55,8 +55,8 @@ public class ResidentController {
     }
 
     @GetMapping("/count")
-    public Result<Long> count() {
-        return Result.success(residentService.count());
+    public Result<Long> count(@RequestParam(required = false) Long deptId) {
+        return Result.success(residentService.count(deptId));
     }
 
     @GetMapping("/health")
