@@ -75,6 +75,8 @@
                 <el-radio-button value="BLOOD">血常规</el-radio-button>
                 <el-radio-button value="URINE">尿常规</el-radio-button>
                 <el-radio-button value="HBA1C">糖化Hb</el-radio-button>
+                <el-radio-button value="ULTRASOUND">B超</el-radio-button>
+                <el-radio-button value="ECG">心电图</el-radio-button>
               </el-radio-group>
             </div>
           </template>
@@ -92,6 +94,7 @@
               </template>
             </el-table-column>
           </el-table>
+          <el-empty v-if="filteredResults.length === 0" description="暂无检验结果数据" />
         </el-card>
       </el-col>
     </el-row>
@@ -108,7 +111,9 @@ const route = useRoute()
 const order = ref({})
 const results = ref([])
 const vital = reactive({ orderId: null, height: null, weight: null, systolicBp: null, diastolicBp: null, pulse: null, temperature: null })
-const activeCategory = ref('')
+
+// 支持从扫码页跳转时通过 query.category 自动选中对应标签
+const activeCategory = ref(route.query.category || '')
 
 const statusText = (s) => ['待体检','体检中','已完成','已作废'][s] || '未知'
 const statusType = (s) => ['info','warning','success','danger'][s] || 'info'
