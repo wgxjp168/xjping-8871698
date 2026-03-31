@@ -21,8 +21,8 @@
       </el-form>
       <div class="login-hint">
         <div>超级管理员：admin / hd2024</div>
-        <div>卫生院管理员：hosadmin01 / hd2024</div>
-        <div>责任医生：biochem01 / dr01 / ecg01 / hd2024</div>
+        <div>安墩卫生院管理员：ad_admin / hd2024</div>
+        <div>安墩责任医生：ad_biochem / ad_dr / ad_ecg / hd2024</div>
       </div>
     </div>
   </div>

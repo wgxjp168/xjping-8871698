@@ -451,13 +451,34 @@ CREATE TABLE `sys_log` (
 -- 初始化数据
 -- ========================================================
 
--- 科室
-INSERT INTO `sys_dept` (`id`,`dept_name`,`dept_code`,`parent_id`,`sort`) VALUES
-(1,'体检中心','DEPT_EXAM',0,1),
-(2,'检验科','DEPT_LAB',1,2),
-(3,'放射科','DEPT_DR',1,3),
-(4,'内科','DEPT_MED',1,4),
-(5,'公卫科','DEPT_PH',0,5);
+-- 科室（含21家卫生院）
+INSERT INTO `sys_dept` (`id`,`dept_name`,`dept_code`,`dept_type`,`parent_id`,`sort`,`status`) VALUES
+(1, '体检中心','DEPT_EXAM',9,0,1,1),
+(2, '检验科','DEPT_LAB',9,1,2,1),
+(3, '放射科','DEPT_DR',9,1,3,1),
+(4, '内科','DEPT_MED',9,1,4,1),
+(5, '公卫科','DEPT_PH',9,0,5,1),
+(10,'增光卫生院','DEPT_ZG',1,0,10,1),
+(11,'大岭卫生院','DEPT_DL',1,0,11,1),
+(12,'白花卫生院','DEPT_BH',1,0,12,1),
+(13,'梁化卫生院','DEPT_LH',1,0,13,1),
+(14,'稔山卫生院','DEPT_RS',1,0,14,1),
+(15,'铁涌卫生院','DEPT_TY',1,0,15,1),
+(16,'平海卫生院','DEPT_PH2',1,0,16,1),
+(17,'巽寮卫生院','DEPT_XL',1,0,17,1),
+(18,'港口卫生院','DEPT_GK',1,0,18,1),
+(19,'平山社区卫生服务中心','DEPT_PS',3,0,19,1),
+(20,'吉隆卫生院','DEPT_JL',1,0,20,1),
+(21,'黄埠卫生院','DEPT_HB',1,0,21,1),
+(22,'盐洲卫生院','DEPT_YZ',1,0,22,1),
+(23,'多祝卫生院','DEPT_DZ',1,0,23,1),
+(24,'松坑卫生院','DEPT_SK',1,0,24,1),
+(25,'安墩卫生院','DEPT_AD',1,0,25,1),
+(26,'高潭卫生院','DEPT_GT',1,0,26,1),
+(27,'宝口卫生院','DEPT_BK',1,0,27,1),
+(28,'马山卫生院','DEPT_MS',1,0,28,1),
+(29,'白盆珠卫生院','DEPT_BPZ',1,0,29,1),
+(30,'新庵卫生院','DEPT_XA',1,0,30,1);
 
 -- 权限（按项目分配）
 INSERT INTO `sys_permission` (`perm_code`,`perm_name`,`perm_type`,`parent_code`,`sort`) VALUES
@@ -552,25 +573,60 @@ INSERT INTO `sys_role_permission` (`role_id`,`perm_code`) VALUES
 (8,'RESIDENT:VIEW'),(8,'ORDER:VIEW'),(8,'ORDER:CREATE'),
 (8,'VITAL:VIEW'),(8,'VITAL:EDIT');
 
+-- ================================================================
 -- 用户 (密码均为 hd2024 的BCrypt加密)
 -- BCrypt of 'hd2024': $2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBpwTTyigZGaFS
 -- userType: 3=超级管理员, 4=卫生院管理员, 2=责任医生, 1=普通操作员
-INSERT INTO `sys_user` (`id`,`username`,`password`,`real_name`,`phone`,`dept_id`,`user_type`,`status`) VALUES
-(1, 'admin',      '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBpwTTyigZGaFS','超级管理员','13800000001',1,3,1),
-(2, 'biochem01',  '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBpwTTyigZGaFS','陈生化医生','13800000002',2,2,1),
-(3, 'blood01',    '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBpwTTyigZGaFS','李血常规医生','13800000003',2,2,1),
-(4, 'urine01',    '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBpwTTyigZGaFS','王尿检医生','13800000004',2,2,1),
-(5, 'hba1c01',    '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBpwTTyigZGaFS','张糖化医生','13800000005',2,2,1),
-(6, 'dr01',       '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBpwTTyigZGaFS','刘放射医生','13800000006',3,2,1),
-(7, 'nurse01',    '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBpwTTyigZGaFS','护士小梅','13800000007',1,1,1),
-(8, 'operator01', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBpwTTyigZGaFS','操作员小李','13800000008',1,1,1),
-(9, 'hosadmin01', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBpwTTyigZGaFS','卫生院管理员','13800000009',1,4,1),
-(10,'us01',       '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBpwTTyigZGaFS','赵B超医生','13800000010',4,2,1),
-(11,'ecg01',      '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBpwTTyigZGaFS','孙心电图医生','13800000011',4,2,1);
+-- ================================================================
 
--- 用户角色
+-- 超级管理员
+INSERT INTO `sys_user` (`id`,`username`,`password`,`real_name`,`phone`,`dept_id`,`user_type`,`status`) VALUES
+(1, 'admin', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBpwTTyigZGaFS','超级管理员','13800000001',1,3,1);
+
+-- 21家卫生院管理员 (userType=4, dept_id对应各卫生院)
+INSERT INTO `sys_user` (`id`,`username`,`password`,`real_name`,`phone`,`dept_id`,`user_type`,`status`) VALUES
+(100,'zg_admin',  '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBpwTTyigZGaFS','增光卫生院管理员','13900100001',10,4,1),
+(101,'dl_admin',  '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBpwTTyigZGaFS','大岭卫生院管理员','13900100002',11,4,1),
+(102,'bh_admin',  '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBpwTTyigZGaFS','白花卫生院管理员','13900100003',12,4,1),
+(103,'lh_admin',  '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBpwTTyigZGaFS','梁化卫生院管理员','13900100004',13,4,1),
+(104,'rs_admin',  '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBpwTTyigZGaFS','稔山卫生院管理员','13900100005',14,4,1),
+(105,'ty_admin',  '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBpwTTyigZGaFS','铁涌卫生院管理员','13900100006',15,4,1),
+(106,'ph_admin',  '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBpwTTyigZGaFS','平海卫生院管理员','13900100007',16,4,1),
+(107,'xl_admin',  '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBpwTTyigZGaFS','巽寮卫生院管理员','13900100008',17,4,1),
+(108,'gk_admin',  '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBpwTTyigZGaFS','港口卫生院管理员','13900100009',18,4,1),
+(109,'ps_admin',  '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBpwTTyigZGaFS','平山社区管理员','13900100010',19,4,1),
+(110,'jl_admin',  '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBpwTTyigZGaFS','吉隆卫生院管理员','13900100011',20,4,1),
+(111,'hb_admin',  '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBpwTTyigZGaFS','黄埠卫生院管理员','13900100012',21,4,1),
+(112,'yz_admin',  '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBpwTTyigZGaFS','盐洲卫生院管理员','13900100013',22,4,1),
+(113,'dz_admin',  '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBpwTTyigZGaFS','多祝卫生院管理员','13900100014',23,4,1),
+(114,'sk_admin',  '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBpwTTyigZGaFS','松坑卫生院管理员','13900100015',24,4,1),
+(115,'ad_admin',  '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBpwTTyigZGaFS','安墩卫生院管理员','13900100016',25,4,1),
+(116,'gt_admin',  '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBpwTTyigZGaFS','高潭卫生院管理员','13900100017',26,4,1),
+(117,'bk_admin',  '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBpwTTyigZGaFS','宝口卫生院管理员','13900100018',27,4,1),
+(118,'ms_admin',  '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBpwTTyigZGaFS','马山卫生院管理员','13900100019',28,4,1),
+(119,'bpz_admin', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBpwTTyigZGaFS','白盆珠卫生院管理员','13900100020',29,4,1),
+(120,'xa_admin',  '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBpwTTyigZGaFS','新庵卫生院管理员','13900100021',30,4,1);
+
+-- 安墩卫生院(dept_id=25)示例责任医生 (userType=2, 7个专业)
+INSERT INTO `sys_user` (`id`,`username`,`password`,`real_name`,`phone`,`dept_id`,`user_type`,`status`) VALUES
+(200,'ad_biochem', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBpwTTyigZGaFS','安墩-生化医生','13900200001',25,2,1),
+(201,'ad_blood',   '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBpwTTyigZGaFS','安墩-血常规医生','13900200002',25,2,1),
+(202,'ad_urine',   '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBpwTTyigZGaFS','安墩-尿常规医生','13900200003',25,2,1),
+(203,'ad_hba1c',   '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBpwTTyigZGaFS','安墩-糖化医生','13900200004',25,2,1),
+(204,'ad_dr',      '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBpwTTyigZGaFS','安墩-DR放射医生','13900200005',25,2,1),
+(205,'ad_us',      '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBpwTTyigZGaFS','安墩-B超医生','13900200006',25,2,1),
+(206,'ad_ecg',     '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBpwTTyigZGaFS','安墩-心电图医生','13900200007',25,2,1);
+
+-- 用户角色关联
+-- 超级管理员
+INSERT INTO `sys_user_role` (`user_id`,`role_id`) VALUES (1,1);
+-- 21家卫生院管理员 → ROLE_HOSPITAL_ADMIN(role_id=9)
 INSERT INTO `sys_user_role` (`user_id`,`role_id`) VALUES
-(1,1),(2,2),(3,3),(4,4),(5,5),(6,6),(7,7),(8,8),(9,9),(10,10),(11,11);
+(100,9),(101,9),(102,9),(103,9),(104,9),(105,9),(106,9),(107,9),(108,9),(109,9),
+(110,9),(111,9),(112,9),(113,9),(114,9),(115,9),(116,9),(117,9),(118,9),(119,9),(120,9);
+-- 安墩卫生院责任医生 → 各专业角色
+INSERT INTO `sys_user_role` (`user_id`,`role_id`) VALUES
+(200,2),(201,3),(202,4),(203,5),(204,6),(205,10),(206,11);
 
 -- 设备信息（所有设备）
 INSERT INTO `device_info`
