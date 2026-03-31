@@ -3,8 +3,10 @@
     <el-card>
       <template #header>
         <div style="display:flex;justify-content:space-between;align-items:center">
-          <b>机构管理</b>
-          <el-button type="success" :icon="Plus" @click="openCreate">新增机构</el-button>
+          <b>{{ isHospitalAdmin ? (deptName + ' - 下级村卫生室') : '机构管理' }}</b>
+          <el-button type="success" :icon="Plus" @click="openCreate">
+            {{ isHospitalAdmin ? '新增村卫生室' : '新增机构' }}
+          </el-button>
         </div>
       </template>
       <el-table :data="list" v-loading="loading" stripe>
@@ -29,11 +31,11 @@
       </el-table>
     </el-card>
 
-    <el-dialog v-model="dialogVisible" :title="form.id ? '编辑机构' : '新增机构'" width="480px">
+    <el-dialog v-model="dialogVisible" :title="form.id ? '编辑机构' : (isHospitalAdmin ? '新增村卫生室' : '新增机构')" width="480px">
       <el-form :model="form" label-width="90px">
         <el-form-item label="机构名称"><el-input v-model="form.deptName" /></el-form-item>
         <el-form-item label="机构编码"><el-input v-model="form.deptCode" /></el-form-item>
-        <el-form-item label="机构类型">
+        <el-form-item label="机构类型" v-if="!isHospitalAdmin">
           <el-select v-model="form.deptType" style="width:100%">
             <el-option :value="1" label="卫生院" />
             <el-option :value="2" label="村卫生室" />
@@ -56,7 +58,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { Plus } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getDepts, createDept, updateDept, deleteDept } from '@/api/admin'
@@ -64,20 +66,42 @@ import { getDepts, createDept, updateDept, deleteDept } from '@/api/admin'
 const loading = ref(false)
 const list = ref([])
 const dialogVisible = ref(false)
-const form = reactive({ id: null, deptName: '', deptCode: '', deptType: 1, address: '', contactPhone: '', status: 1 })
+const form = reactive({ id: null, deptName: '', deptCode: '', deptType: 2, parentId: 0, address: '', contactPhone: '', status: 1 })
+
+const userInfo = computed(() => {
+  try { return JSON.parse(localStorage.getItem('userInfo') || '{}') } catch { return {} }
+})
+const isHospitalAdmin = computed(() => userInfo.value.userType === 4)
+const deptId = computed(() => userInfo.value.deptId)
+const deptName = computed(() => userInfo.value.deptName || '')
 
 const loadData = async () => {
   loading.value = true
   try {
-    const res = await getDepts()
+    // 卫生院管理员只加载以自己医院为parentId的下级机构
+    const params = isHospitalAdmin.value ? { parentId: deptId.value } : {}
+    const res = await getDepts(params)
     list.value = res.data || res || []
   } finally { loading.value = false }
 }
 
-const openCreate = () => { Object.assign(form, { id: null, deptName: '', deptCode: '', deptType: 1, address: '', contactPhone: '', status: 1 }); dialogVisible.value = true }
+const openCreate = () => {
+  Object.assign(form, {
+    id: null, deptName: '', deptCode: '', address: '', contactPhone: '', status: 1,
+    // 卫生院管理员新增的默认为村卫生室，parentId设为本院
+    deptType: isHospitalAdmin.value ? 2 : 1,
+    parentId: isHospitalAdmin.value ? deptId.value : 0
+  })
+  dialogVisible.value = true
+}
 const openEdit = (row) => { Object.assign(form, row); dialogVisible.value = true }
 
 const handleSave = async () => {
+  // 卫生院管理员创建的机构强制设置parentId和deptType
+  if (isHospitalAdmin.value) {
+    form.parentId = deptId.value
+    form.deptType = 2
+  }
   if (form.id) { await updateDept(form.id, form) } else { await createDept(form) }
   ElMessage.success('保存成功')
   dialogVisible.value = false

@@ -34,6 +34,7 @@
             <el-icon><Document /></el-icon>
             <span>体检管理</span>
           </template>
+          <el-menu-item index="/barcode-scan">扫码查询</el-menu-item>
           <el-menu-item index="/check-orders">体检单管理</el-menu-item>
         </el-sub-menu>
 
@@ -70,7 +71,7 @@
           <el-menu-item index="/doctor-filters">医生筛选条件配置</el-menu-item>
         </el-sub-menu>
 
-        <!-- 卫生院管理：卫生院管理员可见（用户管理+医生管理） -->
+        <!-- 卫生院管理：卫生院管理员可见 -->
         <el-sub-menu index="hospital-admin" v-if="isHospitalAdmin">
           <template #title>
             <el-icon><Setting /></el-icon>
@@ -78,6 +79,7 @@
           </template>
           <el-menu-item index="/users">用户管理</el-menu-item>
           <el-menu-item index="/doctors">责任医生管理</el-menu-item>
+          <el-menu-item index="/depts">下级村卫生室</el-menu-item>
         </el-sub-menu>
       </el-menu>
     </el-aside>

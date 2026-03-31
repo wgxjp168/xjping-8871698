@@ -2,7 +2,9 @@
   <div>
     <el-card class="search-card">
       <div style="display:flex;justify-content:space-between">
-        <span style="font-size:15px;font-weight:600">医疗设备管理</span>
+        <span style="font-size:15px;font-weight:600">
+          {{ isHospitalAdmin ? (deptName + ' - 设备列表') : '医疗设备管理' }}
+        </span>
         <el-button type="success" :icon="Plus" @click="openCreate">添加设备</el-button>
       </div>
     </el-card>
@@ -15,7 +17,7 @@
         <el-table-column prop="manufacturer" label="厂家" width="120" />
         <el-table-column prop="deviceType" label="类型" width="90">
           <template #default="{ row }">
-            <el-tag size="small">{{ row.deviceType }}</el-tag>
+            <el-tag size="small">{{ typeLabel(row.deviceType) }}</el-tag>
           </template>
         </el-table-column>
         <el-table-column prop="protocol" label="协议" width="80" />
@@ -47,12 +49,17 @@
             <el-option value="BLOOD" label="血常规仪" />
             <el-option value="URINE" label="尿分析仪" />
             <el-option value="HBA1C" label="糖化血红蛋白仪" />
+            <el-option value="DR" label="DR放射设备" />
+            <el-option value="ULTRASOUND" label="B超设备" />
+            <el-option value="ECG" label="心电图仪" />
           </el-select>
         </el-form-item>
         <el-form-item label="协议">
           <el-select v-model="form.protocol" style="width:100%">
             <el-option value="ASTM" label="ASTM E1394" />
             <el-option value="MINDRAY" label="迈瑞自定义" />
+            <el-option value="DICOM" label="DICOM" />
+            <el-option value="HL7" label="HL7" />
           </el-select>
         </el-form-item>
         <el-form-item label="IP地址"><el-input v-model="form.ipAddress" placeholder="192.168.1.x" /></el-form-item>
@@ -66,7 +73,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { Plus } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getDevices, createDevice, updateDevice, deleteDevice } from '@/api/device'
@@ -75,20 +82,43 @@ const loading = ref(false)
 const list = ref([])
 const dialogVisible = ref(false)
 const formRef = ref()
-const form = reactive({ id: null, deviceNo: '', deviceName: '', deviceModel: '', manufacturer: '', deviceType: 'BIOCHEM', protocol: 'ASTM', ipAddress: '', status: 1 })
+const form = reactive({ id: null, deviceNo: '', deviceName: '', deviceModel: '', manufacturer: '', deviceType: 'BIOCHEM', protocol: 'ASTM', ipAddress: '', deptId: null, status: 0 })
+
+const userInfo = computed(() => {
+  try { return JSON.parse(localStorage.getItem('userInfo') || '{}') } catch { return {} }
+})
+const isHospitalAdmin = computed(() => userInfo.value.userType === 4)
+const myDeptId = computed(() => userInfo.value.deptId)
+const deptName = computed(() => userInfo.value.deptName || '')
+
+const typeLabel = (t) => ({ BIOCHEM: '生化仪', BLOOD: '血常规仪', URINE: '尿分析仪', HBA1C: '糖化仪', DR: 'DR设备', ULTRASOUND: 'B超', ECG: '心电图' }[t] || t)
 
 const loadData = async () => {
   loading.value = true
   try {
     const res = await getDevices()
-    list.value = res.data || res || []
+    let data = res.data || res || []
+    // 卫生院管理员只看本院设备
+    if (isHospitalAdmin.value && myDeptId.value) {
+      data = data.filter(d => d.deptId === myDeptId.value)
+    }
+    list.value = data
   } finally { loading.value = false }
 }
 
-const openCreate = () => { Object.assign(form, { id: null, deviceNo: '', deviceName: '', deviceModel: '', manufacturer: '', deviceType: 'BIOCHEM', protocol: 'ASTM', ipAddress: '' }); dialogVisible.value = true }
+const openCreate = () => {
+  Object.assign(form, {
+    id: null, deviceNo: '', deviceName: '', deviceModel: '', manufacturer: '',
+    deviceType: 'BIOCHEM', protocol: 'ASTM', ipAddress: '',
+    deptId: isHospitalAdmin.value ? myDeptId.value : null, status: 0
+  })
+  dialogVisible.value = true
+}
 const openEdit = (row) => { Object.assign(form, row); dialogVisible.value = true }
 
 const handleSave = async () => {
+  // 卫生院管理员创建设备时强制绑定本院deptId
+  if (isHospitalAdmin.value) form.deptId = myDeptId.value
   if (form.id) { await updateDevice(form.id, form) } else { await createDevice(form) }
   ElMessage.success('保存成功')
   dialogVisible.value = false

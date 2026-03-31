@@ -18,6 +18,14 @@ public class DeptService {
         return deptMapper.selectList(new LambdaQueryWrapper<SysDept>().eq(SysDept::getStatus, 1).orderByAsc(SysDept::getSort));
     }
 
+    public List<SysDept> listByParent(Long parentId) {
+        LambdaQueryWrapper<SysDept> wrapper = new LambdaQueryWrapper<SysDept>().eq(SysDept::getStatus, 1);
+        if (parentId != null) {
+            wrapper.eq(SysDept::getParentId, parentId);
+        }
+        return deptMapper.selectList(wrapper.orderByAsc(SysDept::getSort));
+    }
+
     public SysDept getById(Long id) {
         return deptMapper.selectById(id);
     }

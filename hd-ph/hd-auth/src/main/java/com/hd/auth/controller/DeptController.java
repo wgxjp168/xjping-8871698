@@ -16,8 +16,8 @@ public class DeptController {
     private DeptService deptService;
 
     @GetMapping
-    public Result<List<SysDept>> list() {
-        return Result.success(deptService.listAll());
+    public Result<List<SysDept>> list(@RequestParam(required = false) Long parentId) {
+        return Result.success(deptService.listByParent(parentId));
     }
 
     @GetMapping("/{id}")

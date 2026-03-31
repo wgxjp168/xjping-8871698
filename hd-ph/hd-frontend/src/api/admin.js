@@ -8,7 +8,7 @@ export const deleteUser = (id) => request.delete(`/users/${id}`)
 export const resetPassword = (id, password) => request.put(`/users/${id}/reset-password`, { password })
 
 // 部门
-export const getDepts = () => request.get('/depts')
+export const getDepts = (params) => request.get('/depts', { params })
 export const createDept = (data) => request.post('/depts', data)
 export const updateDept = (id, data) => request.put(`/depts/${id}`, data)
 export const deleteDept = (id) => request.delete(`/depts/${id}`)

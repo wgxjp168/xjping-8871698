@@ -34,6 +34,12 @@ const routes = [
         meta: { title: '体检单管理' }
       },
       {
+        path: 'barcode-scan',
+        name: 'BarcodeScan',
+        component: () => import('@/views/check/BarcodeScan.vue'),
+        meta: { title: '扫码查询' }
+      },
+      {
         path: 'check-orders/:id',
         name: 'CheckOrderDetail',
         component: () => import('@/views/check/CheckOrderDetail.vue'),
