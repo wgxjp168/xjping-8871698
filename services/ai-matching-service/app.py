@@ -1,5 +1,6 @@
 import os
 import sqlite3
+import tempfile
 import uuid
 from datetime import datetime, timezone
 
@@ -8,7 +9,7 @@ from flask import Flask, jsonify, request
 
 app = Flask(__name__)
 
-DB_PATH = "/tmp/ilbuy_ai.db"
+DB_PATH = os.environ.get('DB_PATH', os.path.join(tempfile.gettempdir(), 'ilbuy_ai.db'))
 PORT = int(os.environ.get("AI_SERVICE_PORT", 8003))
 PROCUREMENT_SERVICE_URL = os.environ.get("PROCUREMENT_SERVICE_URL", "http://localhost:8002")
 

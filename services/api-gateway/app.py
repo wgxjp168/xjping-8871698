@@ -21,11 +21,15 @@ ORDER_SERVICE_URL = os.getenv('ORDER_SERVICE_URL', 'http://localhost:8004')
 DATA_SERVICE_URL = os.getenv('DATA_SERVICE_URL', 'http://localhost:8005')
 
 # --- Rate limiter ---
+# Use Redis if available, otherwise fall back to in-memory storage (for local dev without Redis)
+_redis_uri = f"redis://:{REDIS_PASSWORD}@{REDIS_HOST}:{REDIS_PORT}/1"
+_storage_uri = os.getenv('RATELIMIT_STORAGE_URI', _redis_uri)
+
 limiter = Limiter(
     app=app,
     key_func=get_remote_address,
     default_limits=["200 per minute"],
-    storage_uri=f"redis://:{REDIS_PASSWORD}@{REDIS_HOST}:{REDIS_PORT}/1",
+    storage_uri=_storage_uri,
     headers_enabled=True,
     on_breach=lambda l: (
         jsonify({

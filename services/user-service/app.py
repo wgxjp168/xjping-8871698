@@ -5,11 +5,12 @@ import hmac
 import base64
 import json
 import time
+import tempfile
 from flask import Flask, request, jsonify
 
 app = Flask(__name__)
 
-DB_PATH = '/tmp/ilbuy_user.db'
+DB_PATH = os.environ.get('DB_PATH', os.path.join(tempfile.gettempdir(), 'ilbuy_user.db'))
 JWT_SECRET = os.environ.get('JWT_SECRET', 'ILbuy@JWT@SecretKey@2024@Production')
 PORT = int(os.environ.get('USER_SERVICE_PORT', 8001))
 TOKEN_EXPIRY = 7200

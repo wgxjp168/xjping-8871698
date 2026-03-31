@@ -1,11 +1,12 @@
 import os
 import random
 import sqlite3
+import tempfile
 from datetime import datetime, timezone
 from flask import Flask, request, jsonify
 
 app = Flask(__name__)
-DB_PATH = "/tmp/ilbuy_order.db"
+DB_PATH = os.environ.get('DB_PATH', os.path.join(tempfile.gettempdir(), 'ilbuy_order.db'))
 PORT = int(os.environ.get("ORDER_SERVICE_PORT", 8004))
 
 
