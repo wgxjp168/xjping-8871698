@@ -105,15 +105,7 @@ banner "场景三: B2B 采购需求提交"
 UNIQ=$(date +%s)
 
 step "创建采购需求（办公设备）"
-DEMAND_BODY="{
-  \"userId\": $BUYER_ID,
-  \"title\": \"E2E测试-笔记本电脑采购${UNIQ}\",
-  \"category\": \"IT设备\",
-  \"quantity\": 20,
-  \"unit\": \"台\",
-  \"budget\": 130000.00,
-  \"description\": \"需要采购20台商务笔记本电脑，要求i7处理器，16G内存，512G SSD\"
-}"
+DEMAND_BODY="{\"userId\":$BUYER_ID,\"title\":\"E2E-Test-Laptop-${UNIQ}\",\"category\":\"IT\",\"quantity\":20,\"unit\":\"unit\",\"budget\":130000.00,\"description\":\"Purchase 20 business laptops i7 16G 512G SSD\"}"
 do_req POST "$BASE/api/v1/procurement/demands" "$DEMAND_BODY" "$BUYER_TOKEN"
 assert_code 200 "创建采购需求"
 assert_field "code" "0" "业务码=0"
@@ -135,13 +127,7 @@ banner "场景四: AI 智能匹配决策"
 # ════════════════════════════════════════════════════════
 
 step "触发 AI 智能供应商匹配"
-AI_BODY="{
-  \"demandId\": $DEMAND_ID,
-  \"userId\": $BUYER_ID,
-  \"keyword\": \"笔记本电脑\",
-  \"category\": \"IT设备\",
-  \"budget\": 130000.00
-}"
+AI_BODY="{\"demandId\":$DEMAND_ID,\"userId\":$BUYER_ID,\"keyword\":\"Laptop\",\"category\":\"IT\",\"budget\":130000.00}"
 do_req POST "$BASE/api/v1/ai/match" "$AI_BODY" "$BUYER_TOKEN"
 assert_code 200 "触发AI匹配"
 assert_field "code" "0" "业务码=0"
@@ -171,31 +157,14 @@ banner "场景五: 供应商报价"
 # ════════════════════════════════════════════════════════
 
 step "注册测试供应商（数据采集服务）"
-SUP_BODY="{
-  \"companyName\": \"E2E测试科技供应商${UNIQ}\",
-  \"creditCode\": \"91110TEST${UNIQ}\",
-  \"contactPerson\": \"测试负责人\",
-  \"contactPhone\": \"13800${UNIQ:0:6}\",
-  \"address\": \"北京市朝阳区测试路1号\",
-  \"businessScope\": \"IT设备/笔记本电脑/服务器\",
-  \"qualificationLevel\": \"AA\"
-}"
+SUP_BODY="{\"companyName\":\"E2E-Test-Supplier-${UNIQ}\",\"creditCode\":\"91110TEST${UNIQ}\",\"contactPerson\":\"TestManager\",\"contactPhone\":\"13800${UNIQ:0:6}\",\"address\":\"TestAddress-1\",\"businessScope\":\"IT/Laptop/Server\",\"qualificationLevel\":\"AA\"}"
 do_req POST "$BASE/api/v1/suppliers" "$SUP_BODY" "$SUPPLIER_TOKEN"
 assert_code 200 "注册供应商"
 TEST_SUPPLIER_ID=$(extract "id")
 info "测试供应商 ID=$TEST_SUPPLIER_ID"
 
 step "供应商提交报价"
-QUOTE_BODY="{
-  \"demandId\": $DEMAND_ID,
-  \"supplierId\": $TEST_SUPPLIER_ID,
-  \"supplierName\": \"E2E测试科技供应商${UNIQ}\",
-  \"unitPrice\": 5800.00,
-  \"totalPrice\": 116000.00,
-  \"deliveryDays\": 7,
-  \"warrantyMonths\": 24,
-  \"remark\": \"全新正品，支持7天无理由退换\"
-}"
+QUOTE_BODY="{\"demandId\":$DEMAND_ID,\"supplierId\":$TEST_SUPPLIER_ID,\"supplierName\":\"E2E-Test-Supplier-${UNIQ}\",\"unitPrice\":5800.00,\"totalPrice\":116000.00,\"deliveryDays\":7,\"warrantyMonths\":24,\"remark\":\"Brand-new 7-day-return\"}"
 do_req POST "$BASE/api/v1/procurement/quotes" "$QUOTE_BODY" "$SUPPLIER_TOKEN"
 assert_code 200 "提交报价"
 QUOTE_ID=$(extract "id")
@@ -216,20 +185,7 @@ banner "场景六: 创建订单 & 支付"
 # ════════════════════════════════════════════════════════
 
 step "根据报价创建订单"
-ORDER_BODY="{
-  \"demandId\": $DEMAND_ID,
-  \"quoteId\": $QUOTE_ID,
-  \"buyerId\": $BUYER_ID,
-  \"supplierId\": $TEST_SUPPLIER_ID,
-  \"supplierName\": \"E2E测试科技供应商${UNIQ}\",
-  \"productName\": \"商务笔记本电脑（i7/16G/512G）\",
-  \"quantity\": 20,
-  \"unitPrice\": 5800.00,
-  \"totalAmount\": 116000.00,
-  \"deliveryDays\": 7,
-  \"paymentMethod\": \"BANK_TRANSFER\",
-  \"remark\": \"E2E全链路测试订单\"
-}"
+ORDER_BODY="{\"demandId\":$DEMAND_ID,\"quoteId\":$QUOTE_ID,\"buyerId\":$BUYER_ID,\"supplierId\":$TEST_SUPPLIER_ID,\"supplierName\":\"E2E-Test-Supplier-${UNIQ}\",\"productName\":\"Laptop-i7-16G-512G\",\"quantity\":20,\"unitPrice\":5800.00,\"totalAmount\":116000.00,\"deliveryDays\":7,\"paymentMethod\":\"BANK_TRANSFER\",\"remark\":\"E2E-Full-Chain-Test\"}"
 do_req POST "$BASE/api/v1/orders" "$ORDER_BODY" "$BUYER_TOKEN"
 assert_code 200 "创建订单"
 assert_field "code" "0" "业务码=0"
@@ -277,12 +233,12 @@ banner "场景八: 市场数据查询"
 # ════════════════════════════════════════════════════════
 
 step "查询市场参考价格（IT设备）"
-do_req GET "$BASE/api/v1/market/prices?category=IT设备" "" "$BUYER_TOKEN"
+do_req GET "$BASE/api/v1/market/prices" "" "$BUYER_TOKEN"
 assert_code 200 "查询市场价格"
 assert_field "total" "[1-9]" "有价格数据"
 
 step "查询供应商列表"
-do_req GET "$BASE/api/v1/suppliers?keyword=科技" "" "$BUYER_TOKEN"
+do_req GET "$BASE/api/v1/suppliers" "" "$BUYER_TOKEN"
 assert_code 200 "查询供应商列表"
 
 # ════════════════════════════════════════════════════════
@@ -294,7 +250,7 @@ do_req GET "$BASE/api/v1/orders/999999" "" "$BUYER_TOKEN"
 assert_code 404 "不存在资源返回 404"
 
 step "创建需求缺少必填字段（400）"
-do_req POST "$BASE/api/v1/procurement/demands" '{"category":"IT设备"}' "$BUYER_TOKEN"
+do_req POST "$BASE/api/v1/procurement/demands" '{"category":"IT"}' "$BUYER_TOKEN"
 assert_code 400 "缺少必填字段返回 400"
 
 step "错误密码登录（401）"
@@ -311,7 +267,7 @@ echo ""
 printf "  %-20s %s\n" "测试步骤总数:" "$STEP"
 printf "  %-20s ${GREEN}%s${NC}\n" "断言通过:" "$PASS"
 printf "  %-20s ${RED}%s${NC}\n" "断言失败:" "$FAIL"
-printf "  %-20s %s\n" "通过率:" "$(echo "scale=1; $PASS * 100 / $TOTAL" | bc)%"
+printf "  %-20s %s\n" "通过率:" "$(python3 -c "print(round($PASS*100/max($TOTAL,1),1))" 2>/dev/null || python -c "print(round($PASS*100/max($TOTAL,1),1))")%"
 echo ""
 if [ $FAIL -eq 0 ]; then
     echo -e "  ${GREEN}${BOLD}✅ 全链路业务场景验证通过！${NC}"

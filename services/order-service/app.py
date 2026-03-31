@@ -69,7 +69,7 @@ def health():
 
 @app.route("/internal/orders", methods=["POST"])
 def create_order():
-    body = request.get_json() or {}
+    body = request.get_json(force=True, silent=True) or {}
     now = now_str()
     order_no = gen_order_no()
     conn = get_db()
@@ -148,7 +148,7 @@ def pay_order(order_id):
         conn.close(); return resp(code=404, message="Order not found"), 404
     if row["payment_status"] == "PAID":
         conn.close(); return resp(code=400, message="Order already paid"), 400
-    body = request.get_json() or {}
+    body = request.get_json(force=True, silent=True) or {}
     now = now_str()
     payment_method = body.get("paymentMethod", row["payment_method"])
     conn.execute(

@@ -63,7 +63,7 @@ def init_db():
 
 @app.route("/internal/demands", methods=["POST"])
 def create_demand():
-    body = request.get_json() or {}
+    body = request.get_json(force=True, silent=True) or {}
     user_id = body.get("userId")
     title = body.get("title")
     category = body.get("category")
@@ -127,7 +127,7 @@ def get_demand(demand_id):
 
 @app.route("/internal/demands/<int:demand_id>/status", methods=["PUT"])
 def update_demand_status(demand_id):
-    body = request.get_json() or {}
+    body = request.get_json(force=True, silent=True) or {}
     status = body.get("status")
     if not status:
         return resp(400, "status is required"), 400
@@ -153,7 +153,7 @@ def update_demand_status(demand_id):
 
 @app.route("/internal/quotes", methods=["POST"])
 def create_quote():
-    body = request.get_json() or {}
+    body = request.get_json(force=True, silent=True) or {}
     demand_id = body.get("demandId")
     supplier_id = body.get("supplierId")
     unit_price = body.get("unitPrice")
