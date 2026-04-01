@@ -3,8 +3,10 @@
 BASE="http://localhost:8080"
 PASS=0; FAIL=0; TOTAL=0
 START_TIME=$(date +%s%3N)
-# Windows 兼容：优先用 python3，不存在则用 python
-PY=$(command -v python3 2>/dev/null || command -v python 2>/dev/null)
+# Windows 兼容：实际测试python3/python能否运行（Windows商店stub会静默失败）
+if python3 -c "import sys" >/dev/null 2>&1; then PY=python3
+elif python -c "import sys" >/dev/null 2>&1; then PY=python
+else PY=""; fi
 G='\033[0;32m'; R='\033[0;31m'; Y='\033[1;33m'; B='\033[0;34m'; N='\033[0m'
 
 assert() {
