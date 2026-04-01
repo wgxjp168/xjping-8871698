@@ -3,6 +3,8 @@
 BASE="http://localhost:8080"
 PASS=0; FAIL=0; TOTAL=0
 START_TIME=$(date +%s%3N)
+# Windows 兼容：优先用 python3，不存在则用 python
+PY=$(command -v python3 2>/dev/null || command -v python 2>/dev/null)
 G='\033[0;32m'; R='\033[0;31m'; Y='\033[1;33m'; B='\033[0;34m'; N='\033[0m'
 
 assert() {
@@ -100,8 +102,8 @@ assert_contains "TC-API-001b" "返回accessToken" "$RESP_BODY" '"accessToken"'
 assert_json "TC-API-001c" "expiresIn=7200" "$RESP_BODY" "expiresIn" "7200"
 assert_json "TC-API-001d" "userType=ENTERPRISE" "$RESP_BODY" "userType" "ENTERPRISE"
 assert_time "TC-API-001e" "登录响应<500ms" "$RESP_MS" 500
-TOKEN=$(echo "$RESP_BODY" | python3 -c "import sys,json;d=json.load(sys.stdin);print(d['data']['accessToken'])" 2>/dev/null | tr -d '\r')
-RT=$(echo "$RESP_BODY" | python3 -c "import sys,json;d=json.load(sys.stdin);print(d['data']['refreshToken'])" 2>/dev/null | tr -d '\r')
+TOKEN=$(echo "$RESP_BODY" | $PY -c "import sys,json;d=json.load(sys.stdin);print(d['data']['accessToken'])" 2>/dev/null | tr -d '\r')
+RT=$(echo "$RESP_BODY" | $PY -c "import sys,json;d=json.load(sys.stdin);print(d['data']['refreshToken'])" 2>/dev/null | tr -d '\r')
 
 # 密码错误
 do_request POST "$BASE/api/v1/auth/login" \
@@ -124,18 +126,18 @@ echo ""; echo -e "${B}【模块2】采购需求（Procurement）${N}"
 
 # 创建B2B需求
 do_request POST "$BASE/api/v1/procurement/demands" \
-  '{"procurementType":"B2B","categoryId":1,"productName":"A4打印纸","productSpec":"70g 500张/包","quantity":100,"unit":"箱","budgetAmount":5000.00,"currency":"CNY","deliveryDeadline":"2024-12-31","deliveryAddress":"北京市朝阳区建国路88号","contactName":"张采购","contactPhone":"13800138001","requireTaxInvoice":true,"invoiceType":"SPECIAL_VAT","remark":"品牌不限"}' \
+  '{"procurementType":"B2B","categoryId":1,"productName":"A4-Paper","productSpec":"70g 500pcs/box","quantity":100,"unit":"box","budgetAmount":5000.00,"currency":"CNY","deliveryDeadline":"2024-12-31","deliveryAddress":"Beijing Chaoyang District","contactName":"TestBuyer","contactPhone":"13800138001","requireTaxInvoice":true,"invoiceType":"SPECIAL_VAT","remark":"any brand"}' \
   "$TOKEN"
 assert "TC-API-010a" "创建B2B需求HTTP 201" "$RESP_CODE" "201"
 assert_contains "TC-API-010b" "返回demandId" "$RESP_BODY" '"demandId"'
 assert_contains "TC-API-010c" "orderNo格式PRO" "$RESP_BODY" '"orderNo":"PRO'
 assert_json "TC-API-010d" "状态MATCHING" "$RESP_BODY" "status" "MATCHING"
 assert_time "TC-API-010e" "创建响应<1000ms" "$RESP_MS" 1000
-DEMAND_ID=$(echo "$RESP_BODY" | python3 -c "import sys,json;d=json.load(sys.stdin);print(d['data']['demandId'])" 2>/dev/null | tr -d '\r')
+DEMAND_ID=$(echo "$RESP_BODY" | $PY -c "import sys,json;d=json.load(sys.stdin);print(d['data']['demandId'])" 2>/dev/null | tr -d '\r')
 
 # B2C未定品牌
 do_request POST "$BASE/api/v1/procurement/demands" \
-  '{"procurementType":"B2C_UNDECIDED","productName":"办公桌椅套装","quantity":20,"unit":"套","budgetAmount":40000.00,"deliveryAddress":"北京市海淀区"}' \
+  '{"procurementType":"B2C_UNDECIDED","productName":"Office Desk Chair Set","quantity":20,"unit":"set","budgetAmount":40000.00,"deliveryAddress":"Beijing Haidian District"}' \
   "$TOKEN"
 assert "TC-API-010f" "B2C未定品牌需求HTTP 201" "$RESP_CODE" "201"
 
@@ -167,7 +169,7 @@ do_request POST "$BASE/api/v1/matching/trigger" \
 assert "TC-API-020a" "触发AI匹配HTTP 200" "$RESP_CODE" "200"
 assert_contains "TC-API-020b" "返回matchTaskId" "$RESP_BODY" '"matchTaskId"'
 assert_json "TC-API-020c" "状态PROCESSING" "$RESP_BODY" "status" "PROCESSING"
-TASK_ID=$(echo "$RESP_BODY" | python3 -c "import sys,json;d=json.load(sys.stdin);print(d['data']['matchTaskId'])" 2>/dev/null | tr -d '\r')
+TASK_ID=$(echo "$RESP_BODY" | $PY -c "import sys,json;d=json.load(sys.stdin);print(d['data']['matchTaskId'])" 2>/dev/null | tr -d '\r')
 
 sleep 1
 do_request GET "$BASE/api/v1/matching/result/$TASK_ID" "" "$TOKEN"
@@ -181,32 +183,32 @@ assert_contains "TC-API-021d" "包含AI分析" "$RESP_BODY" '"aiAnalysis"'
 echo ""; echo -e "${B}【模块4】询价报价（Inquiry）${N}"
 
 do_request POST "$BASE/api/v1/inquiry" \
-  "{\"demandId\":$DEMAND_ID,\"supplierIds\":[5001,5002],\"inquiryDeadline\":\"2099-12-31T18:00:00\",\"message\":\"请按需求规格报价\"}" \
+  "{\"demandId\":$DEMAND_ID,\"supplierIds\":[5001,5002],\"inquiryDeadline\":\"2099-12-31T18:00:00\",\"message\":\"Please quote per spec\"}" \
   "$TOKEN"
 assert "TC-API-030a" "发起询价HTTP 201" "$RESP_CODE" "201"
 assert_contains "TC-API-030b" "返回inquiryId" "$RESP_BODY" '"inquiryId"'
 assert_json "TC-API-030c" "状态SENT" "$RESP_BODY" "status" "SENT"
 assert_json "TC-API-030d" "supplierCount=2" "$RESP_BODY" "supplierCount" "2"
-INQUIRY_ID=$(echo "$RESP_BODY" | python3 -c "import sys,json;d=json.load(sys.stdin);print(d['data']['inquiryId'])" 2>/dev/null | tr -d '\r')
+INQUIRY_ID=$(echo "$RESP_BODY" | $PY -c "import sys,json;d=json.load(sys.stdin);print(d['data']['inquiryId'])" 2>/dev/null | tr -d '\r')
 
 # 供应商登录并提交报价
 do_request POST "$BASE/api/v1/auth/login" \
   '{"username":"test_supplier_001","password":"Test@123456","captchaToken":"bypass"}'
-SUP_TOKEN=$(echo "$RESP_BODY" | python3 -c "import sys,json;d=json.load(sys.stdin);print(d['data']['accessToken'])" 2>/dev/null | tr -d '\r')
+SUP_TOKEN=$(echo "$RESP_BODY" | $PY -c "import sys,json;d=json.load(sys.stdin);print(d['data']['accessToken'])" 2>/dev/null | tr -d '\r')
 
 do_request POST "$BASE/api/v1/inquiry/$INQUIRY_ID/quotes" \
-  '{"unitPrice":46.50,"currency":"CNY","totalAmount":4650.00,"taxRate":0.13,"deliveryDays":2,"validDays":7,"remark":"现货供应，当日可发货"}' \
+  '{"unitPrice":46.50,"currency":"CNY","totalAmount":4650.00,"taxRate":0.13,"deliveryDays":2,"validDays":7,"remark":"In stock, same day shipping"}' \
   "$SUP_TOKEN"
 assert "TC-API-031a" "供应商报价HTTP 201" "$RESP_CODE" "201"
 assert_contains "TC-API-031b" "返回quoteId" "$RESP_BODY" '"quoteId"'
 assert_json "TC-API-031c" "状态SUBMITTED" "$RESP_BODY" "status" "SUBMITTED"
-QUOTE_ID=$(echo "$RESP_BODY" | python3 -c "import sys,json;d=json.load(sys.stdin);print(d['data']['quoteId'])" 2>/dev/null | tr -d '\r')
+QUOTE_ID=$(echo "$RESP_BODY" | $PY -c "import sys,json;d=json.load(sys.stdin);print(d['data']['quoteId'])" 2>/dev/null | tr -d '\r')
 
 do_request PUT "$BASE/api/v1/inquiry/$INQUIRY_ID/quotes/$QUOTE_ID/accept" "" "$TOKEN"
 assert "TC-API-032a" "接受报价HTTP 200" "$RESP_CODE" "200"
 assert_contains "TC-API-032b" "返回orderId" "$RESP_BODY" '"orderId"'
 assert_json "TC-API-032c" "订单状态PENDING_PAYMENT" "$RESP_BODY" "orderStatus" "PENDING_PAYMENT"
-ORDER_ID=$(echo "$RESP_BODY" | python3 -c "import sys,json;d=json.load(sys.stdin);print(d['data']['orderId'])" 2>/dev/null | tr -d '\r')
+ORDER_ID=$(echo "$RESP_BODY" | $PY -c "import sys,json;d=json.load(sys.stdin);print(d['data']['orderId'])" 2>/dev/null | tr -d '\r')
 
 # ══════════════════════════════════════
 echo ""; echo -e "${B}【模块5】订单（Order）${N}"
@@ -218,7 +220,7 @@ assert_contains "TC-API-040c" "包含items数组" "$RESP_BODY" '"items"'
 assert_contains "TC-API-040d" "包含buyerInfo" "$RESP_BODY" '"buyerInfo"'
 
 do_request PUT "$BASE/api/v1/orders/$ORDER_ID/confirm-receipt" \
-  '{"receiptTime":"2024-03-25T10:00:00","quantity":100,"qualityOk":true,"remark":"货物完好"}' \
+  '{"receiptTime":"2024-03-25T10:00:00","quantity":100,"qualityOk":true,"remark":"Goods intact"}' \
   "$TOKEN"
 assert "TC-API-041a" "确认收货HTTP 200" "$RESP_CODE" "200"
 assert_json "TC-API-041b" "订单状态COMPLETED" "$RESP_BODY" "orderStatus" "COMPLETED"
@@ -248,7 +250,7 @@ assert_json "TC-API-060d" "trend字段STABLE" "$RESP_BODY" "trend" "STABLE"
 assert_time "TC-API-060e" "价格查询响应<300ms" "$RESP_MS" 300
 
 do_request PUT "$BASE/api/v1/procurement/demands/$DEMAND_ID/cancel" \
-  '{"reason":"验收测试完成-取消需求"}' \
+  '{"reason":"test-complete-cancel"}' \
   "$TOKEN"
 assert "TC-API-013a" "取消需求HTTP 200" "$RESP_CODE" "200"
 assert_json "TC-API-013b" "状态CANCELLED" "$RESP_BODY" "status" "CANCELLED"
