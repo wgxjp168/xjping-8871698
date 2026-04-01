@@ -598,7 +598,6 @@ def data_market_price():
 # --- Test route ---
 @app.route('/api/v1/test/rate-limit-check', methods=['GET'])
 @limiter.limit("100 per minute")
-@require_auth
 def rate_limit_check():
     return jsonify({"code": 0, "message": "success", "data": None}), 200
 
