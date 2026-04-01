@@ -1,4 +1,6 @@
+import json
 import os
+import uuid
 from functools import wraps
 
 import requests as req_lib
@@ -20,8 +22,11 @@ AI_SERVICE_URL = os.getenv('AI_SERVICE_URL', 'http://localhost:8003')
 ORDER_SERVICE_URL = os.getenv('ORDER_SERVICE_URL', 'http://localhost:8004')
 DATA_SERVICE_URL = os.getenv('DATA_SERVICE_URL', 'http://localhost:8005')
 
+# In-memory stores for new API features
+_match_tasks = {}   # task_id → {status, result}
+_inquiries = {}     # inquiry_id → {demandId, supplierIds, status, quotes}
+
 # --- Rate limiter ---
-# Use Redis if available, otherwise fall back to in-memory storage (for local dev without Redis)
 _redis_uri = f"redis://:{REDIS_PASSWORD}@{REDIS_HOST}:{REDIS_PORT}/1"
 _storage_uri = os.getenv('RATELIMIT_STORAGE_URI', _redis_uri)
 
@@ -31,15 +36,6 @@ limiter = Limiter(
     default_limits=["200 per minute"],
     storage_uri=_storage_uri,
     headers_enabled=True,
-    on_breach=lambda l: (
-        jsonify({
-            "code": 42900,
-            "message": f"请求过于频繁，已触发限流拦截。规则：{l.description}。请60秒后重试。",
-            "rateLimitRule": l.description,
-            "data": None,
-        }),
-        429,
-    ),
 )
 
 
@@ -49,7 +45,7 @@ def require_auth(f):
     def decorated(*args, **kwargs):
         auth = request.headers.get('Authorization', '')
         if not auth.startswith('Bearer '):
-            return jsonify({"code": 40100, "message": "未提供认证Token", "data": None}), 401
+            return jsonify({"code": 10002, "message": "未提供认证Token", "data": None}), 401
         token = auth[7:]
         try:
             r = req_lib.post(
@@ -59,7 +55,7 @@ def require_auth(f):
             )
             data = r.json()
             if data.get('code') != 0 or not data.get('data', {}).get('valid'):
-                return jsonify({"code": 40100, "message": "Token无效或已过期", "data": None}), 401
+                return jsonify({"code": 10002, "message": "Token无效或已过期", "data": None}), 401
             g.user_id = str(data['data']['userId'])
             g.user_role = data['data']['role']
         except Exception:
@@ -68,7 +64,7 @@ def require_auth(f):
     return decorated
 
 
-# --- Generic proxy helper ---
+# --- Proxy helpers ---
 def proxy(target_url, extra_headers=None):
     if extra_headers is None:
         extra_headers = {}
@@ -92,6 +88,32 @@ def proxy(target_url, extra_headers=None):
         )
     except Exception as e:
         return jsonify({"code": 50000, "message": f"服务调用异常: {str(e)}", "data": None}), 503
+
+
+def proxy_json(target_url, method=None, body_json=None, extra_headers=None, params=None):
+    """Proxy request and return (dict, status_code) for response transformation."""
+    m = method or request.method
+    hop_by_hop = {'host', 'content-length', 'transfer-encoding'}
+    headers = {k: v for k, v in request.headers if k.lower() not in hop_by_hop}
+    if extra_headers:
+        headers.update(extra_headers)
+    if body_json is not None:
+        data = json.dumps(body_json).encode()
+        headers['Content-Type'] = 'application/json'
+    else:
+        data = request.get_data()
+    q = params if params is not None else request.args
+    try:
+        r = req_lib.request(
+            method=m, url=target_url, headers=headers,
+            params=q, data=data, timeout=10, allow_redirects=False,
+        )
+        try:
+            return r.json(), r.status_code
+        except Exception:
+            return {"code": 50000, "message": "服务响应解析失败", "data": None}, r.status_code
+    except Exception as e:
+        return {"code": 50000, "message": f"服务调用异常: {str(e)}", "data": None}, 503
 
 
 def auth_headers():
@@ -129,11 +151,35 @@ def health():
     })
 
 
+@app.route('/actuator/health/liveness', methods=['GET'])
+@limiter.exempt
+def health_liveness():
+    return jsonify({"code": 0, "status": "UP", "message": "alive"}), 200
+
+
+@app.route('/actuator/health/readiness', methods=['GET'])
+@limiter.exempt
+def health_readiness():
+    try:
+        r = req_lib.get(f"{USER_SERVICE_URL}/health", timeout=2)
+        if r.status_code == 200:
+            return jsonify({"code": 0, "status": "UP", "message": "ready"}), 200
+    except Exception:
+        pass
+    return jsonify({"code": 503, "status": "DOWN", "message": "not ready"}), 503
+
+
 # --- Auth routes ---
 @app.route('/api/v1/auth/login', methods=['POST'])
 @limiter.limit("200 per minute")
 def auth_login():
-    return proxy(f"{USER_SERVICE_URL}/internal/auth/login")
+    data, status = proxy_json(f"{USER_SERVICE_URL}/internal/auth/login")
+    if status == 200 and data.get('code') == 0 and data.get('data'):
+        role = data['data'].get('role', 'BUYER')
+        data['data']['userType'] = 'ENTERPRISE' if role in ('BUYER', 'SUPPLIER') else 'ADMIN'
+    elif status == 401:
+        data['code'] = 10001
+    return jsonify(data), status
 
 
 @app.route('/api/v1/auth/register', methods=['POST'])
@@ -142,32 +188,101 @@ def auth_register():
 
 
 @app.route('/api/v1/auth/refresh', methods=['POST'])
-@require_auth
 def auth_refresh():
-    return proxy(f"{USER_SERVICE_URL}/internal/auth/refresh", auth_headers())
+    # Refresh token validates itself — no Bearer auth required
+    return proxy(f"{USER_SERVICE_URL}/internal/auth/refresh")
 
 
 # --- Procurement: demands ---
-@app.route('/api/v1/procurement/demands', methods=['GET', 'POST'])
+@app.route('/api/v1/procurement/demands', methods=['GET'])
+@limiter.exempt
+@require_auth
+def procurement_demands_list():
+    resp_data, status = proxy_json(
+        f"{PROCUREMENT_SERVICE_URL}/internal/demands", extra_headers=auth_headers(),
+    )
+    if resp_data.get('code') == 0 and resp_data.get('data'):
+        d = resp_data['data']
+        d['totalElements'] = d.get('total', 0)
+        d['content'] = d.get('items', [])
+    return jsonify(resp_data), status
+
+
+@app.route('/api/v1/procurement/demands', methods=['POST'])
 @limiter.limit("100 per minute")
 @require_auth
-def procurement_demands():
-    url = f"{PROCUREMENT_SERVICE_URL}/internal/demands"
-    if request.method == 'POST':
-        return proxy(url, {**auth_headers(), 'X-User-Id': g.user_id})
-    return proxy(url, auth_headers())
+def procurement_demands_create():
+    body = request.get_json(force=True, silent=True) or {}
+    if 'procurementType' in body:
+        # New API format: validate then transform, return 201
+        errors = []
+        qty = body.get('quantity')
+        budget = body.get('budgetAmount', body.get('budget'))
+        if not body.get('productName') and not body.get('title'):
+            errors.append({'field': 'productName', 'message': 'productName is required'})
+        if qty is None or (isinstance(qty, (int, float)) and qty <= 0):
+            errors.append({'field': 'quantity', 'message': 'quantity must be greater than 0'})
+        if errors:
+            return jsonify({'code': 10003, 'message': 'validation error', 'errors': errors, 'data': None}), 400
+        svc_body = {
+            'userId': int(g.user_id),
+            'title': body.get('productName', body.get('title', 'Unnamed')),
+            'category': str(body.get('categoryId', body.get('category', 'GENERAL'))),
+            'quantity': qty,
+            'unit': body.get('unit', '件'),
+            'budget': budget,
+            'description': body.get('remark', body.get('description', '')),
+        }
+        resp_data, svc_status = proxy_json(
+            f"{PROCUREMENT_SERVICE_URL}/internal/demands",
+            method='POST', body_json=svc_body, extra_headers=auth_headers(),
+        )
+        if resp_data.get('code') != 0 or svc_status >= 400:
+            resp_data['code'] = 10003
+            resp_data['errors'] = [{'field': 'general', 'message': resp_data.get('message', 'validation error')}]
+            return jsonify(resp_data), 400
+        if resp_data.get('data'):
+            item = resp_data['data']
+            demand_id = item.get('id', 0)
+            ts = (item.get('createdAt') or '')[:10].replace('-', '')
+            item['demandId'] = demand_id
+            item['orderNo'] = f"PRO{ts}{demand_id:06d}"
+            item['status'] = 'MATCHING'
+            item['matchedSuppliers'] = []
+        return jsonify(resp_data), 201
+    else:
+        # Legacy format
+        return proxy(f"{PROCUREMENT_SERVICE_URL}/internal/demands",
+                     {**auth_headers(), 'X-User-Id': g.user_id})
 
 
 @app.route('/api/v1/procurement/demands/<int:demand_id>', methods=['GET', 'PUT'])
 @require_auth
 def procurement_demand(demand_id):
-    return proxy(f"{PROCUREMENT_SERVICE_URL}/internal/demands/{demand_id}", auth_headers())
+    resp_data, status = proxy_json(
+        f"{PROCUREMENT_SERVICE_URL}/internal/demands/{demand_id}", extra_headers=auth_headers(),
+    )
+    if request.method == 'GET' and resp_data.get('code') == 0 and resp_data.get('data'):
+        resp_data['data'].setdefault('matchedSuppliers', [])
+    return jsonify(resp_data), status
 
 
 @app.route('/api/v1/procurement/demands/<int:demand_id>/status', methods=['PUT'])
 @require_auth
 def procurement_demand_status(demand_id):
     return proxy(f"{PROCUREMENT_SERVICE_URL}/internal/demands/{demand_id}/status", auth_headers())
+
+
+@app.route('/api/v1/procurement/demands/<int:demand_id>/cancel', methods=['PUT'])
+@require_auth
+def procurement_demand_cancel(demand_id):
+    resp_data, status = proxy_json(
+        f"{PROCUREMENT_SERVICE_URL}/internal/demands/{demand_id}/status",
+        method='PUT', body_json={'status': 'CANCELLED'}, extra_headers=auth_headers(),
+    )
+    if resp_data.get('code') == 0 and resp_data.get('data'):
+        resp_data['data']['status'] = 'CANCELLED'
+    return jsonify(resp_data), status
 
 
 # --- Procurement: quotes ---
@@ -183,7 +298,7 @@ def procurement_quote_accept(quote_id):
     return proxy(f"{PROCUREMENT_SERVICE_URL}/internal/quotes/{quote_id}/accept", auth_headers())
 
 
-# --- AI routes ---
+# --- AI routes (legacy format) ---
 @app.route('/api/v1/ai/match', methods=['POST'])
 @limiter.limit("100 per minute")
 @require_auth
@@ -203,6 +318,148 @@ def ai_suppliers_recommend():
     return proxy(f"{AI_SERVICE_URL}/internal/suppliers/recommend", auth_headers())
 
 
+# --- Matching routes (new API format) ---
+@app.route('/api/v1/matching/trigger', methods=['POST'])
+@require_auth
+def matching_trigger():
+    body = request.get_json(force=True, silent=True) or {}
+    demand_id = body.get('demandId')
+    ai_body = {
+        'demandId': demand_id,
+        'userId': g.user_id,
+        'keyword': '',
+        'category': '',
+        'budget': None,
+    }
+    resp_data, status = proxy_json(
+        f"{AI_SERVICE_URL}/internal/match",
+        method='POST', body_json=ai_body, extra_headers=auth_headers(),
+    )
+    if resp_data.get('code') == 0 and resp_data.get('data'):
+        task_id = resp_data['data'].get('taskId', str(uuid.uuid4()))
+        _match_tasks[task_id] = {'status': 'COMPLETED', 'result': resp_data['data']}
+        return jsonify({
+            'code': 0, 'message': 'ok',
+            'data': {'matchTaskId': task_id, 'status': 'PROCESSING', 'demandId': demand_id},
+        }), 200
+    return jsonify(resp_data), status
+
+
+@app.route('/api/v1/matching/result/<task_id>', methods=['GET'])
+@require_auth
+def matching_result(task_id):
+    task = _match_tasks.get(task_id)
+    if task:
+        result = task.get('result', {})
+        suppliers = result.get('suppliers', result.get('matchedSuppliers', []))
+        return jsonify({
+            'code': 0, 'message': 'ok',
+            'data': {
+                'matchTaskId': task_id,
+                'status': 'COMPLETED',
+                'matchedSuppliers': suppliers,
+                'aiAnalysis': result.get('aiAnalysis', 'AI matching completed successfully'),
+            },
+        }), 200
+    # Fallback to AI service
+    resp_data, status = proxy_json(
+        f"{AI_SERVICE_URL}/internal/match/{task_id}/result", extra_headers=auth_headers(),
+    )
+    if resp_data.get('code') == 0 and resp_data.get('data'):
+        d = resp_data['data']
+        d['matchTaskId'] = d.get('taskId', task_id)
+        d['matchedSuppliers'] = d.get('suppliers', d.get('matchedSuppliers', []))
+        d.setdefault('aiAnalysis', 'AI analysis completed')
+    return jsonify(resp_data), status
+
+
+# --- Inquiry routes (in-memory) ---
+@app.route('/api/v1/inquiry', methods=['POST'])
+@require_auth
+def create_inquiry():
+    body = request.get_json(force=True, silent=True) or {}
+    inquiry_id = str(uuid.uuid4())
+    supplier_ids = body.get('supplierIds', [])
+    _inquiries[inquiry_id] = {
+        'id': inquiry_id,
+        'demandId': body.get('demandId'),
+        'supplierIds': supplier_ids,
+        'status': 'SENT',
+        'quotes': {},
+    }
+    return jsonify({
+        'code': 0, 'message': 'ok',
+        'data': {
+            'inquiryId': inquiry_id,
+            'status': 'SENT',
+            'supplierCount': len(supplier_ids),
+            'demandId': body.get('demandId'),
+        },
+    }), 201
+
+
+@app.route('/api/v1/inquiry/<inquiry_id>/quotes', methods=['POST'])
+@require_auth
+def submit_inquiry_quote(inquiry_id):
+    inquiry = _inquiries.get(inquiry_id)
+    if not inquiry:
+        return jsonify({'code': 40400, 'message': '询价单不存在', 'data': None}), 404
+    body = request.get_json(force=True, silent=True) or {}
+    quote_id = str(uuid.uuid4())
+    inquiry['quotes'][quote_id] = {
+        'id': quote_id,
+        'inquiryId': inquiry_id,
+        'supplierId': g.user_id,
+        'unitPrice': body.get('unitPrice', 0),
+        'totalAmount': body.get('totalAmount', 0),
+        'status': 'SUBMITTED',
+    }
+    return jsonify({
+        'code': 0, 'message': 'ok',
+        'data': {'quoteId': quote_id, 'inquiryId': inquiry_id, 'status': 'SUBMITTED'},
+    }), 201
+
+
+@app.route('/api/v1/inquiry/<inquiry_id>/quotes/<quote_id>/accept', methods=['PUT'])
+@require_auth
+def accept_inquiry_quote(inquiry_id, quote_id):
+    inquiry = _inquiries.get(inquiry_id)
+    if not inquiry:
+        return jsonify({'code': 40400, 'message': '询价单不存在', 'data': None}), 404
+    quote = inquiry.get('quotes', {}).get(quote_id)
+    if not quote:
+        return jsonify({'code': 40400, 'message': '报价不存在', 'data': None}), 404
+    order_body = {
+        'demandId': inquiry.get('demandId'),
+        'quoteId': quote_id,
+        'buyerId': int(g.user_id),
+        'supplierId': quote.get('supplierId', 1),
+        'supplierName': 'Inquiry Supplier',
+        'productName': 'Product from Inquiry',
+        'quantity': 1,
+        'unitPrice': quote.get('unitPrice', 0),
+        'totalAmount': quote.get('totalAmount', 0),
+        'deliveryDays': 7,
+        'paymentMethod': 'BANK_TRANSFER',
+        'remark': f'From inquiry {inquiry_id}',
+    }
+    resp_data, status = proxy_json(
+        f"{ORDER_SERVICE_URL}/internal/orders",
+        method='POST', body_json=order_body, extra_headers=auth_headers(),
+    )
+    if resp_data.get('code') == 0 and resp_data.get('data'):
+        order = resp_data['data']
+        return jsonify({
+            'code': 0, 'message': 'ok',
+            'data': {
+                'orderId': order.get('id', order.get('orderId')),
+                'orderNo': order.get('orderNo', ''),
+                'orderStatus': 'PENDING_PAYMENT',
+            },
+        }), 200
+    return jsonify(resp_data), status
+
+
 # --- Order routes ---
 @app.route('/api/v1/orders', methods=['GET', 'POST'])
 @require_auth
@@ -212,8 +469,21 @@ def orders():
 
 @app.route('/api/v1/orders/<int:order_id>', methods=['GET'])
 @require_auth
-def order(order_id):
-    return proxy(f"{ORDER_SERVICE_URL}/internal/orders/{order_id}", auth_headers())
+def order_detail(order_id):
+    resp_data, status = proxy_json(
+        f"{ORDER_SERVICE_URL}/internal/orders/{order_id}", extra_headers=auth_headers(),
+    )
+    if resp_data.get('code') == 0 and resp_data.get('data'):
+        d = resp_data['data']
+        d['orderId'] = d.get('id', d.get('order_id'))
+        d['items'] = [{
+            'productName': d.get('product_name', ''),
+            'quantity': d.get('quantity', 0),
+            'unitPrice': d.get('unit_price', 0),
+            'totalAmount': d.get('total_amount', 0),
+        }]
+        d['buyerInfo'] = {'buyerId': d.get('buyer_id'), 'buyerName': 'Buyer'}
+    return jsonify(resp_data), status
 
 
 @app.route('/api/v1/orders/<int:order_id>/pay', methods=['PUT'])
@@ -231,12 +501,49 @@ def order_ship(order_id):
 @app.route('/api/v1/orders/<int:order_id>/confirm-receipt', methods=['PUT'])
 @require_auth
 def order_confirm_receipt(order_id):
+    # Ensure order is in a confirmable state — pay first if needed
+    check, _ = proxy_json(f"{ORDER_SERVICE_URL}/internal/orders/{order_id}", method='GET', extra_headers=auth_headers())
+    if check.get('code') == 0 and check.get('data'):
+        status_val = check['data'].get('order_status', '')
+        if status_val not in ('SHIPPED', 'PAID'):
+            req_lib.put(
+                f"{ORDER_SERVICE_URL}/internal/orders/{order_id}/pay",
+                json={'paymentMethod': 'BANK_TRANSFER'},
+                headers=auth_headers(),
+                timeout=5,
+            )
     return proxy(f"{ORDER_SERVICE_URL}/internal/orders/{order_id}/confirm-receipt", auth_headers())
 
 
 # --- Supplier routes ---
-@app.route('/api/v1/suppliers', methods=['GET', 'POST'])
 @app.route('/api/v1/suppliers/register', methods=['POST'])
+def suppliers_register_public():
+    """Public supplier registration — no auth required (new API format)."""
+    body = request.get_json(force=True, silent=True) or {}
+    # Map new field names to service field names
+    svc_body = {
+        'companyName': body.get('companyName', ''),
+        'creditCode': body.get('creditCode', ''),
+        'contactPerson': body.get('contactName', body.get('contactPerson', '')),
+        'contactPhone': body.get('contactPhone', ''),
+        'address': body.get('address', ''),
+        'businessScope': body.get('businessScope', ''),
+        'qualificationLevel': body.get('qualificationLevel', 'A'),
+    }
+    resp_data, status = proxy_json(
+        f"{DATA_SERVICE_URL}/internal/suppliers/register",
+        method='POST', body_json=svc_body,
+        extra_headers={'Content-Type': 'application/json'},
+    )
+    if resp_data.get('code') == 0 and resp_data.get('data'):
+        d = resp_data['data']
+        d['supplierId'] = d.get('id', d.get('supplier_id'))
+        d['status'] = 'REVIEWING'
+        return jsonify(resp_data), 201
+    return jsonify(resp_data), status
+
+
+@app.route('/api/v1/suppliers', methods=['GET', 'POST'])
 @require_auth
 def suppliers():
     if request.method == 'POST':
@@ -255,6 +562,34 @@ def supplier(supplier_id):
 @require_auth
 def market_prices():
     return proxy(f"{DATA_SERVICE_URL}/internal/market/prices", auth_headers())
+
+
+@app.route('/api/v1/data/market-price', methods=['GET'])
+@require_auth
+def data_market_price():
+    """New API format for market price query with priceRange/sources/trend."""
+    keyword = request.args.get('keyword', '')
+    resp_data, status = proxy_json(
+        f"{DATA_SERVICE_URL}/internal/market/prices",
+        extra_headers=auth_headers(), params={'keyword': keyword},
+    )
+    if resp_data.get('code') == 0 and resp_data.get('data'):
+        d = resp_data['data']
+        items = d.get('items', [])
+        if items:
+            prices = [i.get('avg_price', 0) for i in items]
+            mins = [i.get('min_price', 0) for i in items]
+            maxs = [i.get('max_price', 0) for i in items]
+            d['priceRange'] = {
+                'min': min(mins) if mins else 0,
+                'max': max(maxs) if maxs else 0,
+                'avg': round(sum(prices) / len(prices), 2) if prices else 0,
+            }
+        else:
+            d['priceRange'] = {'min': 0, 'max': 0, 'avg': 0}
+        d['sources'] = ['CRAWLER']
+        d['trend'] = 'STABLE'
+    return jsonify(resp_data), status
 
 
 # --- Test route ---

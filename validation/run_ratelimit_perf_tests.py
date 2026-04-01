@@ -63,10 +63,13 @@ RESULT["performance_baseline"] = perf_results
 banner("【性能测试2】并发压测 - 采购需求列表（目标QPS≥200）")
 # ══════════════════════════════════════════════════════
 # 先重置限流计数器，避免基准测试消耗影响并发测试
-import redis as _redis
-_rc = _redis.Redis(host='localhost',port=6379,password='ILbuy@Redis2024',decode_responses=True,db=1)
-_keys = _rc.keys("LIMITS*") + _rc.keys("flask-limiter*")
-if _keys: _rc.delete(*_keys)
+try:
+    import redis as _redis
+    _rc = _redis.Redis(host='localhost',port=6379,password='ILbuy@Redis2024',decode_responses=True,db=1)
+    _keys = _rc.keys("LIMITS*") + _rc.keys("flask-limiter*")
+    if _keys: _rc.delete(*_keys)
+except Exception:
+    pass  # Redis not available, skip counter reset
 time.sleep(0.3)
 
 CONCURRENCY = 20
@@ -124,10 +127,14 @@ log(f"测试策略: 连续快速发送115个请求，验证第100+次被拦截")
 log("")
 
 # 先清除Redis限流计数（重置状态）
-import redis
-r_client = redis.Redis(host='localhost',port=6379,password='ILbuy@Redis2024',decode_responses=True,db=1)
-keys = r_client.keys("LIMITS*") + r_client.keys("flask-limiter*")
-if keys: r_client.delete(*keys)
+try:
+    import redis
+    r_client = redis.Redis(host='localhost',port=6379,password='ILbuy@Redis2024',decode_responses=True,db=1)
+    r_client.ping()
+except Exception:
+    r_client = None
+keys = (r_client.keys("LIMITS*") + r_client.keys("flask-limiter*")) if r_client else []
+if keys and r_client: r_client.delete(*keys)
 time.sleep(0.5)
 
 status_codes = []
@@ -195,8 +202,8 @@ RESULT["rate_limit_test"] = {
 banner("【限流测试2】限流窗口恢复验证\n  等待60秒窗口重置后，请求应恢复正常")
 # ══════════════════════════════════════════════════════
 log("等待限流窗口重置（清除Redis计数器模拟）...")
-keys = r_client.keys("LIMITS*") + r_client.keys("flask-limiter*")
-if keys: r_client.delete(*keys)
+keys = (r_client.keys("LIMITS*") + r_client.keys("flask-limiter*")) if r_client else []
+if keys and r_client: r_client.delete(*keys)
 time.sleep(1)
 
 r = requests.get(rl_url, headers=headers, timeout=5)
@@ -211,8 +218,8 @@ banner("【限流测试3】登录接口独立限流（200次/分钟）")
 # 登录接口有独立的200次/分钟限制，超过应触发限流
 log("测试登录接口独立限流（连续发送210次，触发阈值200）...")
 # 先重置计数
-keys = r_client.keys("LIMITS*") + r_client.keys("flask-limiter*")
-if keys: r_client.delete(*keys)
+keys = (r_client.keys("LIMITS*") + r_client.keys("flask-limiter*")) if r_client else []
+if keys and r_client: r_client.delete(*keys)
 time.sleep(0.5)
 
 login_statuses = []
@@ -240,8 +247,8 @@ RESULT["login_rate_limit"] = {
 banner("【性能测试3】响应时间分布统计（模拟JMeter聚合报告）")
 # ══════════════════════════════════════════════════════
 # 重置限流
-keys = r_client.keys("LIMITS*") + r_client.keys("flask-limiter*")
-if keys: r_client.delete(*keys)
+keys = (r_client.keys("LIMITS*") + r_client.keys("flask-limiter*")) if r_client else []
+if keys and r_client: r_client.delete(*keys)
 time.sleep(0.5)
 
 scenarios = [

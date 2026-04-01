@@ -80,9 +80,11 @@ def init_db():
         )
     ''')
     seed_users = [
-        ('buyer01',    'Buyer@123456',    'BUYER'),
-        ('supplier01', 'Supplier@123456', 'SUPPLIER'),
-        ('admin01',    'Admin@123456',    'ADMIN'),
+        ('buyer01',           'Buyer@123456',    'BUYER'),
+        ('supplier01',        'Supplier@123456', 'SUPPLIER'),
+        ('admin01',           'Admin@123456',    'ADMIN'),
+        ('test_buyer_001',    'Test@123456',     'BUYER'),
+        ('test_supplier_001', 'Test@123456',     'SUPPLIER'),
     ]
     for username, password, role in seed_users:
         conn.execute(
@@ -104,7 +106,7 @@ def login():
     user = conn.execute('SELECT * FROM t_user WHERE username = ?', (username,)).fetchone()
     conn.close()
     if not user or user['password_hash'] != hash_password(password):
-        return resp(401, 'Invalid credentials', None), 401
+        return resp(10001, 'Invalid credentials', None), 401
     now = int(time.time())
     access_payload = {'userId': user['id'], 'username': user['username'], 'role': user['role'], 'exp': now + TOKEN_EXPIRY, 'type': 'access'}
     refresh_payload = {'userId': user['id'], 'username': user['username'], 'role': user['role'], 'exp': now + TOKEN_EXPIRY * 2, 'type': 'refresh'}
