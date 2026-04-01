@@ -100,8 +100,8 @@ assert_contains "TC-API-001b" "返回accessToken" "$RESP_BODY" '"accessToken"'
 assert_json "TC-API-001c" "expiresIn=7200" "$RESP_BODY" "expiresIn" "7200"
 assert_json "TC-API-001d" "userType=ENTERPRISE" "$RESP_BODY" "userType" "ENTERPRISE"
 assert_time "TC-API-001e" "登录响应<500ms" "$RESP_MS" 500
-TOKEN=$(echo "$RESP_BODY" | python3 -c "import sys,json;d=json.load(sys.stdin);print(d['data']['accessToken'])" 2>/dev/null)
-RT=$(echo "$RESP_BODY" | python3 -c "import sys,json;d=json.load(sys.stdin);print(d['data']['refreshToken'])" 2>/dev/null)
+TOKEN=$(echo "$RESP_BODY" | python3 -c "import sys,json;d=json.load(sys.stdin);print(d['data']['accessToken'])" 2>/dev/null | tr -d '\r')
+RT=$(echo "$RESP_BODY" | python3 -c "import sys,json;d=json.load(sys.stdin);print(d['data']['refreshToken'])" 2>/dev/null | tr -d '\r')
 
 # 密码错误
 do_request POST "$BASE/api/v1/auth/login" \
@@ -131,7 +131,7 @@ assert_contains "TC-API-010b" "返回demandId" "$RESP_BODY" '"demandId"'
 assert_contains "TC-API-010c" "orderNo格式PRO" "$RESP_BODY" '"orderNo":"PRO'
 assert_json "TC-API-010d" "状态MATCHING" "$RESP_BODY" "status" "MATCHING"
 assert_time "TC-API-010e" "创建响应<1000ms" "$RESP_MS" 1000
-DEMAND_ID=$(echo "$RESP_BODY" | python3 -c "import sys,json;d=json.load(sys.stdin);print(d['data']['demandId'])" 2>/dev/null)
+DEMAND_ID=$(echo "$RESP_BODY" | python3 -c "import sys,json;d=json.load(sys.stdin);print(d['data']['demandId'])" 2>/dev/null | tr -d '\r')
 
 # B2C未定品牌
 do_request POST "$BASE/api/v1/procurement/demands" \
@@ -167,7 +167,7 @@ do_request POST "$BASE/api/v1/matching/trigger" \
 assert "TC-API-020a" "触发AI匹配HTTP 200" "$RESP_CODE" "200"
 assert_contains "TC-API-020b" "返回matchTaskId" "$RESP_BODY" '"matchTaskId"'
 assert_json "TC-API-020c" "状态PROCESSING" "$RESP_BODY" "status" "PROCESSING"
-TASK_ID=$(echo "$RESP_BODY" | python3 -c "import sys,json;d=json.load(sys.stdin);print(d['data']['matchTaskId'])" 2>/dev/null)
+TASK_ID=$(echo "$RESP_BODY" | python3 -c "import sys,json;d=json.load(sys.stdin);print(d['data']['matchTaskId'])" 2>/dev/null | tr -d '\r')
 
 sleep 1
 do_request GET "$BASE/api/v1/matching/result/$TASK_ID" "" "$TOKEN"
@@ -187,12 +187,12 @@ assert "TC-API-030a" "发起询价HTTP 201" "$RESP_CODE" "201"
 assert_contains "TC-API-030b" "返回inquiryId" "$RESP_BODY" '"inquiryId"'
 assert_json "TC-API-030c" "状态SENT" "$RESP_BODY" "status" "SENT"
 assert_json "TC-API-030d" "supplierCount=2" "$RESP_BODY" "supplierCount" "2"
-INQUIRY_ID=$(echo "$RESP_BODY" | python3 -c "import sys,json;d=json.load(sys.stdin);print(d['data']['inquiryId'])" 2>/dev/null)
+INQUIRY_ID=$(echo "$RESP_BODY" | python3 -c "import sys,json;d=json.load(sys.stdin);print(d['data']['inquiryId'])" 2>/dev/null | tr -d '\r')
 
 # 供应商登录并提交报价
 do_request POST "$BASE/api/v1/auth/login" \
   '{"username":"test_supplier_001","password":"Test@123456","captchaToken":"bypass"}'
-SUP_TOKEN=$(echo "$RESP_BODY" | python3 -c "import sys,json;d=json.load(sys.stdin);print(d['data']['accessToken'])" 2>/dev/null)
+SUP_TOKEN=$(echo "$RESP_BODY" | python3 -c "import sys,json;d=json.load(sys.stdin);print(d['data']['accessToken'])" 2>/dev/null | tr -d '\r')
 
 do_request POST "$BASE/api/v1/inquiry/$INQUIRY_ID/quotes" \
   '{"unitPrice":46.50,"currency":"CNY","totalAmount":4650.00,"taxRate":0.13,"deliveryDays":2,"validDays":7,"remark":"现货供应，当日可发货"}' \
@@ -200,13 +200,13 @@ do_request POST "$BASE/api/v1/inquiry/$INQUIRY_ID/quotes" \
 assert "TC-API-031a" "供应商报价HTTP 201" "$RESP_CODE" "201"
 assert_contains "TC-API-031b" "返回quoteId" "$RESP_BODY" '"quoteId"'
 assert_json "TC-API-031c" "状态SUBMITTED" "$RESP_BODY" "status" "SUBMITTED"
-QUOTE_ID=$(echo "$RESP_BODY" | python3 -c "import sys,json;d=json.load(sys.stdin);print(d['data']['quoteId'])" 2>/dev/null)
+QUOTE_ID=$(echo "$RESP_BODY" | python3 -c "import sys,json;d=json.load(sys.stdin);print(d['data']['quoteId'])" 2>/dev/null | tr -d '\r')
 
 do_request PUT "$BASE/api/v1/inquiry/$INQUIRY_ID/quotes/$QUOTE_ID/accept" "" "$TOKEN"
 assert "TC-API-032a" "接受报价HTTP 200" "$RESP_CODE" "200"
 assert_contains "TC-API-032b" "返回orderId" "$RESP_BODY" '"orderId"'
 assert_json "TC-API-032c" "订单状态PENDING_PAYMENT" "$RESP_BODY" "orderStatus" "PENDING_PAYMENT"
-ORDER_ID=$(echo "$RESP_BODY" | python3 -c "import sys,json;d=json.load(sys.stdin);print(d['data']['orderId'])" 2>/dev/null)
+ORDER_ID=$(echo "$RESP_BODY" | python3 -c "import sys,json;d=json.load(sys.stdin);print(d['data']['orderId'])" 2>/dev/null | tr -d '\r')
 
 # ══════════════════════════════════════
 echo ""; echo -e "${B}【模块5】订单（Order）${N}"
@@ -228,13 +228,13 @@ echo ""; echo -e "${B}【模块6】供应商（Supplier）${N}"
 
 UNIQ=$(date +%s)
 do_request POST "$BASE/api/v1/suppliers/register" \
-  "{\"companyName\":\"北京验收测试供应商${UNIQ}\",\"creditCode\":\"9111TEST${UNIQ}\",\"contactName\":\"李供应\",\"contactPhone\":\"13900139001\",\"contactEmail\":\"supply${UNIQ}@valtest.com\"}"
+  "{\"companyName\":\"API-Test-Supplier-${UNIQ}\",\"creditCode\":\"9111TEST${UNIQ}\",\"contactName\":\"TestContact\",\"contactPhone\":\"13900139001\",\"contactEmail\":\"supply${UNIQ}@valtest.com\"}"
 assert "TC-API-050a" "供应商申请HTTP 201" "$RESP_CODE" "201"
 assert_contains "TC-API-050b" "返回supplierId" "$RESP_BODY" '"supplierId"'
 assert_json "TC-API-050c" "状态REVIEWING" "$RESP_BODY" "status" "REVIEWING"
 
 do_request POST "$BASE/api/v1/suppliers/register" \
-  "{\"companyName\":\"重复申请\",\"creditCode\":\"9111TEST${UNIQ}\",\"contactName\":\"重复\",\"contactPhone\":\"xxx\"}"
+  "{\"companyName\":\"DuplicateTest\",\"creditCode\":\"9111TEST${UNIQ}\",\"contactName\":\"Dup\",\"contactPhone\":\"13900000000\"}"
 assert "TC-API-050d" "重复申请HTTP 409" "$RESP_CODE" "409"
 
 # ══════════════════════════════════════

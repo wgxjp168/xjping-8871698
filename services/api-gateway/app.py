@@ -1,6 +1,7 @@
 import json
 import os
 import uuid
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from functools import wraps
 
 import requests as req_lib
@@ -131,16 +132,18 @@ def health():
         'order': ORDER_SERVICE_URL,
         'data': DATA_SERVICE_URL,
     }
-    statuses = {}
-    all_up = True
-    for name, base_url in services.items():
+
+    def _check(item):
+        name, base_url = item
         try:
-            r = req_lib.get(f"{base_url}/health", timeout=3)
-            statuses[name] = 'UP' if r.status_code == 200 else 'DOWN'
+            r = req_lib.get(f"{base_url}/health", timeout=2)
+            return name, 'UP' if r.status_code == 200 else 'DOWN'
         except Exception:
-            statuses[name] = 'DOWN'
-        if statuses[name] != 'UP':
-            all_up = False
+            return name, 'DOWN'
+
+    with ThreadPoolExecutor(max_workers=5) as pool:
+        statuses = dict(pool.map(_check, services.items()))
+    all_up = all(v == 'UP' for v in statuses.values())
     return jsonify({
         "code": 0,
         "message": "success",
