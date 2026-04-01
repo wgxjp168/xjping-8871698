@@ -153,11 +153,14 @@ status_codes = []
 latencies = []
 BURST = 115   # 超过100次限制
 _conn_errors = 0
+# 不带 auth header：@require_auth 直接返回 401（<5ms，无需调用 user-service）
+# 限流计数器对所有通过 @limiter.limit 的请求计数，无论响应码
+_no_auth = {}
 
 for i in range(BURST):
     t0 = time.time()
     try:
-        r = requests.get(rl_url, headers=headers, timeout=5)
+        r = requests.get(rl_url, headers=_no_auth, timeout=5)
         status_codes.append(r.status_code)
         latencies.append((time.time()-t0)*1000)
     except ConnectionError:
@@ -171,19 +174,22 @@ for i in range(BURST):
 
 passed_count  = status_codes.count(200)
 blocked_count = status_codes.count(429)
-other_count   = len([c for c in status_codes if c not in (200,429)])
+other_count   = len([c for c in status_codes if c not in (200,429,401)])
 
 log(f"发送总请求: {BURST}")
+limited_count = status_codes.count(401)  # 无auth时限流前返回401
+log(f"  HTTP 401 (无auth被拒, 计入限流): {limited_count}")
 log(f"  HTTP 200 (通过): {passed_count}")
 log(f"  HTTP 429 (限流): {blocked_count}")
 log(f"  其他错误: {other_count}")
 log("")
 
-# 验证关键断言
-if passed_count >= 95 and passed_count <= 105:
-    ok(f"✓ 通过请求数={passed_count}，接近限流阈值100次 [PASS]")
+# 验证关键断言（发送无auth请求：前100个返回401，之后返回429）
+pre_limit = limited_count + passed_count  # 401+200 都说明通过了限流器
+if pre_limit >= 95 and pre_limit <= 105:
+    ok(f"✓ 限流前通过数={pre_limit}，接近限流阈值100次 [PASS]")
 else:
-    warn(f"通过请求数={passed_count}，与阈值100有偏差（可能受Redis窗口影响）")
+    warn(f"限流前通过数={pre_limit}，与阈值100有偏差")
 
 if blocked_count >= 10:
     ok(f"✓ 限流触发！{blocked_count}个请求返回HTTP 429 [PASS]")
