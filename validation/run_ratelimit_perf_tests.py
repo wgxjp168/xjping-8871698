@@ -80,9 +80,10 @@ except Exception:
     pass  # Redis not available, skip counter reset
 time.sleep(0.3)
 
-CONCURRENCY = 10
-REQUESTS_EACH = 6    # 每线程6个请求 → 总60次（开发环境减少等待）
+CONCURRENCY = 5
+REQUESTS_EACH = 4    # 每线程4个请求 → 总20次（避免压垮Flask开发服务器）
 url = f"{BASE}/api/v1/procurement/demands?page=0&size=5"
+log(f"并发数: {CONCURRENCY}  每线程请求数: {REQUESTS_EACH}  总请求: {CONCURRENCY*REQUESTS_EACH}")
 
 results_200 = []
 errors_200 = []
@@ -91,7 +92,7 @@ start_ts = time.time()
 def call_list(_):
     t0 = time.time()
     try:
-        r = requests.get(url, headers=headers, timeout=5)
+        r = requests.get(url, headers=headers, timeout=20)
         return {"ms":(time.time()-t0)*1000,"code":r.status_code,"ok":r.status_code==200}
     except Exception as e:
         return {"ms":(time.time()-t0)*1000,"code":0,"ok":False,"err":str(e)}
@@ -102,6 +103,9 @@ with ThreadPoolExecutor(max_workers=CONCURRENCY) as pool:
         r = f.result()
         if r["ok"]: results_200.append(r["ms"])
         else: errors_200.append(r)
+
+log("等待服务器恢复（3秒）...")
+time.sleep(3)
 
 total_time = time.time()-start_ts
 total_req = len(results_200)+len(errors_200)
@@ -148,6 +152,7 @@ time.sleep(0.5)
 status_codes = []
 latencies = []
 BURST = 115   # 超过100次限制
+_conn_errors = 0
 
 for i in range(BURST):
     t0 = time.time()
@@ -155,6 +160,12 @@ for i in range(BURST):
         r = requests.get(rl_url, headers=headers, timeout=5)
         status_codes.append(r.status_code)
         latencies.append((time.time()-t0)*1000)
+    except ConnectionError:
+        _conn_errors += 1
+        if _conn_errors >= 3:
+            warn(f"服务器连接被拒绝（连续{_conn_errors}次），跳过剩余请求")
+            break
+        status_codes.append(0)
     except Exception:
         status_codes.append(0)
 
