@@ -308,6 +308,13 @@ def procurement_quote_accept(quote_id):
 
 
 # --- AI routes (legacy format) ---
+@app.route('/api/v1/ai/intent/parse', methods=['POST'])
+@limiter.limit("100 per minute")
+@require_auth
+def ai_intent_parse():
+    return proxy(f"{AI_SERVICE_URL}/internal/intent/parse", auth_headers())
+
+
 @app.route('/api/v1/ai/match', methods=['POST'])
 @limiter.limit("100 per minute")
 @require_auth
