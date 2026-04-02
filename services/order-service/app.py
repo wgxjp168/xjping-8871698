@@ -250,6 +250,14 @@ def cancel_order(order_id):
     return resp(data={"id": order_id, "orderNo": row["order_no"], "orderStatus": "CANCELLED"})
 
 
+@app.errorhandler(404)
+def not_found(e):
+    return resp(404, "接口不存在"), 404
+
+@app.errorhandler(500)
+def internal_error(e):
+    return resp(500, f"服务内部错误: {str(e)}"), 500
+
 if __name__ == "__main__":
     init_db()
     app.run(host="0.0.0.0", port=PORT)
