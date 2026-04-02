@@ -362,8 +362,8 @@ async function loadDashboard() {
     el.innerHTML = `<div class="table-wrap"><table>
       <tr><th>需求编号</th><th>产品</th><th>数量</th><th>预算</th><th>状态</th></tr>
       ${demands.slice(0,5).map(d => `<tr>
-        <td style="font-family:monospace;font-size:12px">${d.orderNo||d.demandId}</td>
-        <td>${d.productName||'-'}</td>
+        <td style="font-family:monospace;font-size:12px">${d.orderNo||d.demandId||('PRO'+String(d.id||'').padStart(6,'0'))}</td>
+        <td>${d.productName||d.title||'-'}</td>
         <td>${d.quantity||'-'}</td>
         <td>¥${(d.budget||0).toLocaleString()}</td>
         <td>${statusBadge(d.status)}</td>
@@ -383,14 +383,14 @@ async function loadDemands() {
     el.innerHTML = `<div class="table-wrap"><table>
       <tr><th>需求编号</th><th>类型</th><th>产品</th><th>品类</th><th>数量</th><th>预算</th><th>状态</th><th>创建时间</th></tr>
       ${list.map(d => `<tr>
-        <td style="font-family:monospace;font-size:11px">${d.orderNo||d.demandId}</td>
-        <td>${d.demandType||'-'}</td>
-        <td>${d.productName||'-'}</td>
+        <td style="font-family:monospace;font-size:11px">${d.orderNo||d.demandId||('PRO'+String(d.id||'').padStart(6,'0'))}</td>
+        <td>${d.demandType||d.procurementType||'B2B'}</td>
+        <td>${d.productName||d.title||'-'}</td>
         <td>${d.category||'-'}</td>
         <td>${d.quantity||'-'}</td>
         <td>¥${(d.budget||0).toLocaleString()}</td>
         <td>${statusBadge(d.status)}</td>
-        <td style="font-size:11px">${(d.createdAt||'').substring(0,16)}</td>
+        <td style="font-size:11px">${(d.createdAt||d.created_at||'').substring(0,16)}</td>
       </tr>`).join('')}
     </table></div>`;
   } catch(e) { el.innerHTML = '<div class="empty">加载失败</div>'; }
