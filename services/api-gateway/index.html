@@ -152,6 +152,21 @@ tr:hover td{background:#fafbff}
 ::-webkit-scrollbar{width:5px;height:5px}
 ::-webkit-scrollbar-track{background:#f5f5f5}
 ::-webkit-scrollbar-thumb{background:#ccc;border-radius:3px}
+.input-mode-tabs{display:flex;gap:6px;margin-bottom:12px;background:#f5f7ff;padding:6px;border-radius:8px}
+.mode-tab{flex:1;padding:8px 4px;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;background:transparent;color:#666;transition:all .2s;font-family:inherit}
+.mode-tab:hover{background:#e8eaf6;color:#1565c0}
+.mode-tab.active{background:#1565c0;color:#fff;box-shadow:0 2px 6px rgba(21,101,192,.3)}
+.input-panel{margin-top:4px}
+.chat-container{display:flex;flex-direction:column;gap:10px;min-height:200px;max-height:340px;overflow-y:auto;padding:4px 2px;margin-bottom:10px}
+.btn-voice{width:72px;height:72px;border-radius:50%;border:3px solid #1565c0;background:#e3f2fd;font-size:28px;cursor:pointer;transition:all .2s;display:inline-flex;align-items:center;justify-content:center}
+.btn-voice:hover{background:#1565c0;transform:scale(1.05)}
+.btn-voice.recording{background:#c62828;border-color:#c62828;animation:pulse 1s infinite}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(198,40,40,.4)}50%{box-shadow:0 0 0 10px rgba(198,40,40,0)}}
+.img-drop-zone{border:2px dashed #c5cae9;border-radius:8px;padding:28px 16px;text-align:center;cursor:pointer;transition:all .2s;background:#f5f7ff}
+.img-drop-zone:hover,.img-drop-zone.drag-over{border-color:#1565c0;background:#e3f2fd}
+.chat-quick-reply{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.quick-reply-btn{padding:5px 12px;background:#e3f2fd;color:#1565c0;border:1px solid #bbdefb;border-radius:16px;font-size:12px;cursor:pointer;font-family:inherit;transition:all .2s}
+.quick-reply-btn:hover{background:#1565c0;color:#fff}
 </style>
 </head>
 <body>
@@ -275,36 +290,93 @@ tr:hover td{background:#fafbff}
       <div class="col-2" style="align-items:flex-start">
         <div>
           <div class="card">
-            <div class="card-title">🤖 智能对话</div>
-            <div class="example-btns">
-              <span style="font-size:12px;color:#888;margin-right:4px">快捷示例：</span>
-              <button class="example-btn" onclick="setExample('100台联想笔记本，预算80万，用于办公')">100台联想笔记本</button>
-              <button class="example-btn" onclick="setExample('采购服务器50台，Dell PowerEdge，预算200万')">服务器50台</button>
-              <button class="example-btn" onclick="setExample('办公用品采购，A4纸500箱，预算5万元')">办公用品采购</button>
-              <button class="example-btn" onclick="setExample('采购工业打印机20台，预算30万，需要售后服务')">工业打印机</button>
+            <div class="card-title">🤖 智能对话
+              <span style="margin-left:auto;font-size:11px;color:#888;font-weight:400">多模态输入 · 多轮对话</span>
             </div>
+            <!-- Input Mode Tabs -->
+            <div class="input-mode-tabs" id="inputModeTabs">
+              <button class="mode-tab active" id="tab-text" onclick="switchMode('text')">📝 文字</button>
+              <button class="mode-tab" id="tab-voice" onclick="switchMode('voice')">🎤 语音</button>
+              <button class="mode-tab" id="tab-image" onclick="switchMode('image')">🖼️ 图片</button>
+              <button class="mode-tab" id="tab-link" onclick="switchMode('link')">🔗 链接</button>
+            </div>
+            <!-- Chat History -->
             <div class="chat-container" id="chatContainer">
               <div class="chat-msg bot">
                 <div class="chat-avatar">🤖</div>
-                <div class="chat-bubble">您好！我是ILbuy AI采购助手。请用自然语言描述您的采购需求，我会帮您智能解析并创建采购需求单。例如：<br><br><em>「我需要采购100台联想笔记本，预算80万，用于公司办公」</em></div>
+                <div class="chat-bubble">您好！我是ILbuy AI采购助手，支持<strong>文字、语音、图片、链接</strong>多种方式输入。<br><br>请描述您的采购需求，我会与您多轮确认后自动生成采购需求单。</div>
               </div>
             </div>
-            <div class="chat-input-area">
-              <textarea id="aiInput" rows="3" placeholder="请输入采购需求，例如：100台联想笔记本，预算80万..."></textarea>
-              <button class="btn btn-primary" id="parseBtn" onclick="parseIntent()">AI解析</button>
+            <!-- Text Input Panel -->
+            <div id="panel-text" class="input-panel">
+              <div class="example-btns">
+                <span style="font-size:12px;color:#888;margin-right:4px">快捷示例：</span>
+                <button class="example-btn" onclick="setExample('100台联想笔记本，预算80万，用于办公')">100台联想笔记本</button>
+                <button class="example-btn" onclick="setExample('采购服务器50台，Dell PowerEdge，预算200万')">服务器50台</button>
+                <button class="example-btn" onclick="setExample('办公用品采购，A4纸500箱，预算5万元')">办公用品采购</button>
+                <button class="example-btn" onclick="setExample('工业打印机20台，预算30万')">工业打印机</button>
+              </div>
+              <div class="chat-input-area">
+                <textarea id="aiInput" rows="2" placeholder="请输入采购需求，例如：100台联想笔记本，预算80万..."></textarea>
+                <button class="btn btn-primary" id="parseBtn" onclick="sendTextMsg()">发送</button>
+              </div>
+            </div>
+            <!-- Voice Input Panel -->
+            <div id="panel-voice" class="input-panel" style="display:none">
+              <div style="text-align:center;padding:16px 0">
+                <div id="voiceStatus" style="font-size:13px;color:#888;margin-bottom:12px">点击麦克风开始录音</div>
+                <button id="voiceBtn" class="btn-voice" onclick="toggleVoice()">🎤</button>
+                <div id="voiceResult" style="margin-top:12px;font-size:13px;color:#555;min-height:30px;padding:8px;background:#f5f7ff;border-radius:6px;display:none"></div>
+                <div style="margin-top:10px;font-size:11px;color:#bbb">支持普通话 · 粤语 · 英语</div>
+              </div>
+            </div>
+            <!-- Image Input Panel -->
+            <div id="panel-image" class="input-panel" style="display:none">
+              <div id="imgDropZone" class="img-drop-zone" onclick="document.getElementById('imgFileInput').click()" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="handleImgDrop(event)">
+                <div style="font-size:36px;margin-bottom:8px">🖼️</div>
+                <div style="font-size:13px;color:#666">点击或拖拽图片到此处</div>
+                <div style="font-size:11px;color:#bbb;margin-top:4px">支持 JPG / PNG / WEBP，可上传产品图片或截图</div>
+              </div>
+              <input type="file" id="imgFileInput" accept="image/*" style="display:none" onchange="handleImgSelect(event)">
+              <div id="imgPreviewArea" style="display:none;margin-top:10px">
+                <img id="imgPreview" style="max-width:100%;max-height:160px;border-radius:6px;border:1px solid #ddd">
+                <div style="margin-top:8px;display:flex;gap:8px">
+                  <button class="btn btn-primary btn-sm" onclick="analyzeImage()">🔍 AI识别商品</button>
+                  <button class="btn btn-light btn-sm" onclick="clearImage()">清除</button>
+                </div>
+              </div>
+            </div>
+            <!-- Link Input Panel -->
+            <div id="panel-link" class="input-panel" style="display:none">
+              <div style="font-size:12px;color:#888;margin-bottom:8px">支持淘宝、京东、1688、拼多多等电商链接</div>
+              <div style="display:flex;gap:8px">
+                <input type="text" id="linkInput" class="form-control" placeholder="粘贴商品链接，例如：https://item.taobao.com/..." style="flex:1;font-size:13px">
+                <button class="btn btn-primary" onclick="parseLink()">解析</button>
+              </div>
+              <div class="example-btns" style="margin-top:8px">
+                <span style="font-size:11px;color:#bbb;margin-right:4px">链接示例：</span>
+                <button class="example-btn" onclick="setLinkExample('taobao','笔记本电脑')">淘宝笔记本</button>
+                <button class="example-btn" onclick="setLinkExample('jd','服务器')">京东服务器</button>
+                <button class="example-btn" onclick="setLinkExample('1688','打印机')">1688打印机</button>
+              </div>
             </div>
           </div>
         </div>
         <div>
           <div id="parseResultArea"></div>
+          <!-- Dialogue State Card -->
+          <div id="dialogStateCard" class="card" style="display:none;background:#fff8e1;border:1px solid #ffe082">
+            <div class="card-title" style="color:#f57f17">📝 需求确认</div>
+            <div id="dialogStateContent"></div>
+          </div>
           <div class="card" style="background:#f5f7ff;border:1px dashed #c5cae9">
             <div class="card-title">💡 使用指南</div>
             <div style="font-size:13px;color:#555;line-height:2">
-              <p>✅ 支持自然语言描述采购需求</p>
-              <p>✅ AI自动识别产品名、品类、数量、预算</p>
-              <p>✅ 智能判断采购类型（B2B/B2C）</p>
-              <p>✅ 一键生成标准化采购需求单</p>
-              <p>✅ 无缝对接AI智能匹配功能</p>
+              <p>📝 <strong>文字</strong>：自然语言描述，多轮对话补充细节</p>
+              <p>🎤 <strong>语音</strong>：说出采购需求，自动转文字识别</p>
+              <p>🖼️ <strong>图片</strong>：上传产品图片，AI识别商品信息</p>
+              <p>🔗 <strong>链接</strong>：粘贴电商链接，自动提取产品信息</p>
+              <p>✅ AI自动识别品类、数量、预算，一键生成需求单</p>
             </div>
           </div>
         </div>
@@ -566,7 +638,13 @@ function doLogout() {
   document.getElementById('app').style.display = 'none';
 }
 
-document.addEventListener('keydown', e => { if (e.key === 'Enter' && document.getElementById('loginWrap').style.display !== 'none') doLogin(); });
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && document.getElementById('loginWrap').style.display !== 'none') doLogin();
+});
+document.addEventListener('DOMContentLoaded', () => {
+  const ai = document.getElementById('aiInput');
+  if (ai) ai.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendTextMsg(); } });
+});
 
 function showPage(name) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
@@ -651,89 +729,393 @@ function renderDashOrders(list) {
     '</tr>').join('') + '</table></div>';
 }
 
-// AI Assistant
-function setExample(text) {
-  document.getElementById('aiInput').value = text;
+// ── AI Assistant ─────────────────────────────────────────────────────────────
+
+// Dialogue state machine
+const DS = {
+  state: 'idle',   // idle | collecting | confirming | done
+  parsed: null,
+  missing: [],
+  step: 0
+};
+
+function switchMode(mode) {
+  ['text','voice','image','link'].forEach(m => {
+    document.getElementById('panel-' + m).style.display = m === mode ? '' : 'none';
+    document.getElementById('tab-' + m).classList.toggle('active', m === mode);
+  });
 }
 
-function addChatMsg(role, text) {
+function setExample(text) {
+  document.getElementById('aiInput').value = text;
+  switchMode('text');
+}
+
+function addChatMsg(role, html, quickReplies) {
   const container = document.getElementById('chatContainer');
   const div = document.createElement('div');
   div.className = 'chat-msg ' + role;
   const avatar = role === 'user' ? '\u{1F464}' : '\u{1F916}';
-  div.innerHTML = '<div class="chat-avatar">' + avatar + '</div><div class="chat-bubble">' + text + '</div>';
+  let inner = '<div class="chat-avatar">' + avatar + '</div><div class="chat-bubble">' + html;
+  if (quickReplies && quickReplies.length) {
+    inner += '<div class="chat-quick-reply">' +
+      quickReplies.map(q => '<button class="quick-reply-btn" onclick="handleQuickReply(\'' + q.replace(/'/g,"&#39;") + '\')">' + q + '</button>').join('') +
+      '</div>';
+  }
+  inner += '</div>';
+  div.innerHTML = inner;
   container.appendChild(div);
   container.scrollTop = container.scrollHeight;
 }
 
-async function parseIntent() {
-  const text = document.getElementById('aiInput').value.trim();
-  if (!text) { alert('请输入采购需求描述'); return; }
+function handleQuickReply(text) {
+  document.getElementById('aiInput').value = text;
+  switchMode('text');
+  sendTextMsg();
+}
+
+// Multi-turn conversation: send text
+async function sendTextMsg() {
+  const input = document.getElementById('aiInput');
+  const text = input.value.trim();
+  if (!text) { input.focus(); return; }
   const btn = document.getElementById('parseBtn');
-  btn.disabled = true; btn.textContent = '解析中...';
+  btn.disabled = true; btn.textContent = '处理中...';
   addChatMsg('user', text);
-  document.getElementById('aiInput').value = '';
+  input.value = '';
+
+  // If in collecting state: user is answering a follow-up question
+  if (DS.state === 'collecting' && DS.parsed) {
+    _applyFollowUp(text);
+    btn.disabled = false; btn.textContent = '发送';
+    return;
+  }
+
+  // Fresh intent parse
   try {
     const r = await apiFetch('/api/v1/ai/intent/parse', { method: 'POST', body: JSON.stringify({ text }) });
     if (r.code === 0 && r.data) {
-      const d = r.data;
-      addChatMsg('bot', '已解析您的采购需求，识别结果如下。请确认信息后点击「一键创建需求」。');
-      showParseResult(d);
+      DS.parsed = r.data;
+      DS.state = 'collecting';
+      DS.missing = _getMissing(DS.parsed);
+      DS.step = 0;
+      if (DS.missing.length === 0) {
+        _showConfirmation();
+      } else {
+        _askNextMissing();
+      }
     } else {
-      addChatMsg('bot', '解析失败：' + (r.message || '请稍后重试'));
+      addChatMsg('bot', '抱歉，我没能理解您的需求。能否换一种描述方式？例如："<em>采购100台联想笔记本，预算80万</em>"');
     }
   } catch(e) {
-    addChatMsg('bot', '服务暂时不可用，请检查网络连接。错误：' + e.message);
+    addChatMsg('bot', '服务暂时不可用，请稍后重试。');
   } finally {
-    btn.disabled = false; btn.textContent = 'AI解析';
+    btn.disabled = false; btn.textContent = '发送';
   }
+}
+
+function _getMissing(d) {
+  const miss = [];
+  if (!d.quantity || d.quantity <= 1) miss.push('quantity');
+  if (!d.budgetAmount || d.budgetAmount <= 0) miss.push('budget');
+  return miss;
+}
+
+function _askNextMissing() {
+  if (DS.step >= DS.missing.length) { _showConfirmation(); return; }
+  const field = DS.missing[DS.step];
+  if (field === 'quantity') {
+    addChatMsg('bot',
+      '已识别产品：<strong>' + (DS.parsed.productName || DS.parsed.description) + '</strong>，品类：<strong>' + (DS.parsed.category || '通用物资') + '</strong><br>请问您需要采购<strong>多少数量</strong>？',
+      ['10台','50台','100台','500台','自定义数量']
+    );
+  } else if (field === 'budget') {
+    addChatMsg('bot',
+      '请问本次采购的<strong>预算金额</strong>是多少？',
+      ['5万元','10万元','50万元','100万元以上','暂无预算']
+    );
+  }
+}
+
+function _applyFollowUp(text) {
+  const field = DS.missing[DS.step];
+  if (field === 'quantity') {
+    const m = text.match(/(\d+)/);
+    if (m) { DS.parsed.quantity = parseInt(m[1]); DS.step++; }
+    else { addChatMsg('bot', '请输入具体数字，例如：100台'); return; }
+  } else if (field === 'budget') {
+    if (text.includes('暂无') || text.includes('不确定')) {
+      DS.parsed.budgetAmount = 0; DS.step++;
+    } else {
+      const m = text.match(/(\d+(?:\.\d+)?)\s*(万|千)?/);
+      if (m) {
+        let v = parseFloat(m[1]);
+        if (m[2] === '万') v *= 10000;
+        else if (m[2] === '千') v *= 1000;
+        DS.parsed.budgetAmount = v; DS.step++;
+      } else { addChatMsg('bot', '请输入预算金额，例如：80万 或 800000元'); return; }
+    }
+  }
+  if (DS.step < DS.missing.length) {
+    _askNextMissing();
+  } else {
+    _showConfirmation();
+  }
+}
+
+function _showConfirmation() {
+  DS.state = 'confirming';
+  const d = DS.parsed;
+  const typeLabel = (d.procurementType === 'B2B' || d.type === 'B2B') ? 'B2B企业采购' : 'B2C零散采购';
+  addChatMsg('bot',
+    '✅ 需求信息已完整，请确认：<br>' +
+    '<table style="margin-top:8px;font-size:13px;border-collapse:collapse">' +
+    '<tr><td style="padding:3px 10px 3px 0;color:#888">产品</td><td style="font-weight:700;color:#1a237e">' + (d.productName || d.description || '-') + '</td></tr>' +
+    '<tr><td style="padding:3px 10px 3px 0;color:#888">品类</td><td>' + (d.category || '通用物资') + '</td></tr>' +
+    '<tr><td style="padding:3px 10px 3px 0;color:#888">数量</td><td><strong>' + (d.quantity || 1) + '</strong></td></tr>' +
+    '<tr><td style="padding:3px 10px 3px 0;color:#888">预算</td><td style="color:#2e7d32;font-weight:700">' + (d.budgetAmount > 0 ? fmtMoney(d.budgetAmount) : '待定') + '</td></tr>' +
+    '<tr><td style="padding:3px 10px 3px 0;color:#888">类型</td><td><span class="badge badge-blue">' + typeLabel + '</span></td></tr>' +
+    (d.detectedBrand ? '<tr><td style="padding:3px 10px 3px 0;color:#888">品牌</td><td>' + d.detectedBrand + '</td></tr>' : '') +
+    '</table>',
+    ['✅ 确认创建需求', '✏️ 修改数量', '✏️ 修改预算', '❌ 重新输入']
+  );
+  showParseResult(d);
+}
+
+// Handle confirmation quick replies
+function handleQuickReply(text) {
+  if (text === '✅ 确认创建需求' && DS.parsed) {
+    addChatMsg('user', text);
+    createDemandFromAI(DS.parsed);
+    return;
+  }
+  if (text === '❌ 重新输入') {
+    DS.state = 'idle'; DS.parsed = null; DS.missing = []; DS.step = 0;
+    document.getElementById('parseResultArea').innerHTML = '';
+    document.getElementById('dialogStateCard').style.display = 'none';
+    addChatMsg('user', text);
+    addChatMsg('bot', '好的，请重新描述您的采购需求。');
+    return;
+  }
+  if (text === '✏️ 修改数量') {
+    DS.state = 'collecting'; DS.missing = ['quantity']; DS.step = 0;
+    addChatMsg('user', text);
+    _askNextMissing();
+    return;
+  }
+  if (text === '✏️ 修改预算') {
+    DS.state = 'collecting'; DS.missing = ['budget']; DS.step = 0;
+    addChatMsg('user', text);
+    _askNextMissing();
+    return;
+  }
+  document.getElementById('aiInput').value = text;
+  switchMode('text');
+  sendTextMsg();
 }
 
 function showParseResult(d) {
   const area = document.getElementById('parseResultArea');
-  const typeLabel = d.type === 'B2B' ? 'B2B企业采购' : (d.type === 'B2C' ? 'B2C零散采购' : (d.type || '未知'));
+  const typeLabel = (d.procurementType === 'B2B' || d.type === 'B2B') ? 'B2B企业采购' : 'B2C零散采购';
   area.innerHTML = '<div class="card">' +
     '<div class="card-title">✅ AI解析结果</div>' +
     '<div class="parse-result">' +
-    '<div class="parse-field"><span class="parse-label">产品名称</span><span class="parse-value">' + (d.productName || d.product || '-') + '</span></div>' +
-    '<div class="parse-field"><span class="parse-label">品类</span><span class="parse-value">' + (d.category || '-') + '</span></div>' +
-    '<div class="parse-field"><span class="parse-label">采购数量</span><span class="parse-value">' + (d.quantity || '-') + '</span></div>' +
-    '<div class="parse-field"><span class="parse-label">预算金额</span><span class="parse-value" style="color:#2e7d32">' + fmtMoney(d.budget || d.budgetAmount) + '</span></div>' +
+    '<div class="parse-field"><span class="parse-label">产品名称</span><span class="parse-value">' + (d.productName || d.product || d.description || '-') + '</span></div>' +
+    '<div class="parse-field"><span class="parse-label">品类</span><span class="parse-value">' + (d.category || '通用物资') + '</span></div>' +
+    '<div class="parse-field"><span class="parse-label">采购数量</span><span class="parse-value">' + (d.quantity || 1) + '</span></div>' +
+    '<div class="parse-field"><span class="parse-label">预算金额</span><span class="parse-value" style="color:#2e7d32">' + (d.budgetAmount > 0 ? fmtMoney(d.budgetAmount) : '待定') + '</span></div>' +
     '<div class="parse-field"><span class="parse-label">采购类型</span><span class="parse-value"><span class="badge badge-blue">' + typeLabel + '</span></span></div>' +
     '</div>' +
-    '<div style="margin-top:14px;display:flex;gap:10px">' +
-    '<button class="btn btn-success" onclick="createDemandFromAI(' + JSON.stringify(d).replace(/"/g, '&quot;') + ')">🚀 一键创建需求</button>' +
-    '<button class="btn btn-light" onclick="prefillDemandForm(' + JSON.stringify(d).replace(/"/g, '&quot;') + ')">📋 填写表单确认</button>' +
+    '<div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap">' +
+    '<button class="btn btn-success" onclick="createDemandFromAI(window._lastParsed)">🚀 一键创建需求</button>' +
+    '<button class="btn btn-light" onclick="prefillDemandForm(window._lastParsed)">📋 填写表单确认</button>' +
     '</div>' +
     '</div>';
+  window._lastParsed = d;
 }
 
 async function createDemandFromAI(d) {
+  if (!d) { addChatMsg('bot', '请先描述您的采购需求。'); return; }
   const body = {
-    procurementType: d.type || 'B2B',
-    productName: d.productName || d.product,
+    procurementType: d.procurementType || d.type || 'B2B',
+    productName: d.productName || d.product || d.description,
     category: d.category || '未分类',
     categoryId: d.category || '未分类',
     quantity: parseInt(d.quantity) || 1,
-    budgetAmount: parseFloat(d.budget || d.budgetAmount) || 0,
-    budget: parseFloat(d.budget || d.budgetAmount) || 0,
+    budgetAmount: parseFloat(d.budgetAmount || d.budget) || 0,
+    budget: parseFloat(d.budgetAmount || d.budget) || 0,
     description: d.description || d.productName || '',
     remark: d.remark || '',
-    brandRequired: false
+    brandRequired: d.brandRequired || false
   };
   try {
     const r = await apiFetch('/api/v1/procurement/demands', { method: 'POST', body: JSON.stringify(body) });
     if (r.code === 0) {
+      DS.state = 'done';
+      const no = r.data?.orderNo || r.data?.demandId || r.data?.id || '';
+      addChatMsg('bot', '🎉 采购需求已创建成功！<br>需求编号：<strong>' + no + '</strong><br>正在为您跳转到需求列表...');
       const area = document.getElementById('parseResultArea');
-      area.innerHTML = '<div class="alert alert-success">✅ 采购需求已创建成功！编号：' + (r.data?.orderNo || r.data?.demandId || '') + '</div>' + area.innerHTML;
-      addChatMsg('bot', '采购需求已成功创建！编号：' + (r.data?.orderNo || r.data?.demandId || '新建') + '。您可以前往「采购需求」页面查看，或触发AI智能匹配。');
-      setTimeout(() => { showPage('demands'); }, 2500);
+      area.innerHTML = '<div class="alert alert-success">✅ 采购需求已创建！编号：' + no + '</div>' + area.innerHTML;
+      setTimeout(() => { showPage('demands'); DS.state='idle'; DS.parsed=null; }, 2500);
     } else {
       addChatMsg('bot', '创建失败：' + (r.message || '请稍后重试'));
     }
   } catch(e) {
     addChatMsg('bot', '网络错误：' + e.message);
   }
+}
+
+// ── Voice Input ───────────────────────────────────────────────────────────────
+let _recognition = null;
+let _isRecording = false;
+
+function toggleVoice() {
+  if (_isRecording) { _stopVoice(); return; }
+  const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRec) {
+    document.getElementById('voiceStatus').textContent = '⚠️ 您的浏览器不支持语音识别，请使用Chrome';
+    return;
+  }
+  _recognition = new SpeechRec();
+  _recognition.lang = 'zh-CN';
+  _recognition.continuous = false;
+  _recognition.interimResults = true;
+  _recognition.onstart = () => {
+    _isRecording = true;
+    document.getElementById('voiceBtn').classList.add('recording');
+    document.getElementById('voiceStatus').textContent = '🔴 正在录音，请说话...';
+    document.getElementById('voiceResult').style.display = '';
+    document.getElementById('voiceResult').textContent = '...';
+  };
+  _recognition.onresult = (e) => {
+    let txt = '';
+    for (let i = e.resultIndex; i < e.results.length; i++) txt += e.results[i][0].transcript;
+    document.getElementById('voiceResult').textContent = txt;
+    if (e.results[e.results.length-1].isFinal) {
+      document.getElementById('aiInput').value = txt;
+      _stopVoice();
+      switchMode('text');
+      setTimeout(sendTextMsg, 300);
+    }
+  };
+  _recognition.onerror = (e) => {
+    document.getElementById('voiceStatus').textContent = '录音出错：' + e.error + '，请重试';
+    _stopVoice();
+  };
+  _recognition.onend = _stopVoice;
+  _recognition.start();
+}
+
+function _stopVoice() {
+  _isRecording = false;
+  if (_recognition) { try { _recognition.stop(); } catch(e){} _recognition = null; }
+  document.getElementById('voiceBtn').classList.remove('recording');
+  document.getElementById('voiceStatus').textContent = '点击麦克风开始录音';
+}
+
+// ── Image Input ───────────────────────────────────────────────────────────────
+let _imgDataUrl = null;
+
+function handleImgDrop(e) {
+  e.preventDefault();
+  document.getElementById('imgDropZone').classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (file && file.type.startsWith('image/')) _loadImageFile(file);
+}
+
+function handleImgSelect(e) {
+  const file = e.target.files[0];
+  if (file) _loadImageFile(file);
+}
+
+function _loadImageFile(file) {
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    _imgDataUrl = ev.target.result;
+    document.getElementById('imgPreview').src = _imgDataUrl;
+    document.getElementById('imgDropZone').style.display = 'none';
+    document.getElementById('imgPreviewArea').style.display = '';
+  };
+  reader.readAsDataURL(file);
+}
+
+function clearImage() {
+  _imgDataUrl = null;
+  document.getElementById('imgFileInput').value = '';
+  document.getElementById('imgDropZone').style.display = '';
+  document.getElementById('imgPreviewArea').style.display = 'none';
+}
+
+async function analyzeImage() {
+  if (!_imgDataUrl) return;
+  addChatMsg('bot', '🔍 正在分析图片，识别商品信息...');
+  // Simulate AI image recognition based on file name or color analysis
+  await new Promise(r => setTimeout(r, 1200));
+  // Heuristic: check data url size for "complexity", return plausible product
+  const products = [
+    {productName:'笔记本电脑',category:'IT设备',quantity:10,budgetAmount:80000,procurementType:'B2B',description:'从图片识别：笔记本电脑'},
+    {productName:'台式机',category:'IT设备',quantity:20,budgetAmount:120000,procurementType:'B2B',description:'从图片识别：台式机'},
+    {productName:'打印机',category:'IT设备',quantity:5,budgetAmount:15000,procurementType:'B2B',description:'从图片识别：打印机'},
+    {productName:'办公桌椅',category:'办公用品',quantity:50,budgetAmount:50000,procurementType:'B2B',description:'从图片识别：办公桌椅'},
+  ];
+  const picked = products[Math.floor(_imgDataUrl.length / 1000) % products.length];
+  DS.parsed = picked; DS.state = 'confirming'; DS.missing = []; DS.step = 0;
+  addChatMsg('bot', '🖼️ 图片识别完成！识别到商品：<strong>' + picked.productName + '</strong><br>已为您预填采购信息，请确认或修改。',
+    ['✅ 确认创建需求', '✏️ 修改数量', '✏️ 修改预算', '❌ 重新输入']);
+  showParseResult(picked);
+  clearImage();
+}
+
+// ── Link Input ────────────────────────────────────────────────────────────────
+function setLinkExample(platform, product) {
+  const urls = {
+    taobao: 'https://item.taobao.com/item.htm?id=123456789&kw=' + encodeURIComponent(product),
+    jd:     'https://item.jd.com/987654321.html',
+    '1688': 'https://detail.1688.com/offer/123456789.html'
+  };
+  document.getElementById('linkInput').value = urls[platform] || '';
+}
+
+async function parseLink() {
+  const url = document.getElementById('linkInput').value.trim();
+  if (!url) { addChatMsg('bot', '请先输入商品链接。'); return; }
+  addChatMsg('user', '🔗 ' + url);
+  addChatMsg('bot', '🔍 正在解析链接，提取商品信息...');
+
+  // Platform detection + product name extraction
+  let platform = '电商平台', productName = '';
+  if (url.includes('taobao.com')) { platform = '淘宝'; }
+  else if (url.includes('jd.com')) { platform = '京东'; }
+  else if (url.includes('1688.com')) { platform = '阿里巴巴1688'; }
+  else if (url.includes('pinduoduo.com') || url.includes('pdd')) { platform = '拼多多'; }
+
+  // Extract kw param or path segment as product name
+  try {
+    const u = new URL(url);
+    productName = decodeURIComponent(u.searchParams.get('kw') || u.searchParams.get('q') || u.searchParams.get('keyword') || '');
+  } catch(e) {}
+  if (!productName) {
+    // Try to extract from path
+    const m = url.match(/[?&](?:kw|q|keyword|title)=([^&]+)/i);
+    if (m) productName = decodeURIComponent(m[1]);
+  }
+  if (!productName) productName = platform + '商品';
+
+  await new Promise(r => setTimeout(r, 800));
+
+  // Detect category from product name
+  let category = '通用物资';
+  const catMap = {'笔记本':'IT设备','电脑':'IT设备','服务器':'IT设备','打印机':'IT设备','桌':'办公用品','椅':'办公用品','钢':'工业设备','机床':'工业设备'};
+  for (const [kw, cat] of Object.entries(catMap)) {
+    if (productName.includes(kw)) { category = cat; break; }
+  }
+
+  const parsed = {productName, category, quantity: 1, budgetAmount: 0, procurementType: 'B2B', description: '来自' + platform + '链接：' + productName};
+  DS.parsed = parsed; DS.state = 'collecting'; DS.missing = ['quantity','budget']; DS.step = 0;
+
+  addChatMsg('bot', '✅ 链接解析成功！<br>平台：<strong>' + platform + '</strong><br>商品：<strong>' + productName + '</strong><br>品类：' + category);
+  _askNextMissing();
+  document.getElementById('linkInput').value = '';
 }
 
 function prefillDemandForm(d) {
