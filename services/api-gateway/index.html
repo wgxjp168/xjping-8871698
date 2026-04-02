@@ -498,12 +498,15 @@ function closeModal(id) { document.getElementById(id).classList.remove('show'); 
 async function submitDemand() {
   const alertEl = document.getElementById('demandFormAlert');
   const body = {
-    demandType: document.getElementById('demandType').value,
+    procurementType: document.getElementById('demandType').value,
     category: document.getElementById('demandCategory').value,
+    categoryId: document.getElementById('demandCategory').value,
     productName: document.getElementById('demandProduct').value,
     quantity: parseInt(document.getElementById('demandQty').value),
+    budgetAmount: parseFloat(document.getElementById('demandBudget').value),
     budget: parseFloat(document.getElementById('demandBudget').value),
     description: document.getElementById('demandDesc').value,
+    remark: document.getElementById('demandDesc').value,
     brandRequired: false
   };
   try {
