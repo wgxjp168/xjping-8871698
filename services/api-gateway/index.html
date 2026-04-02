@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ILbuy 我来购 - B2B采购平台</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Microsoft YaHei',Arial,sans-serif;background:#f0f2f5;color:#333}
+.header{background:linear-gradient(135deg,#1a237e,#283593);color:#fff;padding:14px 24px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 2px 8px rgba(0,0,0,.3)}
+.header h1{font-size:20px;font-weight:700;letter-spacing:1px}
+.header .subtitle{font-size:12px;opacity:.8}
+.user-info{display:flex;align-items:center;gap:12px;font-size:13px}
+.btn{padding:7px 16px;border:none;border-radius:4px;cursor:pointer;font-size:13px;font-weight:500;transition:all .2s}
+.btn-primary{background:#1565c0;color:#fff}.btn-primary:hover{background:#0d47a1}
+.btn-success{background:#2e7d32;color:#fff}.btn-success:hover{background:#1b5e20}
+.btn-danger{background:#c62828;color:#fff}.btn-danger:hover{background:#b71c1c}
+.btn-outline{background:transparent;border:1px solid #fff;color:#fff}.btn-outline:hover{background:rgba(255,255,255,.15)}
+.btn-sm{padding:4px 10px;font-size:12px}
+
+/* Login */
+.login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#e8eaf6,#c5cae9)}
+.login-card{background:#fff;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.15);padding:40px;width:380px}
+.login-card .logo{text-align:center;margin-bottom:28px}
+.login-card .logo h2{color:#1a237e;font-size:26px;font-weight:700}
+.login-card .logo p{color:#666;font-size:13px;margin-top:4px}
+.form-group{margin-bottom:16px}
+.form-group label{display:block;font-size:13px;color:#555;margin-bottom:6px;font-weight:500}
+.form-group input,.form-group select{width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:6px;font-size:14px;transition:border .2s}
+.form-group input:focus,.form-group select:focus{outline:none;border-color:#1565c0;box-shadow:0 0 0 3px rgba(21,101,192,.1)}
+.login-card .btn-primary{width:100%;padding:11px;font-size:15px;border-radius:6px;margin-top:8px}
+.login-hint{font-size:12px;color:#888;text-align:center;margin-top:14px}
+.login-hint span{color:#1565c0;cursor:pointer}
+.error-msg{background:#ffebee;color:#c62828;padding:8px 12px;border-radius:4px;font-size:13px;margin-bottom:12px;display:none}
+
+/* Layout */
+.app{display:none}
+.sidebar{width:200px;background:#fff;height:calc(100vh - 50px);position:fixed;top:50px;left:0;box-shadow:2px 0 8px rgba(0,0,0,.08);overflow-y:auto}
+.nav-item{padding:12px 20px;cursor:pointer;font-size:14px;color:#555;display:flex;align-items:center;gap:8px;border-left:3px solid transparent;transition:all .15s}
+.nav-item:hover{background:#e8eaf6;color:#1565c0}
+.nav-item.active{background:#e8eaf6;color:#1565c0;border-left-color:#1565c0;font-weight:600}
+.nav-icon{width:18px;text-align:center}
+.main{margin-left:200px;padding:20px;min-height:calc(100vh - 50px)}
+.page{display:none}.page.active{display:block}
+
+/* Cards */
+.card{background:#fff;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.08);padding:20px;margin-bottom:16px}
+.card-title{font-size:15px;font-weight:600;color:#1a237e;margin-bottom:16px;padding-bottom:10px;border-bottom:2px solid #e8eaf6}
+.stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:20px}
+.stat-card{background:#fff;border-radius:8px;padding:16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.08);border-top:3px solid}
+.stat-card.blue{border-color:#1565c0}.stat-card.green{border-color:#2e7d32}.stat-card.orange{border-color:#e65100}.stat-card.purple{border-color:#6a1b9a}
+.stat-num{font-size:28px;font-weight:700;margin-bottom:4px}
+.stat-card.blue .stat-num{color:#1565c0}.stat-card.green .stat-num{color:#2e7d32}.stat-card.orange .stat-num{color:#e65100}.stat-card.purple .stat-num{color:#6a1b9a}
+.stat-label{font-size:12px;color:#888}
+
+/* Table */
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{background:#f5f5f5;padding:10px 12px;text-align:left;font-weight:600;color:#555;border-bottom:2px solid #e0e0e0}
+td{padding:10px 12px;border-bottom:1px solid #f0f0f0;color:#444}
+tr:hover td{background:#fafafa}
+.badge{display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600}
+.badge-green{background:#e8f5e9;color:#2e7d32}
+.badge-blue{background:#e3f2fd;color:#1565c0}
+.badge-orange{background:#fff3e0;color:#e65100}
+.badge-red{background:#ffebee;color:#c62828}
+.badge-grey{background:#f5f5f5;color:#666}
+.badge-purple{background:#f3e5f5;color:#6a1b9a}
+
+/* Form Modal */
+.modal{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);z-index:1000;align-items:center;justify-content:center}
+.modal.show{display:flex}
+.modal-box{background:#fff;border-radius:10px;width:480px;max-height:80vh;overflow-y:auto;box-shadow:0 16px 48px rgba(0,0,0,.2)}
+.modal-header{padding:16px 20px;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center}
+.modal-header h3{font-size:15px;font-weight:600;color:#1a237e}
+.modal-close{background:none;border:none;font-size:20px;cursor:pointer;color:#999;line-height:1}
+.modal-body{padding:20px}
+.modal-footer{padding:12px 20px;border-top:1px solid #eee;display:flex;justify-content:flex-end;gap:10px}
+.row{display:flex;gap:12px}.row .form-group{flex:1}
+
+/* Health */
+.health-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.health-item{background:#fff;border-radius:8px;padding:16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.08)}
+.health-dot{width:14px;height:14px;border-radius:50%;display:inline-block;margin-right:6px}
+.dot-up{background:#4caf50}.dot-down{background:#f44336}
+.health-name{font-size:13px;font-weight:600;color:#555;margin-top:6px}
+.health-status{font-size:12px;margin-top:4px}
+
+/* Alert */
+.alert{padding:10px 14px;border-radius:6px;font-size:13px;margin-bottom:12px}
+.alert-success{background:#e8f5e9;color:#2e7d32;border:1px solid #a5d6a7}
+.alert-error{background:#ffebee;color:#c62828;border:1px solid #ef9a9a}
+
+/* Loading */
+.loading{text-align:center;padding:40px;color:#999;font-size:14px}
+.empty{text-align:center;padding:40px;color:#bbb;font-size:14px}
+.page-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+.page-header h2{font-size:17px;font-weight:700;color:#1a237e}
+.search-bar{display:flex;gap:8px;margin-bottom:16px}
+.search-bar input{flex:1;padding:8px 12px;border:1px solid #ddd;border-radius:6px;font-size:13px}
+.search-bar input:focus{outline:none;border-color:#1565c0}
+</style>
+</head>
+<body>
+
+<!-- Login -->
+<div class="login-wrap" id="loginWrap">
+  <div class="login-card">
+    <div class="logo">
+      <h2>🏢 ILbuy 我来购</h2>
+      <p>B2B 智能采购平台</p>
+    </div>
+    <div class="error-msg" id="loginError"></div>
+    <div class="form-group">
+      <label>账号</label>
+      <input type="text" id="username" value="buyer001" placeholder="输入用户名">
+    </div>
+    <div class="form-group">
+      <label>密码</label>
+      <input type="password" id="password" value="Test@1234" placeholder="输入密码">
+    </div>
+    <button class="btn btn-primary" onclick="doLogin()">登 录</button>
+    <p class="login-hint">测试账号：buyer001 / supplier001 &nbsp;|&nbsp; 密码：Test@1234</p>
+  </div>
+</div>
+
+<!-- App -->
+<div class="app" id="app">
+  <div class="header">
+    <div>
+      <div class="header h1" style="font-size:18px;font-weight:700">🏢 ILbuy 我来购</div>
+      <div class="subtitle">B2B 智能采购平台</div>
+    </div>
+    <div class="user-info">
+      <span id="headerUser">👤 buyer001</span>
+      <button class="btn btn-outline btn-sm" onclick="doLogout()">退出</button>
+    </div>
+  </div>
+
+  <div class="sidebar">
+    <div class="nav-item active" onclick="showPage('dashboard')" id="nav-dashboard">
+      <span class="nav-icon">📊</span> 控制台
+    </div>
+    <div class="nav-item" onclick="showPage('demands')" id="nav-demands">
+      <span class="nav-icon">📋</span> 采购需求
+    </div>
+    <div class="nav-item" onclick="showPage('orders')" id="nav-orders">
+      <span class="nav-icon">📦</span> 订单管理
+    </div>
+    <div class="nav-item" onclick="showPage('market')" id="nav-market">
+      <span class="nav-icon">📈</span> 市场行情
+    </div>
+    <div class="nav-item" onclick="showPage('suppliers')" id="nav-suppliers">
+      <span class="nav-icon">🏭</span> 供应商库
+    </div>
+    <div class="nav-item" onclick="showPage('health')" id="nav-health">
+      <span class="nav-icon">💚</span> 服务状态
+    </div>
+  </div>
+
+  <div class="main">
+
+    <!-- Dashboard -->
+    <div class="page active" id="page-dashboard">
+      <div class="page-header"><h2>📊 控制台</h2></div>
+      <div class="stat-grid">
+        <div class="stat-card blue"><div class="stat-num" id="statDemands">-</div><div class="stat-label">采购需求</div></div>
+        <div class="stat-card green"><div class="stat-num" id="statOrders">-</div><div class="stat-label">进行中订单</div></div>
+        <div class="stat-card orange"><div class="stat-num" id="statSuppliers">-</div><div class="stat-label">注册供应商</div></div>
+        <div class="stat-card purple"><div class="stat-num" id="statPrices">-</div><div class="stat-label">市场价格数据</div></div>
+      </div>
+      <div class="card">
+        <div class="card-title">最新采购需求</div>
+        <div id="dashDemands"><div class="loading">加载中...</div></div>
+      </div>
+    </div>
+
+    <!-- Demands -->
+    <div class="page" id="page-demands">
+      <div class="page-header">
+        <h2>📋 采购需求</h2>
+        <button class="btn btn-success" onclick="openDemandModal()">+ 新建需求</button>
+      </div>
+      <div class="card">
+        <div class="search-bar">
+          <input type="text" id="demandSearch" placeholder="搜索需求...">
+          <button class="btn btn-primary" onclick="loadDemands()">搜索</button>
+        </div>
+        <div id="demandsList"><div class="loading">加载中...</div></div>
+      </div>
+    </div>
+
+    <!-- Orders -->
+    <div class="page" id="page-orders">
+      <div class="page-header"><h2>📦 订单管理</h2></div>
+      <div class="card">
+        <div id="ordersList"><div class="loading">加载中...</div></div>
+      </div>
+    </div>
+
+    <!-- Market -->
+    <div class="page" id="page-market">
+      <div class="page-header"><h2>📈 市场行情</h2></div>
+      <div class="card">
+        <div class="search-bar">
+          <input type="text" id="marketSearch" placeholder="搜索品类...">
+          <button class="btn btn-primary" onclick="loadMarket()">搜索</button>
+        </div>
+        <div id="marketList"><div class="loading">加载中...</div></div>
+      </div>
+    </div>
+
+    <!-- Suppliers -->
+    <div class="page" id="page-suppliers">
+      <div class="page-header"><h2>🏭 供应商库</h2></div>
+      <div class="card">
+        <div id="suppliersList"><div class="loading">加载中...</div></div>
+      </div>
+    </div>
+
+    <!-- Health -->
+    <div class="page" id="page-health">
+      <div class="page-header"><h2>💚 服务健康状态</h2></div>
+      <div id="healthGrid"><div class="loading">加载中...</div></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- New Demand Modal -->
+<div class="modal" id="demandModal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3>新建采购需求</h3>
+      <button class="modal-close" onclick="closeModal('demandModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="demandFormAlert"></div>
+      <div class="row">
+        <div class="form-group">
+          <label>采购类型</label>
+          <select id="demandType">
+            <option value="B2B">B2B企业采购</option>
+            <option value="B2C">B2C零散采购</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>品类</label>
+          <input type="text" id="demandCategory" placeholder="如：IT设备" value="IT设备">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>产品名称</label>
+        <input type="text" id="demandProduct" placeholder="如：笔记本电脑" value="笔记本电脑">
+      </div>
+      <div class="row">
+        <div class="form-group">
+          <label>数量</label>
+          <input type="number" id="demandQty" value="10" min="1">
+        </div>
+        <div class="form-group">
+          <label>预算 (元)</label>
+          <input type="number" id="demandBudget" value="80000" min="0">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>需求描述</label>
+        <input type="text" id="demandDesc" placeholder="详细描述采购需求" value="高性能商务本，需要i7处理器">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" style="border-color:#ddd;color:#666" onclick="closeModal('demandModal')">取消</button>
+      <button class="btn btn-success" onclick="submitDemand()">提交需求</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = '';
+let TOKEN = '', USER_ID = '', USERNAME = '';
+
+function api(path, opts={}) {
+  const h = {'Content-Type':'application/json'};
+  if (TOKEN) h['Authorization'] = 'Bearer ' + TOKEN;
+  return fetch(API + path, {headers: h, ...opts}).then(r => r.json());
+}
+
+async function doLogin() {
+  const u = document.getElementById('username').value.trim();
+  const p = document.getElementById('password').value.trim();
+  const err = document.getElementById('loginError');
+  err.style.display = 'none';
+  try {
+    const r = await api('/api/v1/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({username: u, password: p})
+    });
+    if (r.code === 0 && r.data && r.data.accessToken) {
+      TOKEN = r.data.accessToken;
+      USER_ID = r.data.userId || '';
+      USERNAME = u;
+      document.getElementById('headerUser').textContent = '👤 ' + u;
+      document.getElementById('loginWrap').style.display = 'none';
+      document.getElementById('app').style.display = 'block';
+      loadDashboard();
+    } else {
+      err.style.display = 'block';
+      err.textContent = r.message || '登录失败，请检查账号密码';
+    }
+  } catch(e) {
+    err.style.display = 'block';
+    err.textContent = '网络错误，请检查服务是否运行';
+  }
+}
+
+function doLogout() {
+  TOKEN = ''; USER_ID = ''; USERNAME = '';
+  document.getElementById('loginWrap').style.display = 'flex';
+  document.getElementById('app').style.display = 'none';
+}
+
+document.getElementById('password').addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
+
+function showPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  document.getElementById('nav-' + name).classList.add('active');
+  if (name === 'demands') loadDemands();
+  else if (name === 'orders') loadOrders();
+  else if (name === 'market') loadMarket();
+  else if (name === 'suppliers') loadSuppliers();
+  else if (name === 'health') loadHealth();
+}
+
+function statusBadge(s) {
+  const m = {
+    MATCHING:'badge-blue', PENDING:'badge-grey', COMPLETED:'badge-green',
+    CANCELLED:'badge-red', CREATED:'badge-blue', PAID:'badge-green',
+    SHIPPED:'badge-orange', UNPAID:'badge-grey', REVIEWING:'badge-orange',
+    APPROVED:'badge-green', REJECTED:'badge-red', SENT:'badge-blue'
+  };
+  return `<span class="badge ${m[s]||'badge-grey'}">${s}</span>`;
+}
+
+async function loadDashboard() {
+  try {
+    const [d, o, s, m] = await Promise.all([
+      api('/api/v1/procurement/demands?page=1&size=5'),
+      api('/api/v1/orders?page=1&size=5'),
+      api('/api/v1/data/suppliers?page=1&size=1'),
+      api('/api/v1/data/market/prices?page=1&size=1')
+    ]);
+    document.getElementById('statDemands').textContent = d.data?.totalElements ?? '-';
+    document.getElementById('statOrders').textContent = o.data?.totalElements ?? '-';
+    document.getElementById('statSuppliers').textContent = s.data?.totalElements ?? '-';
+    document.getElementById('statPrices').textContent = m.data?.totalElements ?? '-';
+
+    const demands = d.data?.content || [];
+    const el = document.getElementById('dashDemands');
+    if (!demands.length) { el.innerHTML = '<div class="empty">暂无采购需求</div>'; return; }
+    el.innerHTML = `<div class="table-wrap"><table>
+      <tr><th>需求编号</th><th>产品</th><th>数量</th><th>预算</th><th>状态</th></tr>
+      ${demands.slice(0,5).map(d => `<tr>
+        <td style="font-family:monospace;font-size:12px">${d.orderNo||d.demandId}</td>
+        <td>${d.productName||'-'}</td>
+        <td>${d.quantity||'-'}</td>
+        <td>¥${(d.budget||0).toLocaleString()}</td>
+        <td>${statusBadge(d.status)}</td>
+      </tr>`).join('')}
+    </table></div>`;
+  } catch(e) { console.error(e); }
+}
+
+async function loadDemands() {
+  const kw = document.getElementById('demandSearch').value;
+  const el = document.getElementById('demandsList');
+  el.innerHTML = '<div class="loading">加载中...</div>';
+  try {
+    const r = await api('/api/v1/procurement/demands?page=1&size=20' + (kw ? '&keyword='+encodeURIComponent(kw) : ''));
+    const list = r.data?.content || [];
+    if (!list.length) { el.innerHTML = '<div class="empty">暂无数据</div>'; return; }
+    el.innerHTML = `<div class="table-wrap"><table>
+      <tr><th>需求编号</th><th>类型</th><th>产品</th><th>品类</th><th>数量</th><th>预算</th><th>状态</th><th>创建时间</th></tr>
+      ${list.map(d => `<tr>
+        <td style="font-family:monospace;font-size:11px">${d.orderNo||d.demandId}</td>
+        <td>${d.demandType||'-'}</td>
+        <td>${d.productName||'-'}</td>
+        <td>${d.category||'-'}</td>
+        <td>${d.quantity||'-'}</td>
+        <td>¥${(d.budget||0).toLocaleString()}</td>
+        <td>${statusBadge(d.status)}</td>
+        <td style="font-size:11px">${(d.createdAt||'').substring(0,16)}</td>
+      </tr>`).join('')}
+    </table></div>`;
+  } catch(e) { el.innerHTML = '<div class="empty">加载失败</div>'; }
+}
+
+async function loadOrders() {
+  const el = document.getElementById('ordersList');
+  el.innerHTML = '<div class="loading">加载中...</div>';
+  try {
+    const r = await api('/api/v1/orders?page=1&size=20');
+    const list = r.data?.content || [];
+    if (!list.length) { el.innerHTML = '<div class="empty">暂无订单</div>'; return; }
+    el.innerHTML = `<div class="table-wrap"><table>
+      <tr><th>订单号</th><th>金额</th><th>订单状态</th><th>支付状态</th><th>创建时间</th></tr>
+      ${list.map(o => `<tr>
+        <td style="font-family:monospace;font-size:11px">${o.orderNo||o.orderId}</td>
+        <td>¥${(o.totalAmount||0).toLocaleString()}</td>
+        <td>${statusBadge(o.orderStatus||o.status)}</td>
+        <td>${statusBadge(o.paymentStatus||'-')}</td>
+        <td style="font-size:11px">${(o.createdAt||'').substring(0,16)}</td>
+      </tr>`).join('')}
+    </table></div>`;
+  } catch(e) { el.innerHTML = '<div class="empty">加载失败</div>'; }
+}
+
+async function loadMarket() {
+  const kw = document.getElementById('marketSearch').value;
+  const el = document.getElementById('marketList');
+  el.innerHTML = '<div class="loading">加载中...</div>';
+  try {
+    const r = await api('/api/v1/data/market/prices?page=1&size=20' + (kw ? '&keyword='+encodeURIComponent(kw) : ''));
+    const list = r.data?.content || [];
+    if (!list.length) { el.innerHTML = '<div class="empty">暂无数据</div>'; return; }
+    el.innerHTML = `<div class="table-wrap"><table>
+      <tr><th>品类</th><th>产品名</th><th>均价</th><th>最低价</th><th>最高价</th><th>单位</th><th>趋势</th><th>更新时间</th></tr>
+      ${list.map(p => `<tr>
+        <td>${p.category||'-'}</td>
+        <td>${p.productName||'-'}</td>
+        <td style="color:#1565c0;font-weight:600">¥${(p.avgPrice||0).toLocaleString()}</td>
+        <td style="color:#2e7d32">¥${(p.minPrice||0).toLocaleString()}</td>
+        <td style="color:#c62828">¥${(p.maxPrice||0).toLocaleString()}</td>
+        <td>${p.unit||'-'}</td>
+        <td>${p.trend==='UP'?'📈 上涨':p.trend==='DOWN'?'📉 下跌':'➡️ 平稳'}</td>
+        <td style="font-size:11px">${(p.updatedAt||'').substring(0,16)}</td>
+      </tr>`).join('')}
+    </table></div>`;
+  } catch(e) { el.innerHTML = '<div class="empty">加载失败</div>'; }
+}
+
+async function loadSuppliers() {
+  const el = document.getElementById('suppliersList');
+  el.innerHTML = '<div class="loading">加载中...</div>';
+  try {
+    const r = await api('/api/v1/data/suppliers?page=1&size=20');
+    const list = r.data?.content || [];
+    if (!list.length) { el.innerHTML = '<div class="empty">暂无供应商</div>'; return; }
+    el.innerHTML = `<div class="table-wrap"><table>
+      <tr><th>ID</th><th>企业名称</th><th>统一信用代码</th><th>联系人</th><th>电话</th><th>状态</th></tr>
+      ${list.map(s => `<tr>
+        <td>${s.id}</td>
+        <td>${s.companyName||s.company_name||'-'}</td>
+        <td style="font-family:monospace;font-size:11px">${s.creditCode||s.credit_code||'-'}</td>
+        <td>${s.contactPerson||s.contact_person||'-'}</td>
+        <td>${s.contactPhone||s.contact_phone||'-'}</td>
+        <td>${statusBadge(s.status||'APPROVED')}</td>
+      </tr>`).join('')}
+    </table></div>`;
+  } catch(e) { el.innerHTML = '<div class="empty">加载失败</div>'; }
+}
+
+async function loadHealth() {
+  const el = document.getElementById('healthGrid');
+  el.innerHTML = '<div class="loading">加载中...</div>';
+  try {
+    const r = await api('/actuator/health');
+    const svcs = r.data?.services || {};
+    const items = [
+      {name:'API 网关', key:'gateway', status:'UP'},
+      {name:'用户服务', key:'user', status: svcs.user},
+      {name:'采购服务', key:'procurement', status: svcs.procurement},
+      {name:'AI匹配服务', key:'ai', status: svcs.ai},
+      {name:'订单服务', key:'order', status: svcs.order},
+      {name:'数据服务', key:'data', status: svcs.data},
+    ];
+    el.innerHTML = `<div class="health-grid">${items.map(i => `
+      <div class="health-item">
+        <div><span class="health-dot ${i.status==='UP'?'dot-up':'dot-down'}"></span>
+        <strong style="font-size:13px">${i.name}</strong></div>
+        <div class="health-status" style="color:${i.status==='UP'?'#2e7d32':'#c62828'};font-weight:600">
+          ${i.status==='UP'?'● 运行正常':'● 服务异常'}
+        </div>
+      </div>`).join('')}</div>
+    <div style="margin-top:16px;padding:10px 14px;background:#e8f5e9;border-radius:6px;font-size:13px;color:#2e7d32">
+      ✅ 整体状态：${r.data?.status||'未知'} &nbsp;|&nbsp; 接口响应正常
+    </div>`;
+  } catch(e) { el.innerHTML = '<div class="empty">加载失败</div>'; }
+}
+
+function openDemandModal() {
+  document.getElementById('demandModal').classList.add('show');
+  document.getElementById('demandFormAlert').innerHTML = '';
+}
+function closeModal(id) { document.getElementById(id).classList.remove('show'); }
+
+async function submitDemand() {
+  const alertEl = document.getElementById('demandFormAlert');
+  const body = {
+    demandType: document.getElementById('demandType').value,
+    category: document.getElementById('demandCategory').value,
+    productName: document.getElementById('demandProduct').value,
+    quantity: parseInt(document.getElementById('demandQty').value),
+    budget: parseFloat(document.getElementById('demandBudget').value),
+    description: document.getElementById('demandDesc').value,
+    brandRequired: false
+  };
+  try {
+    const r = await api('/api/v1/procurement/demands', {method:'POST', body: JSON.stringify(body)});
+    if (r.code === 0) {
+      alertEl.innerHTML = '<div class="alert alert-success">✅ 采购需求创建成功！需求编号：' + (r.data?.orderNo||'') + '</div>';
+      setTimeout(() => { closeModal('demandModal'); loadDemands(); showPage('demands'); }, 1500);
+    } else {
+      alertEl.innerHTML = '<div class="alert alert-error">❌ ' + (r.message||'提交失败') + '</div>';
+    }
+  } catch(e) {
+    alertEl.innerHTML = '<div class="alert alert-error">❌ 网络错误</div>';
+  }
+}
+</script>
+</body>
+</html>

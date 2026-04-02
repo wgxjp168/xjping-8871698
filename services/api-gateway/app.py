@@ -5,7 +5,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from functools import wraps
 
 import requests as req_lib
-from flask import Flask, Response, g, jsonify, request
+from flask import Flask, Response, g, jsonify, request, send_file
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 
@@ -122,6 +122,12 @@ def auth_headers():
 
 
 # --- Health check ---
+@app.route('/', methods=['GET'])
+@limiter.exempt
+def index():
+    return send_file('index.html')
+
+
 @app.route('/actuator/health', methods=['GET'])
 @limiter.exempt
 def health():
