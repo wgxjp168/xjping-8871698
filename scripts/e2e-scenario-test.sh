@@ -149,7 +149,7 @@ else
 fi
 
 step "获取 AI 推荐供应商（关键词搜索）"
-do_req GET "$BASE/api/v1/ai/suppliers/recommend?keyword=笔记本&category=IT设备" "" "$BUYER_TOKEN"
+do_req GET "$BASE/api/v1/ai/suppliers/recommend?keyword=laptop&category=IT" "" "$BUYER_TOKEN"
 assert_code 200 "AI推荐供应商"
 
 # ════════════════════════════════════════════════════════
