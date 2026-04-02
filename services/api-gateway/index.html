@@ -703,6 +703,7 @@ function showPage(name) {
   if (pg) pg.classList.add('active');
   if (nv) nv.classList.add('active');
   if (name === 'demands') loadDemands();
+  else if (name === 'matching') { if (currentMatchTaskId) startMatchPolling(currentMatchTaskId); else loadRecentMatchResult(); }
   else if (name === 'orders') loadOrders();
   else if (name === 'market') loadMarket();
   else if (name === 'suppliers') loadSuppliers();
@@ -1294,17 +1295,19 @@ async function loadDemands() {
       list.map(d => {
         const id = d.id || d.demandId;
         const no = fmtId(d);
-        const taskLink = d.aiTaskId ? ' <a href="#" onclick="viewMatchResult(\'' + d.aiTaskId + '\');return false;" style="font-size:11px;color:#1565c0">查看匹配</a>' : '';
+        const aiTaskId = d.aiTaskId || d.ai_task_id;
+        const taskLink = aiTaskId ? ' <a href="#" onclick="viewMatchResult(\'' + aiTaskId + '\');return false;" style="font-size:11px;color:#1565c0">查看匹配</a>' : '';
+        const productTitle = d.productName || d.title || '';
         return '<tr>' +
           '<td><span style="font-family:monospace;font-size:11px">' + no + '</span>' + taskLink + '</td>' +
           '<td><span class="badge ' + (d.demandType==='B2B'||d.procurementType==='B2B'?'badge-blue':'badge-orange') + '">' + (d.demandType||d.procurementType||'B2B') + '</span></td>' +
-          '<td><strong>' + (d.productName || d.title || '-') + '</strong></td>' +
+          '<td><strong>' + (productTitle || '-') + '</strong></td>' +
           '<td>' + (d.category || '-') + '</td>' +
           '<td>' + (d.quantity || '-') + '</td>' +
           '<td style="color:#1565c0;font-weight:600">' + fmtMoney(d.budget || d.budgetAmount) + '</td>' +
           '<td>' + statusBadge(d.status) + '</td>' +
           '<td style="font-size:11px;color:#888">' + fmtDate(d.createdAt || d.created_at) + '</td>' +
-          '<td><button class="btn btn-primary btn-xs" onclick="triggerAIMatch(' + id + ',\'' + (d.productName||'').replace(/'/g,'') + '\',\'' + (d.category||'').replace(/'/g,'') + '\',' + (d.budget||d.budgetAmount||0) + ',' + (d.quantity||1) + ',\'' + (d.demandType||d.procurementType||'B2B') + '\')">🤖 触发AI匹配</button></td>' +
+          '<td><button class="btn btn-primary btn-xs" onclick="triggerAIMatch(' + id + ',\'' + productTitle.replace(/'/g,'') + '\',\'' + (d.category||'').replace(/'/g,'') + '\',' + (d.budget||d.budgetAmount||0) + ',' + (d.quantity||1) + ',\'' + (d.demandType||d.procurementType||'B2B') + '\')">🤖 触发AI匹配</button></td>' +
         '</tr>';
       }).join('') + '</table></div>';
   } catch(e) { el.innerHTML = '<div class="empty">加载失败：' + e.message + '</div>'; }
@@ -1400,6 +1403,20 @@ function viewMatchResult(taskId) {
   currentMatchTaskId = taskId;
   showPage('matching');
   startMatchPolling(taskId);
+}
+
+async function loadRecentMatchResult() {
+  // Try to auto-load the most recent AI match result from demands
+  try {
+    const r = await apiFetch('/api/v1/procurement/demands?page=1&size=30');
+    if (r.code !== 0 || !r.data) return;
+    const demands = r.data.content || r.data.items || [];
+    const withTask = demands.filter(d => d.aiTaskId || d.ai_task_id);
+    if (!withTask.length) return;
+    const taskId = withTask[0].aiTaskId || withTask[0].ai_task_id;
+    currentMatchTaskId = taskId;
+    startMatchPolling(taskId);
+  } catch(e) { /* silently ignore */ }
 }
 
 function renderMatchResult(data, taskId) {
