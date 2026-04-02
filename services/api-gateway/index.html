@@ -1401,9 +1401,12 @@ function viewMatchResult(taskId) {
 
 function renderMatchResult(data, taskId) {
   const el = document.getElementById('matchingContent');
-  const suppliers = data.suppliers || data.results || data.matchResults || [];
-  const model = data.model || data.aiModel || (currentDemand?.type === 'B2B' ? 'B2B优化模型' : 'B2C通用模型');
-  const weights = data.weights || data.dimensionWeights || {};
+  // Support both response formats
+  const suppliers = data.matchedSuppliers || data.suppliers || data.results || data.matchResults || [];
+  const ai = data.aiAnalysis || {};
+  const model = ai.model || data.model || data.aiModel || (currentDemand?.type === 'B2B' ? 'B2B企业评分模型' : 'B2C通用评分模型');
+  const weights = ai.weights || data.weights || data.dimensionWeights || {};
+
   let html = '<div class="match-info-bar">';
   if (currentDemand) {
     html += '<div class="info-item"><strong>需求：</strong>' + (currentDemand.title || '未知') + '</div>';
@@ -1411,15 +1414,21 @@ function renderMatchResult(data, taskId) {
     html += '<div class="info-item"><strong>预算：</strong>' + fmtMoney(currentDemand.budget) + '</div>';
   }
   html += '<div class="info-item"><strong>AI模型：</strong><span class="badge badge-purple">' + model + '</span></div>';
-  html += '<div class="info-item"><strong>任务ID：</strong><span style="font-family:monospace;font-size:11px">' + taskId + '</span></div>';
+  html += '<div class="info-item"><strong>任务ID：</strong><span style="font-family:monospace;font-size:11px">' + taskId.substring(0,8) + '...</span></div>';
   html += '</div>';
+  if (ai.summary) {
+    html += '<div class="alert alert-info" style="margin-bottom:14px">' + ai.summary + '</div>';
+  }
   if (Object.keys(weights).length > 0) {
     html += '<div class="card"><div class="card-title">⚖️ 评分维度权重</div>';
     html += '<table class="weight-table"><tr><th>资质评分</th><th>信用评分</th><th>价格竞争力</th><th>交货能力</th><th>服务质量</th></tr><tr>';
-    const dims = ['qualification','credit','price','delivery','service'];
-    const labels = ['资质','信用','价格','交货','服务'];
-    dims.forEach((k,i) => {
-      const v = weights[k] || weights[labels[i]] || '-';
+    // Handle both English keys and Chinese keys from API
+    const keyMap = [
+      ['qualification', '资质评分'], ['credit', '信用评分'],
+      ['price', '价格竞争力'], ['delivery', '交货能力'], ['service', '服务评分'],
+    ];
+    keyMap.forEach(([eng, chn]) => {
+      const v = weights[eng] || weights[chn] || '-';
       html += '<td><strong>' + (typeof v === 'number' ? (v*100).toFixed(0)+'%' : v) + '</strong></td>';
     });
     html += '</tr></table></div>';
@@ -1576,7 +1585,7 @@ async function loadOrders() {
   el.innerHTML = '<div class="loading">加载中...</div>';
   try {
     const r = await apiFetch('/api/v1/orders?page=1&size=20');
-    const list = r.data?.content || [];
+    const list = r.data?.items || r.data?.content || [];
     if (!list.length) { el.innerHTML = '<div class="empty">暂无订单数据</div>'; return; }
     el.innerHTML = '<div class="table-wrap"><table>' +
       '<tr><th>订单号</th><th>总金额</th><th>订单状态</th><th>支付状态</th><th>创建时间</th><th>操作</th></tr>' +

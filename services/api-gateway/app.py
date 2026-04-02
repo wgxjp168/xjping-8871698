@@ -2,6 +2,7 @@ import json
 import os
 import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime, timezone
 from functools import wraps
 
 import requests as req_lib
@@ -23,9 +24,37 @@ AI_SERVICE_URL = os.getenv('AI_SERVICE_URL', 'http://localhost:8003')
 ORDER_SERVICE_URL = os.getenv('ORDER_SERVICE_URL', 'http://localhost:8004')
 DATA_SERVICE_URL = os.getenv('DATA_SERVICE_URL', 'http://localhost:8005')
 
+
+def _now():
+    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
 # In-memory stores for new API features
 _match_tasks = {}   # task_id → {status, result}
-_inquiries = {}     # inquiry_id → {demandId, supplierIds, status, quotes}
+_inquiries = {      # pre-seeded demo inquiries
+    "demo-inq-001": {
+        "id": "demo-inq-001", "demandId": 1, "supplierIds": [1001],
+        "message": "您好，我们需要采购100台联想笔记本，请提供报价单。",
+        "status": "SENT", "quotes": {}, "createdAt": "2026-04-01T08:00:00Z",
+    },
+    "demo-inq-002": {
+        "id": "demo-inq-002", "demandId": 2, "supplierIds": [1002, 1003],
+        "message": "我司需采购Dell服务器50台，预算200万，请提供含税报价。",
+        "status": "QUOTED", "quotes": {
+            "demo-q-001": {
+                "id": "demo-q-001", "inquiryId": "demo-inq-002", "supplierId": 1002,
+                "supplierName": "价优商贸集团", "unitPrice": 35000, "totalAmount": 1750000,
+                "deliveryDays": 7, "status": "SUBMITTED", "createdAt": "2026-04-01T09:00:00Z",
+            }
+        },
+        "createdAt": "2026-04-01T08:30:00Z",
+    },
+    "demo-inq-003": {
+        "id": "demo-inq-003", "demandId": 3, "supplierIds": [1004],
+        "message": "采购工业打印机20台，要求支持售后服务3年。",
+        "status": "ACCEPTED", "quotes": {}, "createdAt": "2026-03-28T10:00:00Z",
+    },
+}
 
 # --- Rate limiter ---
 _redis_uri = f"redis://:{REDIS_PASSWORD}@{REDIS_HOST}:{REDIS_PORT}/1"
@@ -390,6 +419,29 @@ def matching_result(task_id):
 
 
 # --- Inquiry routes (in-memory) ---
+@app.route('/api/v1/inquiry', methods=['GET'])
+@require_auth
+def list_inquiries():
+    page = max(int(request.args.get('page', 1)), 1)
+    size = max(int(request.args.get('size', 20)), 1)
+    items = sorted(_inquiries.values(), key=lambda x: x.get('createdAt', ''), reverse=True)
+    total = len(items)
+    paged = items[(page-1)*size: page*size]
+    result = [{
+        'inquiryId': i['id'], 'id': i['id'],
+        'demandId': i.get('demandId'),
+        'message': i.get('message', ''),
+        'status': i.get('status', 'SENT'),
+        'supplierCount': len(i.get('supplierIds', [])),
+        'quoteCount': len(i.get('quotes', {})),
+        'createdAt': i.get('createdAt', ''),
+        'quotes': list(i.get('quotes', {}).values()),
+    } for i in paged]
+    return jsonify({'code': 0, 'message': 'ok', 'data': {
+        'content': result, 'total': total, 'page': page, 'size': size,
+    }})
+
+
 @app.route('/api/v1/inquiry', methods=['POST'])
 @require_auth
 def create_inquiry():
@@ -400,8 +452,10 @@ def create_inquiry():
         'id': inquiry_id,
         'demandId': body.get('demandId'),
         'supplierIds': supplier_ids,
+        'message': body.get('message', ''),
         'status': 'SENT',
         'quotes': {},
+        'createdAt': _now(),
     }
     return jsonify({
         'code': 0, 'message': 'ok',
@@ -573,11 +627,47 @@ def supplier(supplier_id):
     return proxy(f"{DATA_SERVICE_URL}/internal/suppliers/{supplier_id}", auth_headers())
 
 
+# --- Supplier data routes (aliases for UI) ---
+@app.route('/api/v1/data/suppliers', methods=['GET'])
+@require_auth
+def data_suppliers():
+    resp_data, status = proxy_json(
+        f"{DATA_SERVICE_URL}/internal/suppliers",
+        extra_headers=auth_headers(),
+        params={k: v for k, v in request.args.items()},
+    )
+    # Normalize items → content for UI pagination
+    if resp_data.get('code') == 0 and resp_data.get('data'):
+        d = resp_data['data']
+        if 'items' in d and 'content' not in d:
+            d['content'] = d['items']
+    return jsonify(resp_data), status
+
+
 # --- Market routes ---
 @app.route('/api/v1/market/prices', methods=['GET'])
 @require_auth
 def market_prices():
     return proxy(f"{DATA_SERVICE_URL}/internal/market/prices", auth_headers())
+
+
+@app.route('/api/v1/data/market/prices', methods=['GET'])
+@require_auth
+def data_market_prices():
+    resp_data, status = proxy_json(
+        f"{DATA_SERVICE_URL}/internal/market/prices",
+        extra_headers=auth_headers(),
+        params={k: v for k, v in request.args.items()},
+    )
+    # Normalize items → content for UI pagination
+    if resp_data.get('code') == 0 and resp_data.get('data'):
+        d = resp_data['data']
+        if 'items' in d and 'content' not in d:
+            d['content'] = d['items']
+            for item in d['content']:
+                item.setdefault('trend', 'STABLE')
+                item.setdefault('dataSource', item.pop('data_source', 'CRAWLER'))
+    return jsonify(resp_data), status
 
 
 @app.route('/api/v1/data/market-price', methods=['GET'])
