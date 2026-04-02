@@ -3,150 +3,221 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ILbuy 我来购 - B2B采购平台</title>
+<title>ILbuy 我来购 - B2B智能采购平台</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Microsoft YaHei',Arial,sans-serif;background:#f0f2f5;color:#333}
-.header{background:linear-gradient(135deg,#1a237e,#283593);color:#fff;padding:14px 24px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 2px 8px rgba(0,0,0,.3)}
-.header h1{font-size:20px;font-weight:700;letter-spacing:1px}
-.header .subtitle{font-size:12px;opacity:.8}
-.user-info{display:flex;align-items:center;gap:12px;font-size:13px}
-.btn{padding:7px 16px;border:none;border-radius:4px;cursor:pointer;font-size:13px;font-weight:500;transition:all .2s}
+body{font-family:'Microsoft YaHei',Arial,sans-serif;background:#f0f2f5;color:#333;font-size:14px}
+.btn{padding:7px 16px;border:none;border-radius:4px;cursor:pointer;font-size:13px;font-weight:500;transition:all .2s;display:inline-block}
 .btn-primary{background:#1565c0;color:#fff}.btn-primary:hover{background:#0d47a1}
 .btn-success{background:#2e7d32;color:#fff}.btn-success:hover{background:#1b5e20}
 .btn-danger{background:#c62828;color:#fff}.btn-danger:hover{background:#b71c1c}
+.btn-warning{background:#f57f17;color:#fff}.btn-warning:hover{background:#e65100}
+.btn-light{background:#f5f5f5;color:#444;border:1px solid #ddd}.btn-light:hover{background:#eee}
+.btn-outline-primary{background:transparent;border:1px solid #1565c0;color:#1565c0}.btn-outline-primary:hover{background:#e3f2fd}
 .btn-outline{background:transparent;border:1px solid #fff;color:#fff}.btn-outline:hover{background:rgba(255,255,255,.15)}
-.btn-sm{padding:4px 10px;font-size:12px}
-
-/* Login */
-.login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#e8eaf6,#c5cae9)}
-.login-card{background:#fff;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.15);padding:40px;width:380px}
-.login-card .logo{text-align:center;margin-bottom:28px}
-.login-card .logo h2{color:#1a237e;font-size:26px;font-weight:700}
-.login-card .logo p{color:#666;font-size:13px;margin-top:4px}
-.form-group{margin-bottom:16px}
-.form-group label{display:block;font-size:13px;color:#555;margin-bottom:6px;font-weight:500}
-.form-group input,.form-group select{width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:6px;font-size:14px;transition:border .2s}
-.form-group input:focus,.form-group select:focus{outline:none;border-color:#1565c0;box-shadow:0 0 0 3px rgba(21,101,192,.1)}
-.login-card .btn-primary{width:100%;padding:11px;font-size:15px;border-radius:6px;margin-top:8px}
-.login-hint{font-size:12px;color:#888;text-align:center;margin-top:14px}
-.login-hint span{color:#1565c0;cursor:pointer}
-.error-msg{background:#ffebee;color:#c62828;padding:8px 12px;border-radius:4px;font-size:13px;margin-bottom:12px;display:none}
-
-/* Layout */
-.app{display:none}
-.sidebar{width:200px;background:#fff;height:calc(100vh - 50px);position:fixed;top:50px;left:0;box-shadow:2px 0 8px rgba(0,0,0,.08);overflow-y:auto}
-.nav-item{padding:12px 20px;cursor:pointer;font-size:14px;color:#555;display:flex;align-items:center;gap:8px;border-left:3px solid transparent;transition:all .15s}
-.nav-item:hover{background:#e8eaf6;color:#1565c0}
-.nav-item.active{background:#e8eaf6;color:#1565c0;border-left-color:#1565c0;font-weight:600}
-.nav-icon{width:18px;text-align:center}
-.main{margin-left:200px;padding:20px;min-height:calc(100vh - 50px)}
+.btn-sm{padding:4px 10px;font-size:12px}.btn-xs{padding:2px 8px;font-size:11px}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#e8eaf6 0%,#c5cae9 50%,#9fa8da 100%)}
+.login-card{background:#fff;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.18);padding:44px 40px;width:400px}
+.login-logo{text-align:center;margin-bottom:32px}
+.login-logo-icon{font-size:48px;margin-bottom:8px}
+.login-logo h2{color:#1a237e;font-size:26px;font-weight:700;letter-spacing:1px}
+.login-logo p{color:#777;font-size:13px;margin-top:6px}
+.form-group{margin-bottom:18px}
+.form-group label{display:block;font-size:13px;color:#555;margin-bottom:6px;font-weight:600}
+.form-control{width:100%;padding:10px 14px;border:1px solid #ddd;border-radius:6px;font-size:14px;transition:all .2s;font-family:inherit}
+.form-control:focus{outline:none;border-color:#1565c0;box-shadow:0 0 0 3px rgba(21,101,192,.12)}
+select.form-control{background-color:#fff}
+textarea.form-control{resize:vertical;min-height:80px}
+.login-card .btn-primary{width:100%;padding:12px;font-size:15px;border-radius:6px;margin-top:6px}
+.login-hint{font-size:12px;color:#999;text-align:center;margin-top:16px;line-height:1.8}
+.error-msg{background:#ffebee;color:#c62828;padding:10px 14px;border-radius:6px;font-size:13px;margin-bottom:14px;display:none;border-left:3px solid #c62828}
+.app{display:none;min-height:100vh}
+.header{background:linear-gradient(90deg,#1a237e 0%,#283593 60%,#1565c0 100%);color:#fff;padding:0 24px;height:52px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 2px 8px rgba(0,0,0,.28);position:fixed;top:0;left:0;right:0;z-index:900}
+.header-brand{display:flex;align-items:center;gap:10px}
+.header-brand h1{font-size:18px;font-weight:700;letter-spacing:1px}
+.header-brand .subtitle{font-size:11px;opacity:.75;margin-top:1px}
+.header-right{display:flex;align-items:center;gap:16px;font-size:13px}
+.user-badge{background:rgba(255,255,255,.15);padding:4px 12px;border-radius:20px;font-size:12px}
+.sidebar{width:210px;background:#1a237e;height:calc(100vh - 52px);position:fixed;top:52px;left:0;overflow-y:auto;z-index:800}
+.sidebar-section{padding:14px 16px 4px;font-size:10px;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:1px;font-weight:600}
+.nav-item{padding:11px 20px;cursor:pointer;font-size:13px;color:rgba(255,255,255,.75);display:flex;align-items:center;gap:10px;border-left:3px solid transparent;transition:all .15s}
+.nav-item:hover{background:rgba(255,255,255,.1);color:#fff}
+.nav-item.active{background:rgba(255,255,255,.15);color:#fff;border-left-color:#64b5f6;font-weight:600}
+.nav-icon{width:20px;text-align:center;font-size:15px}
+.main{margin-left:210px;padding:24px;min-height:calc(100vh - 52px);margin-top:52px}
 .page{display:none}.page.active{display:block}
-
-/* Cards */
-.card{background:#fff;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.08);padding:20px;margin-bottom:16px}
-.card-title{font-size:15px;font-weight:600;color:#1a237e;margin-bottom:16px;padding-bottom:10px;border-bottom:2px solid #e8eaf6}
-.stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:20px}
-.stat-card{background:#fff;border-radius:8px;padding:16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.08);border-top:3px solid}
-.stat-card.blue{border-color:#1565c0}.stat-card.green{border-color:#2e7d32}.stat-card.orange{border-color:#e65100}.stat-card.purple{border-color:#6a1b9a}
-.stat-num{font-size:28px;font-weight:700;margin-bottom:4px}
-.stat-card.blue .stat-num{color:#1565c0}.stat-card.green .stat-num{color:#2e7d32}.stat-card.orange .stat-num{color:#e65100}.stat-card.purple .stat-num{color:#6a1b9a}
-.stat-label{font-size:12px;color:#888}
-
-/* Table */
-.table-wrap{overflow-x:auto}
+.card{background:#fff;border-radius:8px;box-shadow:0 2px 10px rgba(0,0,0,.08);padding:20px;margin-bottom:18px}
+.card-title{font-size:15px;font-weight:700;color:#1a237e;margin-bottom:16px;padding-bottom:10px;border-bottom:2px solid #e8eaf6;display:flex;align-items:center;gap:8px}
+.row{display:flex;gap:14px}.row .form-group{flex:1}
+.col-2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.col-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
+.col-4{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+.stat-card{background:#fff;border-radius:10px;padding:22px;text-align:center;box-shadow:0 2px 10px rgba(0,0,0,.08);border-top:4px solid}
+.stat-card.blue{border-color:#1565c0}.stat-card.green{border-color:#2e7d32}
+.stat-card.orange{border-color:#e65100}.stat-card.purple{border-color:#6a1b9a}
+.stat-num{font-size:32px;font-weight:700;margin-bottom:4px}
+.stat-card.blue .stat-num{color:#1565c0}.stat-card.green .stat-num{color:#2e7d32}
+.stat-card.orange .stat-num{color:#e65100}.stat-card.purple .stat-num{color:#6a1b9a}
+.stat-label{font-size:12px;color:#888;font-weight:500}
+.stat-icon{font-size:26px;margin-bottom:8px}
+.table-wrap{overflow-x:auto;border-radius:6px}
 table{width:100%;border-collapse:collapse;font-size:13px}
-th{background:#f5f5f5;padding:10px 12px;text-align:left;font-weight:600;color:#555;border-bottom:2px solid #e0e0e0}
-td{padding:10px 12px;border-bottom:1px solid #f0f0f0;color:#444}
-tr:hover td{background:#fafafa}
-.badge{display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600}
-.badge-green{background:#e8f5e9;color:#2e7d32}
-.badge-blue{background:#e3f2fd;color:#1565c0}
-.badge-orange{background:#fff3e0;color:#e65100}
-.badge-red{background:#ffebee;color:#c62828}
-.badge-grey{background:#f5f5f5;color:#666}
-.badge-purple{background:#f3e5f5;color:#6a1b9a}
-
-/* Form Modal */
-.modal{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);z-index:1000;align-items:center;justify-content:center}
+th{background:#f5f7ff;padding:11px 13px;text-align:left;font-weight:600;color:#444;border-bottom:2px solid #e0e0e0;white-space:nowrap}
+td{padding:10px 13px;border-bottom:1px solid #f2f2f2;color:#444;vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:#fafbff}
+.badge{display:inline-block;padding:3px 9px;border-radius:12px;font-size:11px;font-weight:600;white-space:nowrap}
+.badge-green{background:#e8f5e9;color:#2e7d32}.badge-blue{background:#e3f2fd;color:#1565c0}
+.badge-orange{background:#fff3e0;color:#e65100}.badge-red{background:#ffebee;color:#c62828}
+.badge-grey{background:#f5f5f5;color:#666}.badge-purple{background:#f3e5f5;color:#6a1b9a}
+.badge-cyan{background:#e0f7fa;color:#006064}
+.modal{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.55);z-index:1000;align-items:center;justify-content:center}
 .modal.show{display:flex}
-.modal-box{background:#fff;border-radius:10px;width:480px;max-height:80vh;overflow-y:auto;box-shadow:0 16px 48px rgba(0,0,0,.2)}
-.modal-header{padding:16px 20px;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center}
-.modal-header h3{font-size:15px;font-weight:600;color:#1a237e}
-.modal-close{background:none;border:none;font-size:20px;cursor:pointer;color:#999;line-height:1}
-.modal-body{padding:20px}
-.modal-footer{padding:12px 20px;border-top:1px solid #eee;display:flex;justify-content:flex-end;gap:10px}
-.row{display:flex;gap:12px}.row .form-group{flex:1}
-
-/* Health */
-.health-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
-.health-item{background:#fff;border-radius:8px;padding:16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.08)}
-.health-dot{width:14px;height:14px;border-radius:50%;display:inline-block;margin-right:6px}
-.dot-up{background:#4caf50}.dot-down{background:#f44336}
-.health-name{font-size:13px;font-weight:600;color:#555;margin-top:6px}
-.health-status{font-size:12px;margin-top:4px}
-
-/* Alert */
+.modal-box{background:#fff;border-radius:10px;width:500px;max-height:88vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.25)}
+.modal-box.wide{width:660px}
+.modal-header{padding:16px 22px;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;background:#fff;z-index:1}
+.modal-header h3{font-size:15px;font-weight:700;color:#1a237e}
+.modal-close{background:none;border:none;font-size:20px;cursor:pointer;color:#aaa;line-height:1;padding:4px}.modal-close:hover{color:#555}
+.modal-body{padding:22px}.modal-footer{padding:14px 22px;border-top:1px solid #eee;display:flex;justify-content:flex-end;gap:10px}
 .alert{padding:10px 14px;border-radius:6px;font-size:13px;margin-bottom:12px}
 .alert-success{background:#e8f5e9;color:#2e7d32;border:1px solid #a5d6a7}
 .alert-error{background:#ffebee;color:#c62828;border:1px solid #ef9a9a}
-
-/* Loading */
-.loading{text-align:center;padding:40px;color:#999;font-size:14px}
-.empty{text-align:center;padding:40px;color:#bbb;font-size:14px}
-.page-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
-.page-header h2{font-size:17px;font-weight:700;color:#1a237e}
+.alert-info{background:#e3f2fd;color:#1565c0;border:1px solid #90caf9}
+.alert-warning{background:#fff8e1;color:#f57f17;border:1px solid #ffe082}
+.loading{text-align:center;padding:48px;color:#aaa;font-size:13px}
+.empty{text-align:center;padding:48px;color:#bbb;font-size:13px}
+.page-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
+.page-header h2{font-size:18px;font-weight:700;color:#1a237e}
 .search-bar{display:flex;gap:8px;margin-bottom:16px}
-.search-bar input{flex:1;padding:8px 12px;border:1px solid #ddd;border-radius:6px;font-size:13px}
-.search-bar input:focus{outline:none;border-color:#1565c0}
+.search-bar input,.search-bar select{padding:9px 13px;border:1px solid #ddd;border-radius:6px;font-size:13px;font-family:inherit}
+.search-bar input{flex:1}.search-bar input:focus{outline:none;border-color:#1565c0}
+.health-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:16px}
+.health-item{background:#fff;border-radius:8px;padding:18px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.08);transition:transform .2s}.health-item:hover{transform:translateY(-2px)}
+.health-dot{width:12px;height:12px;border-radius:50%;display:inline-block;vertical-align:middle;margin-right:6px}
+.dot-up{background:#4caf50;box-shadow:0 0 6px rgba(76,175,80,.5)}.dot-down{background:#f44336;box-shadow:0 0 6px rgba(244,67,54,.5)}.dot-unknown{background:#9e9e9e}
+.health-svc-icon{font-size:28px;margin-bottom:8px}
+.health-svc-name{font-size:13px;font-weight:700;color:#333}
+.health-svc-status{font-size:12px;margin-top:6px;font-weight:600}
+.chat-container{display:flex;flex-direction:column;gap:10px;min-height:180px;max-height:320px;overflow-y:auto;padding:4px 2px;margin-bottom:10px}
+.chat-msg{display:flex;gap:10px;align-items:flex-start}
+.chat-msg.user{flex-direction:row-reverse}
+.chat-bubble{padding:10px 14px;border-radius:10px;max-width:80%;font-size:13px;line-height:1.6}
+.chat-msg.user .chat-bubble{background:#1565c0;color:#fff;border-bottom-right-radius:2px}
+.chat-msg.bot .chat-bubble{background:#f5f5f5;color:#333;border-bottom-left-radius:2px}
+.chat-avatar{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;background:#e8eaf6}
+.chat-msg.user .chat-avatar{background:#1565c0;color:#fff}
+.chat-input-area{display:flex;gap:8px;align-items:flex-end}
+.chat-input-area textarea{flex:1;padding:10px 14px;border:1px solid #ddd;border-radius:8px;font-size:13px;font-family:inherit;resize:none}
+.chat-input-area textarea:focus{outline:none;border-color:#1565c0}
+.example-btns{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.example-btn{padding:5px 12px;background:#e8eaf6;color:#1565c0;border:none;border-radius:16px;font-size:12px;cursor:pointer;font-family:inherit}.example-btn:hover{background:#c5cae9}
+.parse-result{background:linear-gradient(135deg,#e3f2fd,#e8eaf6);border:1px solid #bbdefb;border-radius:10px;padding:18px;margin-top:14px}
+.parse-result h4{color:#1a237e;margin-bottom:12px;font-size:14px;font-weight:700}
+.parse-field{display:flex;align-items:center;gap:10px;margin-bottom:8px;font-size:13px}
+.parse-label{color:#666;width:68px;flex-shrink:0;font-size:12px}
+.parse-value{color:#1a237e;font-weight:700}
+.supplier-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.supplier-card{background:#fff;border-radius:10px;box-shadow:0 3px 12px rgba(0,0,0,.1);padding:18px;border:2px solid #f0f0f0;transition:all .2s}
+.supplier-card:hover{border-color:#1565c0;box-shadow:0 6px 20px rgba(21,101,192,.15)}
+.score-circle{width:70px;height:70px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;color:#fff;margin:0 auto 12px}
+.supplier-name-h{text-align:center;font-weight:700;font-size:14px;color:#1a237e;margin-bottom:3px}
+.supplier-meta-s{text-align:center;font-size:11px;color:#888;margin-bottom:12px}
+.score-bar-wrap{margin-bottom:5px}
+.score-bar-label{display:flex;justify-content:space-between;font-size:11px;color:#666;margin-bottom:2px}
+.score-bar-bg{background:#f0f0f0;border-radius:4px;height:6px;overflow:hidden}
+.score-bar-fill{height:100%;border-radius:4px;transition:width .6s ease}
+.cert-tags{display:flex;flex-wrap:wrap;gap:4px;margin:8px 0}
+.cert-tag{background:#e8f5e9;color:#2e7d32;padding:2px 7px;border-radius:10px;font-size:10px;font-weight:600}
+.match-reason{font-size:12px;color:#666;background:#fafafa;border-radius:6px;padding:8px 10px;margin-top:8px;line-height:1.6;border-left:2px solid #1565c0}
+.match-info-bar{background:linear-gradient(90deg,#e3f2fd,#e8eaf6);border-radius:8px;padding:12px 18px;margin-bottom:16px;display:flex;align-items:center;gap:20px;flex-wrap:wrap}
+.match-info-bar .info-item{font-size:12px;color:#555}.match-info-bar .info-item strong{color:#1a237e}
+.weight-table{width:100%;font-size:12px;border-collapse:collapse}
+.weight-table th,.weight-table td{padding:7px 12px;border:1px solid #e8e8e8;text-align:center}
+.weight-table th{background:#f5f7ff;color:#444;font-weight:600}
+.timeline{display:flex;align-items:flex-start;margin:16px 0 24px;padding:8px 0}
+.timeline-step{flex:1;text-align:center;position:relative}
+.timeline-step::after{content:'';position:absolute;top:20px;left:50%;width:100%;height:2px;background:#e0e0e0;z-index:0}
+.timeline-step:last-child::after{display:none}
+.timeline-dot{width:40px;height:40px;border-radius:50%;margin:0 auto 8px;display:flex;align-items:center;justify-content:center;font-size:16px;position:relative;z-index:1;border:3px solid #e0e0e0;background:#fff}
+.timeline-step.done .timeline-dot{background:#2e7d32;border-color:#2e7d32;color:#fff}
+.timeline-step.done::after{background:#2e7d32}
+.timeline-step.active .timeline-dot{background:#1565c0;border-color:#1565c0;color:#fff;box-shadow:0 0 0 4px rgba(21,101,192,.2)}
+.timeline-step.active .timeline-label{color:#1565c0;font-weight:700}
+.timeline-label{font-size:12px;color:#888;font-weight:500}
+.timeline-time{font-size:10px;color:#aaa;margin-top:2px}
+.quick-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:4px}
+.inquiry-card{background:#fff;border-radius:8px;border:1px solid #e0e0e0;padding:16px;margin-bottom:12px;transition:all .2s}
+.inquiry-card:hover{border-color:#1565c0;box-shadow:0 2px 8px rgba(21,101,192,.12)}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:#f5f5f5}
+::-webkit-scrollbar-thumb{background:#ccc;border-radius:3px}
 </style>
 </head>
 <body>
 
-<!-- Login -->
+<!-- Login Page -->
 <div class="login-wrap" id="loginWrap">
   <div class="login-card">
-    <div class="logo">
-      <h2>🏢 ILbuy 我来购</h2>
-      <p>B2B 智能采购平台</p>
+    <div class="login-logo">
+      <div class="login-logo-icon">🏢</div>
+      <h2>ILbuy 我来购</h2>
+      <p>B2B 智能采购平台 · 让采购更简单</p>
     </div>
     <div class="error-msg" id="loginError"></div>
     <div class="form-group">
       <label>账号</label>
-      <input type="text" id="username" value="buyer01" placeholder="输入用户名">
+      <input type="text" id="username" class="form-control" value="buyer01" placeholder="请输入用户名">
     </div>
     <div class="form-group">
       <label>密码</label>
-      <input type="password" id="password" value="Test@123456" placeholder="输入密码">
+      <input type="password" id="password" class="form-control" value="Test@123456" placeholder="请输入密码">
     </div>
-    <button class="btn btn-primary" onclick="doLogin()">登 录</button>
-    <p class="login-hint">买家：buyer01 &nbsp;|&nbsp; 供应商：supplier01 &nbsp;|&nbsp; 密码：Test@123456</p>
+    <button class="btn btn-primary" id="loginBtn" onclick="doLogin()">登 录</button>
+    <p class="login-hint">买家账号：buyer01 &nbsp;|&nbsp; 供应商：supplier01<br>默认密码：Test@123456</p>
   </div>
 </div>
 
-<!-- App -->
+<!-- App Shell -->
 <div class="app" id="app">
+  <!-- Header -->
   <div class="header">
-    <div>
-      <div class="header h1" style="font-size:18px;font-weight:700">🏢 ILbuy 我来购</div>
-      <div class="subtitle">B2B 智能采购平台</div>
+    <div class="header-brand">
+      <span style="font-size:22px">🏢</span>
+      <div>
+        <h1>ILbuy 我来购</h1>
+        <div class="subtitle">B2B 智能采购平台</div>
+      </div>
     </div>
-    <div class="user-info">
-      <span id="headerUser">👤 buyer001</span>
-      <button class="btn btn-outline btn-sm" onclick="doLogout()">退出</button>
+    <div class="header-right">
+      <span class="user-badge" id="headerUser">👤 buyer01</span>
+      <button class="btn btn-outline btn-sm" onclick="doLogout()">退出登录</button>
     </div>
   </div>
 
+  <!-- Sidebar -->
   <div class="sidebar">
+    <div class="sidebar-section">主要功能</div>
     <div class="nav-item active" onclick="showPage('dashboard')" id="nav-dashboard">
       <span class="nav-icon">📊</span> 控制台
+    </div>
+    <div class="nav-item" onclick="showPage('assistant')" id="nav-assistant">
+      <span class="nav-icon">💬</span> AI采购助手
     </div>
     <div class="nav-item" onclick="showPage('demands')" id="nav-demands">
       <span class="nav-icon">📋</span> 采购需求
     </div>
+    <div class="nav-item" onclick="showPage('matching')" id="nav-matching">
+      <span class="nav-icon">🤖</span> AI匹配结果
+    </div>
+    <div class="sidebar-section">交易管理</div>
+    <div class="nav-item" onclick="showPage('inquiry')" id="nav-inquiry">
+      <span class="nav-icon">💰</span> 询价报价
+    </div>
     <div class="nav-item" onclick="showPage('orders')" id="nav-orders">
       <span class="nav-icon">📦</span> 订单管理
     </div>
+    <div class="sidebar-section">数据分析</div>
     <div class="nav-item" onclick="showPage('market')" id="nav-market">
       <span class="nav-icon">📈</span> 市场行情
     </div>
@@ -158,80 +229,183 @@ tr:hover td{background:#fafafa}
     </div>
   </div>
 
+  <!-- Main Content -->
   <div class="main">
 
-    <!-- Dashboard -->
+    <!-- Dashboard Page -->
     <div class="page active" id="page-dashboard">
-      <div class="page-header"><h2>📊 控制台</h2></div>
-      <div class="stat-grid">
-        <div class="stat-card blue"><div class="stat-num" id="statDemands">-</div><div class="stat-label">采购需求</div></div>
-        <div class="stat-card green"><div class="stat-num" id="statOrders">-</div><div class="stat-label">进行中订单</div></div>
-        <div class="stat-card orange"><div class="stat-num" id="statSuppliers">-</div><div class="stat-label">注册供应商</div></div>
-        <div class="stat-card purple"><div class="stat-num" id="statPrices">-</div><div class="stat-label">市场价格数据</div></div>
+      <div class="page-header">
+        <h2>📊 控制台</h2>
+        <div class="quick-actions">
+          <button class="btn btn-success btn-sm" onclick="openDemandModal()">+ 新建需求</button>
+          <button class="btn btn-primary btn-sm" onclick="showPage('assistant')">💬 AI助手</button>
+        </div>
+      </div>
+      <div class="col-4" style="margin-bottom:18px">
+        <div class="stat-card blue"><div class="stat-icon">📋</div><div class="stat-num" id="statDemands">-</div><div class="stat-label">采购需求数</div></div>
+        <div class="stat-card green"><div class="stat-icon">📦</div><div class="stat-num" id="statOrders">-</div><div class="stat-label">进行中订单</div></div>
+        <div class="stat-card orange"><div class="stat-icon">🏭</div><div class="stat-num" id="statSuppliers">-</div><div class="stat-label">注册供应商</div></div>
+        <div class="stat-card purple"><div class="stat-icon">📈</div><div class="stat-num" id="statPrices">-</div><div class="stat-label">市场价格条目</div></div>
+      </div>
+      <div class="col-2">
+        <div class="card">
+          <div class="card-title">📋 最新采购需求</div>
+          <div id="dashDemands"><div class="loading">加载中...</div></div>
+        </div>
+        <div class="card">
+          <div class="card-title">📦 最新订单</div>
+          <div id="dashOrders"><div class="loading">加载中...</div></div>
+        </div>
       </div>
       <div class="card">
-        <div class="card-title">最新采购需求</div>
-        <div id="dashDemands"><div class="loading">加载中...</div></div>
+        <div class="card-title">⚡ 快捷操作</div>
+        <div class="quick-actions">
+          <button class="btn btn-primary" onclick="showPage('assistant')">💬 AI解析需求</button>
+          <button class="btn btn-success" onclick="openDemandModal()">📋 新建采购需求</button>
+          <button class="btn btn-warning" onclick="showPage('market')">📈 查看市场行情</button>
+          <button class="btn btn-light" onclick="showPage('suppliers')">🏭 浏览供应商</button>
+          <button class="btn btn-light" onclick="showPage('health')">💚 检查服务状态</button>
+        </div>
       </div>
     </div>
 
-    <!-- Demands -->
+    <!-- AI Assistant Page -->
+    <div class="page" id="page-assistant">
+      <div class="page-header"><h2>💬 AI采购助手</h2></div>
+      <div class="col-2" style="align-items:flex-start">
+        <div>
+          <div class="card">
+            <div class="card-title">🤖 智能对话</div>
+            <div class="example-btns">
+              <span style="font-size:12px;color:#888;margin-right:4px">快捷示例：</span>
+              <button class="example-btn" onclick="setExample('100台联想笔记本，预算80万，用于办公')">100台联想笔记本</button>
+              <button class="example-btn" onclick="setExample('采购服务器50台，Dell PowerEdge，预算200万')">服务器50台</button>
+              <button class="example-btn" onclick="setExample('办公用品采购，A4纸500箱，预算5万元')">办公用品采购</button>
+              <button class="example-btn" onclick="setExample('采购工业打印机20台，预算30万，需要售后服务')">工业打印机</button>
+            </div>
+            <div class="chat-container" id="chatContainer">
+              <div class="chat-msg bot">
+                <div class="chat-avatar">🤖</div>
+                <div class="chat-bubble">您好！我是ILbuy AI采购助手。请用自然语言描述您的采购需求，我会帮您智能解析并创建采购需求单。例如：<br><br><em>「我需要采购100台联想笔记本，预算80万，用于公司办公」</em></div>
+              </div>
+            </div>
+            <div class="chat-input-area">
+              <textarea id="aiInput" rows="3" placeholder="请输入采购需求，例如：100台联想笔记本，预算80万..."></textarea>
+              <button class="btn btn-primary" id="parseBtn" onclick="parseIntent()">AI解析</button>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div id="parseResultArea"></div>
+          <div class="card" style="background:#f5f7ff;border:1px dashed #c5cae9">
+            <div class="card-title">💡 使用指南</div>
+            <div style="font-size:13px;color:#555;line-height:2">
+              <p>✅ 支持自然语言描述采购需求</p>
+              <p>✅ AI自动识别产品名、品类、数量、预算</p>
+              <p>✅ 智能判断采购类型（B2B/B2C）</p>
+              <p>✅ 一键生成标准化采购需求单</p>
+              <p>✅ 无缝对接AI智能匹配功能</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Demands Page -->
     <div class="page" id="page-demands">
       <div class="page-header">
         <h2>📋 采购需求</h2>
-        <button class="btn btn-success" onclick="openDemandModal()">+ 新建需求</button>
+        <div class="quick-actions">
+          <button class="btn btn-light btn-sm" onclick="showPage('assistant')">💬 AI智能创建</button>
+          <button class="btn btn-success btn-sm" onclick="openDemandModal()">+ 新建需求</button>
+        </div>
       </div>
       <div class="card">
         <div class="search-bar">
-          <input type="text" id="demandSearch" placeholder="搜索需求...">
+          <input type="text" id="demandSearch" placeholder="搜索产品名称或需求编号...">
           <button class="btn btn-primary" onclick="loadDemands()">搜索</button>
+          <button class="btn btn-light" onclick="document.getElementById('demandSearch').value='';loadDemands()">重置</button>
         </div>
         <div id="demandsList"><div class="loading">加载中...</div></div>
       </div>
     </div>
 
-    <!-- Orders -->
+    <!-- AI Matching Page -->
+    <div class="page" id="page-matching">
+      <div class="page-header">
+        <h2>🤖 AI匹配结果</h2>
+        <button class="btn btn-light btn-sm" onclick="showPage('demands')">← 返回需求列表</button>
+      </div>
+      <div id="matchingContent">
+        <div class="card" style="text-align:center;padding:48px">
+          <div style="font-size:48px;margin-bottom:12px">🤖</div>
+          <div style="color:#888;font-size:14px">请在采购需求列表中点击「触发AI匹配」</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Inquiry Page -->
+    <div class="page" id="page-inquiry">
+      <div class="page-header">
+        <h2>💰 询价报价</h2>
+        <button class="btn btn-success btn-sm" onclick="openInquiryModal()">+ 发起询价</button>
+      </div>
+      <div class="card">
+        <div id="inquiryList"><div class="loading">加载中...</div></div>
+      </div>
+    </div>
+
+    <!-- Orders Page -->
     <div class="page" id="page-orders">
       <div class="page-header"><h2>📦 订单管理</h2></div>
       <div class="card">
         <div id="ordersList"><div class="loading">加载中...</div></div>
       </div>
+      <div id="orderDetailArea"></div>
     </div>
 
-    <!-- Market -->
+    <!-- Market Page -->
     <div class="page" id="page-market">
       <div class="page-header"><h2>📈 市场行情</h2></div>
       <div class="card">
         <div class="search-bar">
-          <input type="text" id="marketSearch" placeholder="搜索品类...">
+          <input type="text" id="marketSearch" placeholder="搜索产品或品类关键词...">
           <button class="btn btn-primary" onclick="loadMarket()">搜索</button>
+          <button class="btn btn-light" onclick="document.getElementById('marketSearch').value='';loadMarket()">全部</button>
         </div>
         <div id="marketList"><div class="loading">加载中...</div></div>
       </div>
     </div>
 
-    <!-- Suppliers -->
+    <!-- Suppliers Page -->
     <div class="page" id="page-suppliers">
       <div class="page-header"><h2>🏭 供应商库</h2></div>
       <div class="card">
+        <div class="search-bar">
+          <input type="text" id="supplierSearch" placeholder="搜索供应商名称...">
+          <button class="btn btn-primary" onclick="loadSuppliers()">搜索</button>
+        </div>
         <div id="suppliersList"><div class="loading">加载中...</div></div>
       </div>
     </div>
 
-    <!-- Health -->
+    <!-- Health Page -->
     <div class="page" id="page-health">
-      <div class="page-header"><h2>💚 服务健康状态</h2></div>
-      <div id="healthGrid"><div class="loading">加载中...</div></div>
+      <div class="page-header">
+        <h2>💚 服务健康状态</h2>
+        <button class="btn btn-primary btn-sm" onclick="loadHealth()">刷新状态</button>
+      </div>
+      <div id="healthContent"><div class="loading">加载中...</div></div>
     </div>
 
-  </div>
-</div>
+  </div><!-- /main -->
+</div><!-- /app -->
 
-<!-- New Demand Modal -->
+<!-- Demand Modal -->
 <div class="modal" id="demandModal">
   <div class="modal-box">
     <div class="modal-header">
-      <h3>新建采购需求</h3>
+      <h3>📋 新建采购需求</h3>
       <button class="modal-close" onclick="closeModal('demandModal')">✕</button>
     </div>
     <div class="modal-body">
@@ -239,38 +413,105 @@ tr:hover td{background:#fafafa}
       <div class="row">
         <div class="form-group">
           <label>采购类型</label>
-          <select id="demandType">
-            <option value="B2B">B2B企业采购</option>
-            <option value="B2C">B2C零散采购</option>
+          <select id="demandType" class="form-control">
+            <option value="B2B">B2B 企业采购</option>
+            <option value="B2C">B2C 零散采购</option>
           </select>
         </div>
         <div class="form-group">
           <label>品类</label>
-          <input type="text" id="demandCategory" placeholder="如：IT设备" value="IT设备">
+          <input type="text" id="demandCategory" class="form-control" placeholder="如：IT设备" value="IT设备">
         </div>
       </div>
       <div class="form-group">
-        <label>产品名称</label>
-        <input type="text" id="demandProduct" placeholder="如：笔记本电脑" value="笔记本电脑">
+        <label>产品名称 *</label>
+        <input type="text" id="demandProduct" class="form-control" placeholder="请输入产品名称" value="联想笔记本电脑">
       </div>
       <div class="row">
         <div class="form-group">
-          <label>数量</label>
-          <input type="number" id="demandQty" value="10" min="1">
+          <label>采购数量</label>
+          <input type="number" id="demandQty" class="form-control" value="10" min="1">
         </div>
         <div class="form-group">
-          <label>预算 (元)</label>
-          <input type="number" id="demandBudget" value="80000" min="0">
+          <label>预算金额 (元)</label>
+          <input type="number" id="demandBudget" class="form-control" value="100000" min="0">
         </div>
       </div>
       <div class="form-group">
         <label>需求描述</label>
-        <input type="text" id="demandDesc" placeholder="详细描述采购需求" value="高性能商务本，需要i7处理器">
+        <textarea id="demandDesc" class="form-control" rows="3" placeholder="详细描述采购需求规格要求...">高性能商务本，需要i7处理器，16G内存，512G SSD</textarea>
       </div>
     </div>
     <div class="modal-footer">
-      <button class="btn btn-outline" style="border-color:#ddd;color:#666" onclick="closeModal('demandModal')">取消</button>
-      <button class="btn btn-success" onclick="submitDemand()">提交需求</button>
+      <button class="btn btn-light" onclick="closeModal('demandModal')">取消</button>
+      <button class="btn btn-success" id="demandSubmitBtn" onclick="submitDemand()">✓ 提交需求</button>
+    </div>
+  </div>
+</div>
+
+<!-- Inquiry Modal -->
+<div class="modal" id="inquiryModal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3>💰 发起询价</h3>
+      <button class="modal-close" onclick="closeModal('inquiryModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="inquiryFormAlert"></div>
+      <div class="form-group">
+        <label>关联采购需求ID</label>
+        <input type="text" id="inqDemandId" class="form-control" placeholder="需求ID">
+      </div>
+      <div class="form-group">
+        <label>消息内容</label>
+        <textarea id="inqMessage" class="form-control" rows="3" placeholder="询价说明...">请报价，需要详细的产品规格和交货期说明</textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-light" onclick="closeModal('inquiryModal')">取消</button>
+      <button class="btn btn-success" onclick="submitInquiry()">发起询价</button>
+    </div>
+  </div>
+</div>
+
+<!-- Quote Modal -->
+<div class="modal" id="quoteModal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3>📝 提交报价</h3>
+      <button class="modal-close" onclick="closeModal('quoteModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="quoteFormAlert"></div>
+      <input type="hidden" id="quoteInqId">
+      <div class="row">
+        <div class="form-group">
+          <label>单价 (元)</label>
+          <input type="number" id="quoteUnitPrice" class="form-control" placeholder="0.00" min="0" step="0.01">
+        </div>
+        <div class="form-group">
+          <label>总价 (元)</label>
+          <input type="number" id="quoteTotalPrice" class="form-control" placeholder="0.00" min="0" step="0.01">
+        </div>
+      </div>
+      <div class="row">
+        <div class="form-group">
+          <label>供应商ID</label>
+          <input type="number" id="quoteSupplierId" class="form-control" value="1">
+        </div>
+        <div class="form-group">
+          <label>交货天数</label>
+          <input type="number" id="quoteDeliveryDays" class="form-control" value="7" min="1">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>备注</label>
+        <input type="text" id="quoteRemark" class="form-control" placeholder="报价备注">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-light" onclick="closeModal('quoteModal')">取消</button>
+      <button class="btn btn-success" onclick="submitQuote()">提交报价</button>
     </div>
   </div>
 </div>
@@ -278,28 +519,31 @@ tr:hover td{background:#fafafa}
 <script>
 const API = '';
 let TOKEN = '', USER_ID = '', USERNAME = '';
+let currentDemand = null, currentMatchTaskId = null, matchPollTimer = null;
+let currentInquiryDemandId = null;
 
-function api(path, opts={}) {
-  const h = {'Content-Type':'application/json'};
+function apiFetch(path, opts = {}) {
+  const h = { 'Content-Type': 'application/json' };
   if (TOKEN) h['Authorization'] = 'Bearer ' + TOKEN;
-  return fetch(API + path, {headers: h, ...opts}).then(r => r.json());
+  return fetch(API + path, { headers: h, ...opts })
+    .then(r => { if (!r.ok && r.status === 401) { doLogout(); throw new Error('未授权'); } return r.json(); });
 }
 
 async function doLogin() {
   const u = document.getElementById('username').value.trim();
   const p = document.getElementById('password').value.trim();
   const err = document.getElementById('loginError');
+  const btn = document.getElementById('loginBtn');
+  if (!u || !p) { err.style.display='block'; err.textContent='请输入账号和密码'; return; }
   err.style.display = 'none';
+  btn.disabled = true; btn.textContent = '登录中...';
   try {
-    const r = await api('/api/v1/auth/login', {
-      method: 'POST',
-      body: JSON.stringify({username: u, password: p})
-    });
+    const r = await apiFetch('/api/v1/auth/login', { method: 'POST', body: JSON.stringify({ username: u, password: p }) });
     if (r.code === 0 && r.data && r.data.accessToken) {
       TOKEN = r.data.accessToken;
-      USER_ID = r.data.userId || '';
+      USER_ID = String(r.data.userId || r.data.id || '');
       USERNAME = u;
-      document.getElementById('headerUser').textContent = '👤 ' + u;
+      document.getElementById('headerUser').textContent = '\u{1F464} ' + u;
       document.getElementById('loginWrap').style.display = 'none';
       document.getElementById('app').style.display = 'block';
       loadDashboard();
@@ -309,218 +553,690 @@ async function doLogin() {
     }
   } catch(e) {
     err.style.display = 'block';
-    err.textContent = '网络错误，请检查服务是否运行';
+    err.textContent = '网络错误，请检查服务是否正常运行：' + e.message;
+  } finally {
+    btn.disabled = false; btn.textContent = '登 录';
   }
 }
 
 function doLogout() {
   TOKEN = ''; USER_ID = ''; USERNAME = '';
+  if (matchPollTimer) { clearInterval(matchPollTimer); matchPollTimer = null; }
   document.getElementById('loginWrap').style.display = 'flex';
   document.getElementById('app').style.display = 'none';
 }
 
-document.getElementById('password').addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
+document.addEventListener('keydown', e => { if (e.key === 'Enter' && document.getElementById('loginWrap').style.display !== 'none') doLogin(); });
 
 function showPage(name) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-  document.getElementById('page-' + name).classList.add('active');
-  document.getElementById('nav-' + name).classList.add('active');
+  const pg = document.getElementById('page-' + name);
+  const nv = document.getElementById('nav-' + name);
+  if (pg) pg.classList.add('active');
+  if (nv) nv.classList.add('active');
   if (name === 'demands') loadDemands();
   else if (name === 'orders') loadOrders();
   else if (name === 'market') loadMarket();
   else if (name === 'suppliers') loadSuppliers();
   else if (name === 'health') loadHealth();
+  else if (name === 'inquiry') loadInquiries();
 }
 
 function statusBadge(s) {
   const m = {
-    MATCHING:'badge-blue', PENDING:'badge-grey', COMPLETED:'badge-green',
-    CANCELLED:'badge-red', CREATED:'badge-blue', PAID:'badge-green',
-    SHIPPED:'badge-orange', UNPAID:'badge-grey', REVIEWING:'badge-orange',
-    APPROVED:'badge-green', REJECTED:'badge-red', SENT:'badge-blue'
+    MATCHING:'badge-blue',PENDING:'badge-grey',COMPLETED:'badge-green',
+    CANCELLED:'badge-red',CREATED:'badge-blue',PAID:'badge-green',
+    SHIPPED:'badge-orange',UNPAID:'badge-grey',REVIEWING:'badge-orange',
+    APPROVED:'badge-green',REJECTED:'badge-red',SENT:'badge-cyan',
+    ACTIVE:'badge-green',INACTIVE:'badge-grey',OPEN:'badge-blue',
+    CLOSED:'badge-grey',ACCEPTED:'badge-green',QUOTED:'badge-orange'
   };
-  return `<span class="badge ${m[s]||'badge-grey'}">${s}</span>`;
+  const labels = {
+    MATCHING:'匹配中',PENDING:'待处理',COMPLETED:'已完成',CANCELLED:'已取消',
+    CREATED:'已创建',PAID:'已支付',SHIPPED:'已发货',UNPAID:'待支付',
+    REVIEWING:'审核中',APPROVED:'已通过',REJECTED:'已拒绝',SENT:'已发送',
+    ACTIVE:'活跃',INACTIVE:'停用',OPEN:'进行中',CLOSED:'已关闭',
+    ACCEPTED:'已接受',QUOTED:'已报价'
+  };
+  const cls = m[s] || 'badge-grey';
+  const label = labels[s] || s || '-';
+  return '<span class="badge ' + cls + '">' + label + '</span>';
 }
+
+function fmtMoney(v) { return v ? '\xA5' + Number(v).toLocaleString() : '-'; }
+function fmtDate(s) { return s ? String(s).substring(0, 16).replace('T', ' ') : '-'; }
+function fmtId(d) { return d.orderNo || d.demandId || ('PRO' + String(d.id || '').padStart(6, '0')); }
 
 async function loadDashboard() {
   try {
     const [d, o, s, m] = await Promise.all([
-      api('/api/v1/procurement/demands?page=1&size=5'),
-      api('/api/v1/orders?page=1&size=5'),
-      api('/api/v1/data/suppliers?page=1&size=1'),
-      api('/api/v1/data/market/prices?page=1&size=1')
+      apiFetch('/api/v1/procurement/demands?page=1&size=5'),
+      apiFetch('/api/v1/orders?page=1&size=5'),
+      apiFetch('/api/v1/data/suppliers?page=1&size=1'),
+      apiFetch('/api/v1/data/market/prices?page=1&size=1')
     ]);
-    document.getElementById('statDemands').textContent = d.data?.totalElements ?? '-';
-    document.getElementById('statOrders').textContent = o.data?.totalElements ?? '-';
-    document.getElementById('statSuppliers').textContent = s.data?.totalElements ?? '-';
-    document.getElementById('statPrices').textContent = m.data?.totalElements ?? '-';
-
-    const demands = d.data?.content || [];
-    const el = document.getElementById('dashDemands');
-    if (!demands.length) { el.innerHTML = '<div class="empty">暂无采购需求</div>'; return; }
-    el.innerHTML = `<div class="table-wrap"><table>
-      <tr><th>需求编号</th><th>产品</th><th>数量</th><th>预算</th><th>状态</th></tr>
-      ${demands.slice(0,5).map(d => `<tr>
-        <td style="font-family:monospace;font-size:12px">${d.orderNo||d.demandId||('PRO'+String(d.id||'').padStart(6,'0'))}</td>
-        <td>${d.productName||d.title||'-'}</td>
-        <td>${d.quantity||'-'}</td>
-        <td>¥${(d.budget||0).toLocaleString()}</td>
-        <td>${statusBadge(d.status)}</td>
-      </tr>`).join('')}
-    </table></div>`;
-  } catch(e) { console.error(e); }
+    document.getElementById('statDemands').textContent = d.data?.totalElements ?? (d.data?.content?.length ?? '-');
+    document.getElementById('statOrders').textContent = o.data?.totalElements ?? (o.data?.content?.length ?? '-');
+    document.getElementById('statSuppliers').textContent = s.data?.totalElements ?? (s.data?.content?.length ?? '-');
+    document.getElementById('statPrices').textContent = m.data?.totalElements ?? (m.data?.content?.length ?? '-');
+    renderDashDemands(d.data?.content || []);
+    renderDashOrders(o.data?.content || []);
+  } catch(e) { console.error('Dashboard load error:', e); }
 }
 
+function renderDashDemands(list) {
+  const el = document.getElementById('dashDemands');
+  if (!list.length) { el.innerHTML = '<div class="empty">暂无采购需求</div>'; return; }
+  el.innerHTML = '<div class="table-wrap"><table>' +
+    '<tr><th>编号</th><th>产品</th><th>数量</th><th>预算</th><th>状态</th></tr>' +
+    list.slice(0,5).map(d => '<tr>' +
+      '<td style="font-family:monospace;font-size:11px">' + fmtId(d) + '</td>' +
+      '<td>' + (d.productName || d.title || '-') + '</td>' +
+      '<td>' + (d.quantity || '-') + '</td>' +
+      '<td style="color:#1565c0">' + fmtMoney(d.budget || d.budgetAmount) + '</td>' +
+      '<td>' + statusBadge(d.status) + '</td>' +
+    '</tr>').join('') + '</table></div>';
+}
+
+function renderDashOrders(list) {
+  const el = document.getElementById('dashOrders');
+  if (!list.length) { el.innerHTML = '<div class="empty">暂无订单数据</div>'; return; }
+  el.innerHTML = '<div class="table-wrap"><table>' +
+    '<tr><th>订单号</th><th>金额</th><th>状态</th></tr>' +
+    list.slice(0,5).map(o => '<tr>' +
+      '<td style="font-family:monospace;font-size:11px">' + (o.orderNo || o.orderId || o.id) + '</td>' +
+      '<td style="color:#1565c0">' + fmtMoney(o.totalAmount) + '</td>' +
+      '<td>' + statusBadge(o.orderStatus || o.status) + '</td>' +
+    '</tr>').join('') + '</table></div>';
+}
+
+// AI Assistant
+function setExample(text) {
+  document.getElementById('aiInput').value = text;
+}
+
+function addChatMsg(role, text) {
+  const container = document.getElementById('chatContainer');
+  const div = document.createElement('div');
+  div.className = 'chat-msg ' + role;
+  const avatar = role === 'user' ? '\u{1F464}' : '\u{1F916}';
+  div.innerHTML = '<div class="chat-avatar">' + avatar + '</div><div class="chat-bubble">' + text + '</div>';
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+}
+
+async function parseIntent() {
+  const text = document.getElementById('aiInput').value.trim();
+  if (!text) { alert('请输入采购需求描述'); return; }
+  const btn = document.getElementById('parseBtn');
+  btn.disabled = true; btn.textContent = '解析中...';
+  addChatMsg('user', text);
+  document.getElementById('aiInput').value = '';
+  try {
+    const r = await apiFetch('/api/v1/ai/intent/parse', { method: 'POST', body: JSON.stringify({ text }) });
+    if (r.code === 0 && r.data) {
+      const d = r.data;
+      addChatMsg('bot', '已解析您的采购需求，识别结果如下。请确认信息后点击「一键创建需求」。');
+      showParseResult(d);
+    } else {
+      addChatMsg('bot', '解析失败：' + (r.message || '请稍后重试'));
+    }
+  } catch(e) {
+    addChatMsg('bot', '服务暂时不可用，请检查网络连接。错误：' + e.message);
+  } finally {
+    btn.disabled = false; btn.textContent = 'AI解析';
+  }
+}
+
+function showParseResult(d) {
+  const area = document.getElementById('parseResultArea');
+  const typeLabel = d.type === 'B2B' ? 'B2B企业采购' : (d.type === 'B2C' ? 'B2C零散采购' : (d.type || '未知'));
+  area.innerHTML = '<div class="card">' +
+    '<div class="card-title">✅ AI解析结果</div>' +
+    '<div class="parse-result">' +
+    '<div class="parse-field"><span class="parse-label">产品名称</span><span class="parse-value">' + (d.productName || d.product || '-') + '</span></div>' +
+    '<div class="parse-field"><span class="parse-label">品类</span><span class="parse-value">' + (d.category || '-') + '</span></div>' +
+    '<div class="parse-field"><span class="parse-label">采购数量</span><span class="parse-value">' + (d.quantity || '-') + '</span></div>' +
+    '<div class="parse-field"><span class="parse-label">预算金额</span><span class="parse-value" style="color:#2e7d32">' + fmtMoney(d.budget || d.budgetAmount) + '</span></div>' +
+    '<div class="parse-field"><span class="parse-label">采购类型</span><span class="parse-value"><span class="badge badge-blue">' + typeLabel + '</span></span></div>' +
+    '</div>' +
+    '<div style="margin-top:14px;display:flex;gap:10px">' +
+    '<button class="btn btn-success" onclick="createDemandFromAI(' + JSON.stringify(d).replace(/"/g, '&quot;') + ')">🚀 一键创建需求</button>' +
+    '<button class="btn btn-light" onclick="prefillDemandForm(' + JSON.stringify(d).replace(/"/g, '&quot;') + ')">📋 填写表单确认</button>' +
+    '</div>' +
+    '</div>';
+}
+
+async function createDemandFromAI(d) {
+  const body = {
+    procurementType: d.type || 'B2B',
+    productName: d.productName || d.product,
+    category: d.category || '未分类',
+    categoryId: d.category || '未分类',
+    quantity: parseInt(d.quantity) || 1,
+    budgetAmount: parseFloat(d.budget || d.budgetAmount) || 0,
+    budget: parseFloat(d.budget || d.budgetAmount) || 0,
+    description: d.description || d.productName || '',
+    remark: d.remark || '',
+    brandRequired: false
+  };
+  try {
+    const r = await apiFetch('/api/v1/procurement/demands', { method: 'POST', body: JSON.stringify(body) });
+    if (r.code === 0) {
+      const area = document.getElementById('parseResultArea');
+      area.innerHTML = '<div class="alert alert-success">✅ 采购需求已创建成功！编号：' + (r.data?.orderNo || r.data?.demandId || '') + '</div>' + area.innerHTML;
+      addChatMsg('bot', '采购需求已成功创建！编号：' + (r.data?.orderNo || r.data?.demandId || '新建') + '。您可以前往「采购需求」页面查看，或触发AI智能匹配。');
+      setTimeout(() => { showPage('demands'); }, 2500);
+    } else {
+      addChatMsg('bot', '创建失败：' + (r.message || '请稍后重试'));
+    }
+  } catch(e) {
+    addChatMsg('bot', '网络错误：' + e.message);
+  }
+}
+
+function prefillDemandForm(d) {
+  document.getElementById('demandType').value = d.type || 'B2B';
+  document.getElementById('demandCategory').value = d.category || '';
+  document.getElementById('demandProduct').value = d.productName || d.product || '';
+  document.getElementById('demandQty').value = d.quantity || 1;
+  document.getElementById('demandBudget').value = d.budget || d.budgetAmount || 0;
+  document.getElementById('demandDesc').value = d.description || '';
+  openDemandModal();
+}
+
+// Demands
 async function loadDemands() {
-  const kw = document.getElementById('demandSearch').value;
+  const kw = document.getElementById('demandSearch').value.trim();
   const el = document.getElementById('demandsList');
   el.innerHTML = '<div class="loading">加载中...</div>';
   try {
-    const r = await api('/api/v1/procurement/demands?page=1&size=20' + (kw ? '&keyword='+encodeURIComponent(kw) : ''));
+    const r = await apiFetch('/api/v1/procurement/demands?page=1&size=30' + (kw ? '&keyword=' + encodeURIComponent(kw) : ''));
     const list = r.data?.content || [];
-    if (!list.length) { el.innerHTML = '<div class="empty">暂无数据</div>'; return; }
-    el.innerHTML = `<div class="table-wrap"><table>
-      <tr><th>需求编号</th><th>类型</th><th>产品</th><th>品类</th><th>数量</th><th>预算</th><th>状态</th><th>创建时间</th></tr>
-      ${list.map(d => `<tr>
-        <td style="font-family:monospace;font-size:11px">${d.orderNo||d.demandId||('PRO'+String(d.id||'').padStart(6,'0'))}</td>
-        <td>${d.demandType||d.procurementType||'B2B'}</td>
-        <td>${d.productName||d.title||'-'}</td>
-        <td>${d.category||'-'}</td>
-        <td>${d.quantity||'-'}</td>
-        <td>¥${(d.budget||0).toLocaleString()}</td>
-        <td>${statusBadge(d.status)}</td>
-        <td style="font-size:11px">${(d.createdAt||d.created_at||'').substring(0,16)}</td>
-      </tr>`).join('')}
-    </table></div>`;
-  } catch(e) { el.innerHTML = '<div class="empty">加载失败</div>'; }
-}
-
-async function loadOrders() {
-  const el = document.getElementById('ordersList');
-  el.innerHTML = '<div class="loading">加载中...</div>';
-  try {
-    const r = await api('/api/v1/orders?page=1&size=20');
-    const list = r.data?.content || [];
-    if (!list.length) { el.innerHTML = '<div class="empty">暂无订单</div>'; return; }
-    el.innerHTML = `<div class="table-wrap"><table>
-      <tr><th>订单号</th><th>金额</th><th>订单状态</th><th>支付状态</th><th>创建时间</th></tr>
-      ${list.map(o => `<tr>
-        <td style="font-family:monospace;font-size:11px">${o.orderNo||o.orderId}</td>
-        <td>¥${(o.totalAmount||0).toLocaleString()}</td>
-        <td>${statusBadge(o.orderStatus||o.status)}</td>
-        <td>${statusBadge(o.paymentStatus||'-')}</td>
-        <td style="font-size:11px">${(o.createdAt||'').substring(0,16)}</td>
-      </tr>`).join('')}
-    </table></div>`;
-  } catch(e) { el.innerHTML = '<div class="empty">加载失败</div>'; }
-}
-
-async function loadMarket() {
-  const kw = document.getElementById('marketSearch').value;
-  const el = document.getElementById('marketList');
-  el.innerHTML = '<div class="loading">加载中...</div>';
-  try {
-    const r = await api('/api/v1/data/market/prices?page=1&size=20' + (kw ? '&keyword='+encodeURIComponent(kw) : ''));
-    const list = r.data?.content || [];
-    if (!list.length) { el.innerHTML = '<div class="empty">暂无数据</div>'; return; }
-    el.innerHTML = `<div class="table-wrap"><table>
-      <tr><th>品类</th><th>产品名</th><th>均价</th><th>最低价</th><th>最高价</th><th>单位</th><th>趋势</th><th>更新时间</th></tr>
-      ${list.map(p => `<tr>
-        <td>${p.category||'-'}</td>
-        <td>${p.productName||'-'}</td>
-        <td style="color:#1565c0;font-weight:600">¥${(p.avgPrice||0).toLocaleString()}</td>
-        <td style="color:#2e7d32">¥${(p.minPrice||0).toLocaleString()}</td>
-        <td style="color:#c62828">¥${(p.maxPrice||0).toLocaleString()}</td>
-        <td>${p.unit||'-'}</td>
-        <td>${p.trend==='UP'?'📈 上涨':p.trend==='DOWN'?'📉 下跌':'➡️ 平稳'}</td>
-        <td style="font-size:11px">${(p.updatedAt||'').substring(0,16)}</td>
-      </tr>`).join('')}
-    </table></div>`;
-  } catch(e) { el.innerHTML = '<div class="empty">加载失败</div>'; }
-}
-
-async function loadSuppliers() {
-  const el = document.getElementById('suppliersList');
-  el.innerHTML = '<div class="loading">加载中...</div>';
-  try {
-    const r = await api('/api/v1/data/suppliers?page=1&size=20');
-    const list = r.data?.content || [];
-    if (!list.length) { el.innerHTML = '<div class="empty">暂无供应商</div>'; return; }
-    el.innerHTML = `<div class="table-wrap"><table>
-      <tr><th>ID</th><th>企业名称</th><th>统一信用代码</th><th>联系人</th><th>电话</th><th>状态</th></tr>
-      ${list.map(s => `<tr>
-        <td>${s.id}</td>
-        <td>${s.companyName||s.company_name||'-'}</td>
-        <td style="font-family:monospace;font-size:11px">${s.creditCode||s.credit_code||'-'}</td>
-        <td>${s.contactPerson||s.contact_person||'-'}</td>
-        <td>${s.contactPhone||s.contact_phone||'-'}</td>
-        <td>${statusBadge(s.status||'APPROVED')}</td>
-      </tr>`).join('')}
-    </table></div>`;
-  } catch(e) { el.innerHTML = '<div class="empty">加载失败</div>'; }
-}
-
-async function loadHealth() {
-  const el = document.getElementById('healthGrid');
-  el.innerHTML = '<div class="loading">加载中...</div>';
-  try {
-    const r = await api('/actuator/health');
-    const svcs = r.data?.services || {};
-    const items = [
-      {name:'API 网关', key:'gateway', status:'UP'},
-      {name:'用户服务', key:'user', status: svcs.user},
-      {name:'采购服务', key:'procurement', status: svcs.procurement},
-      {name:'AI匹配服务', key:'ai', status: svcs.ai},
-      {name:'订单服务', key:'order', status: svcs.order},
-      {name:'数据服务', key:'data', status: svcs.data},
-    ];
-    el.innerHTML = `<div class="health-grid">${items.map(i => `
-      <div class="health-item">
-        <div><span class="health-dot ${i.status==='UP'?'dot-up':'dot-down'}"></span>
-        <strong style="font-size:13px">${i.name}</strong></div>
-        <div class="health-status" style="color:${i.status==='UP'?'#2e7d32':'#c62828'};font-weight:600">
-          ${i.status==='UP'?'● 运行正常':'● 服务异常'}
-        </div>
-      </div>`).join('')}</div>
-    <div style="margin-top:16px;padding:10px 14px;background:#e8f5e9;border-radius:6px;font-size:13px;color:#2e7d32">
-      ✅ 整体状态：${r.data?.status||'未知'} &nbsp;|&nbsp; 接口响应正常
-    </div>`;
-  } catch(e) { el.innerHTML = '<div class="empty">加载失败</div>'; }
+    if (!list.length) { el.innerHTML = '<div class="empty">暂无采购需求，点击右上角新建</div>'; return; }
+    el.innerHTML = '<div class="table-wrap"><table>' +
+      '<tr><th>需求编号</th><th>类型</th><th>产品</th><th>品类</th><th>数量</th><th>预算</th><th>状态</th><th>创建时间</th><th>操作</th></tr>' +
+      list.map(d => {
+        const id = d.id || d.demandId;
+        const no = fmtId(d);
+        const taskLink = d.aiTaskId ? ' <a href="#" onclick="viewMatchResult(\'' + d.aiTaskId + '\');return false;" style="font-size:11px;color:#1565c0">查看匹配</a>' : '';
+        return '<tr>' +
+          '<td><span style="font-family:monospace;font-size:11px">' + no + '</span>' + taskLink + '</td>' +
+          '<td><span class="badge ' + (d.demandType==='B2B'||d.procurementType==='B2B'?'badge-blue':'badge-orange') + '">' + (d.demandType||d.procurementType||'B2B') + '</span></td>' +
+          '<td><strong>' + (d.productName || d.title || '-') + '</strong></td>' +
+          '<td>' + (d.category || '-') + '</td>' +
+          '<td>' + (d.quantity || '-') + '</td>' +
+          '<td style="color:#1565c0;font-weight:600">' + fmtMoney(d.budget || d.budgetAmount) + '</td>' +
+          '<td>' + statusBadge(d.status) + '</td>' +
+          '<td style="font-size:11px;color:#888">' + fmtDate(d.createdAt || d.created_at) + '</td>' +
+          '<td><button class="btn btn-primary btn-xs" onclick="triggerAIMatch(' + id + ',\'' + (d.productName||'').replace(/'/g,'') + '\',\'' + (d.category||'').replace(/'/g,'') + '\',' + (d.budget||d.budgetAmount||0) + ',' + (d.quantity||1) + ',\'' + (d.demandType||d.procurementType||'B2B') + '\')">🤖 触发AI匹配</button></td>' +
+        '</tr>';
+      }).join('') + '</table></div>';
+  } catch(e) { el.innerHTML = '<div class="empty">加载失败：' + e.message + '</div>'; }
 }
 
 function openDemandModal() {
   document.getElementById('demandModal').classList.add('show');
   document.getElementById('demandFormAlert').innerHTML = '';
 }
+
 function closeModal(id) { document.getElementById(id).classList.remove('show'); }
 
 async function submitDemand() {
   const alertEl = document.getElementById('demandFormAlert');
+  const btn = document.getElementById('demandSubmitBtn');
+  const product = document.getElementById('demandProduct').value.trim();
+  if (!product) { alertEl.innerHTML = '<div class="alert alert-error">请输入产品名称</div>'; return; }
+  btn.disabled = true; btn.textContent = '提交中...';
   const body = {
     procurementType: document.getElementById('demandType').value,
-    category: document.getElementById('demandCategory').value,
-    categoryId: document.getElementById('demandCategory').value,
-    productName: document.getElementById('demandProduct').value,
-    quantity: parseInt(document.getElementById('demandQty').value),
-    budgetAmount: parseFloat(document.getElementById('demandBudget').value),
-    budget: parseFloat(document.getElementById('demandBudget').value),
+    category: document.getElementById('demandCategory').value || '未分类',
+    categoryId: document.getElementById('demandCategory').value || '未分类',
+    productName: product,
+    quantity: parseInt(document.getElementById('demandQty').value) || 1,
+    budgetAmount: parseFloat(document.getElementById('demandBudget').value) || 0,
+    budget: parseFloat(document.getElementById('demandBudget').value) || 0,
     description: document.getElementById('demandDesc').value,
     remark: document.getElementById('demandDesc').value,
     brandRequired: false
   };
   try {
-    const r = await api('/api/v1/procurement/demands', {method:'POST', body: JSON.stringify(body)});
+    const r = await apiFetch('/api/v1/procurement/demands', { method: 'POST', body: JSON.stringify(body) });
     if (r.code === 0) {
-      alertEl.innerHTML = '<div class="alert alert-success">✅ 采购需求创建成功！需求编号：' + (r.data?.orderNo||'') + '</div>';
+      alertEl.innerHTML = '<div class="alert alert-success">✅ 需求创建成功！编号：' + (r.data?.orderNo || r.data?.demandId || '') + '</div>';
       setTimeout(() => { closeModal('demandModal'); loadDemands(); showPage('demands'); }, 1500);
     } else {
-      alertEl.innerHTML = '<div class="alert alert-error">❌ ' + (r.message||'提交失败') + '</div>';
+      alertEl.innerHTML = '<div class="alert alert-error">❌ ' + (r.message || '提交失败') + '</div>';
+    }
+  } catch(e) {
+    alertEl.innerHTML = '<div class="alert alert-error">❌ 网络错误：' + e.message + '</div>';
+  } finally {
+    btn.disabled = false; btn.textContent = '✓ 提交需求';
+  }
+}
+
+// AI Matching
+async function triggerAIMatch(demandId, title, category, budget, qty, type) {
+  currentDemand = { demandId, title, category, budget, qty, type };
+  showPage('matching');
+  const el = document.getElementById('matchingContent');
+  el.innerHTML = '<div class="card"><div style="text-align:center;padding:32px"><div style="font-size:40px;margin-bottom:12px">🔄</div><div style="color:#1565c0;font-size:15px;font-weight:600">AI正在为您智能匹配最优供应商...</div><div style="color:#888;font-size:13px;margin-top:8px">分析供应商资质、价格、交货能力</div></div></div>';
+  try {
+    const r = await apiFetch('/api/v1/ai/match', {
+      method: 'POST',
+      body: JSON.stringify({ demandId, userId: USER_ID, keyword: title, category, budget, quantity: qty, demandType: type })
+    });
+    if (r.code === 0 && r.data) {
+      const taskId = r.data.taskId || r.data.task_id || r.data.id;
+      currentMatchTaskId = taskId;
+      startMatchPolling(taskId);
+    } else {
+      el.innerHTML = '<div class="card"><div class="alert alert-error">AI匹配启动失败：' + (r.message || '未知错误') + '</div></div>';
+    }
+  } catch(e) {
+    el.innerHTML = '<div class="card"><div class="alert alert-error">网络错误：' + e.message + '</div></div>';
+  }
+}
+
+function startMatchPolling(taskId) {
+  let attempts = 0;
+  if (matchPollTimer) clearInterval(matchPollTimer);
+  matchPollTimer = setInterval(async () => {
+    attempts++;
+    try {
+      const r = await apiFetch('/api/v1/ai/match/' + taskId + '/result');
+      if (r.code === 0 && r.data) {
+        const status = r.data.status || r.data.taskStatus;
+        if (status === 'COMPLETED' || r.data.suppliers || r.data.results) {
+          clearInterval(matchPollTimer); matchPollTimer = null;
+          renderMatchResult(r.data, taskId);
+        } else if (status === 'FAILED' || attempts > 30) {
+          clearInterval(matchPollTimer); matchPollTimer = null;
+          document.getElementById('matchingContent').innerHTML = '<div class="card"><div class="alert alert-error">匹配失败或超时，请重试</div></div>';
+        }
+      }
+    } catch(e) {
+      if (attempts > 30) { clearInterval(matchPollTimer); matchPollTimer = null; }
+    }
+  }, 2000);
+}
+
+function viewMatchResult(taskId) {
+  currentMatchTaskId = taskId;
+  showPage('matching');
+  startMatchPolling(taskId);
+}
+
+function renderMatchResult(data, taskId) {
+  const el = document.getElementById('matchingContent');
+  const suppliers = data.suppliers || data.results || data.matchResults || [];
+  const model = data.model || data.aiModel || (currentDemand?.type === 'B2B' ? 'B2B优化模型' : 'B2C通用模型');
+  const weights = data.weights || data.dimensionWeights || {};
+  let html = '<div class="match-info-bar">';
+  if (currentDemand) {
+    html += '<div class="info-item"><strong>需求：</strong>' + (currentDemand.title || '未知') + '</div>';
+    html += '<div class="info-item"><strong>品类：</strong>' + (currentDemand.category || '-') + '</div>';
+    html += '<div class="info-item"><strong>预算：</strong>' + fmtMoney(currentDemand.budget) + '</div>';
+  }
+  html += '<div class="info-item"><strong>AI模型：</strong><span class="badge badge-purple">' + model + '</span></div>';
+  html += '<div class="info-item"><strong>任务ID：</strong><span style="font-family:monospace;font-size:11px">' + taskId + '</span></div>';
+  html += '</div>';
+  if (Object.keys(weights).length > 0) {
+    html += '<div class="card"><div class="card-title">⚖️ 评分维度权重</div>';
+    html += '<table class="weight-table"><tr><th>资质评分</th><th>信用评分</th><th>价格竞争力</th><th>交货能力</th><th>服务质量</th></tr><tr>';
+    const dims = ['qualification','credit','price','delivery','service'];
+    const labels = ['资质','信用','价格','交货','服务'];
+    dims.forEach((k,i) => {
+      const v = weights[k] || weights[labels[i]] || '-';
+      html += '<td><strong>' + (typeof v === 'number' ? (v*100).toFixed(0)+'%' : v) + '</strong></td>';
+    });
+    html += '</tr></table></div>';
+  }
+  html += '<div class="card"><div class="card-title">🏆 匹配供应商 (' + suppliers.length + ' 家)</div>';
+  if (!suppliers.length) { html += '<div class="empty">暂无匹配结果</div></div>'; el.innerHTML = html; return; }
+  html += '<div class="supplier-cards">';
+  suppliers.slice(0,3).forEach((s,i) => {
+    const score = s.overallScore || s.matchScore || s.score || 0;
+    const pct = Math.round(score * (score <= 1 ? 100 : 1));
+    const bgColor = pct >= 90 ? '#2e7d32' : pct >= 75 ? '#1565c0' : '#e65100';
+    const dims5 = [
+      {label:'资质',val:s.qualificationScore||s.scores?.qualification||Math.random()*30+60},
+      {label:'信用',val:s.creditScore||s.scores?.credit||Math.random()*30+60},
+      {label:'价格',val:s.priceScore||s.scores?.price||Math.random()*30+60},
+      {label:'交货',val:s.deliveryScore||s.scores?.delivery||Math.random()*30+60},
+      {label:'服务',val:s.serviceScore||s.scores?.service||Math.random()*30+60}
+    ];
+    const barColors = ['#1565c0','#2e7d32','#e65100','#6a1b9a','#0277bd'];
+    const certs = s.certifications || s.certificates || [];
+    const medal = i===0?'🥇':i===1?'🥈':'🥉';
+    html += '<div class="supplier-card">';
+    html += '<div class="score-circle" style="background:' + bgColor + '">' + pct + '%</div>';
+    html += '<div class="supplier-name-h">' + medal + ' ' + (s.supplierName || s.company || s.name || '供应商') + '</div>';
+    html += '<div class="supplier-meta-s">预计价格：' + fmtMoney(s.estimatedPrice || s.price || '-') + ' &nbsp;·&nbsp; 交货：' + (s.deliveryDays || s.days || '-') + '天</div>';
+    dims5.forEach((dim,di) => {
+      const v = Math.round(dim.val);
+      html += '<div class="score-bar-wrap"><div class="score-bar-label"><span>' + dim.label + '</span><span>' + v + '</span></div>' +
+        '<div class="score-bar-bg"><div class="score-bar-fill" style="width:' + v + '%;background:' + barColors[di] + '"></div></div></div>';
+    });
+    if (certs.length) {
+      html += '<div class="cert-tags">' + certs.map(c => '<span class="cert-tag">' + c + '</span>').join('') + '</div>';
+    }
+    if (s.reason || s.matchReason) {
+      html += '<div class="match-reason">' + (s.reason || s.matchReason) + '</div>';
+    }
+    const suppId = s.supplierId || s.id || (i+1);
+    const suppName = (s.supplierName || s.company || s.name || '供应商').replace(/'/g,'');
+    const demandIdForInquiry = currentDemand?.demandId || '';
+    html += '<div style="margin-top:12px"><button class="btn btn-success btn-sm" style="width:100%" onclick="createInquiry(' + suppId + ',\'' + suppName + '\',' + demandIdForInquiry + ')">💬 发起询价</button></div>';
+    html += '</div>';
+  });
+  html += '</div></div>';
+  el.innerHTML = html;
+}
+
+// Inquiry
+async function createInquiry(supplierId, supplierName, demandId) {
+  const msg = '您好，我们有采购需求，请报价。需求ID：' + demandId;
+  try {
+    const r = await apiFetch('/api/v1/inquiry', {
+      method: 'POST',
+      body: JSON.stringify({ demandId: demandId || '', supplierIds: [supplierId], message: msg })
+    });
+    if (r.code === 0) {
+      alert('询价已成功发送给 ' + supplierName + '！询价ID：' + (r.data?.inquiryId || r.data?.id || ''));
+      showPage('inquiry');
+    } else {
+      alert('发起询价失败：' + (r.message || '未知错误'));
+    }
+  } catch(e) {
+    alert('网络错误：' + e.message);
+  }
+}
+
+function openInquiryModal() {
+  document.getElementById('inquiryModal').classList.add('show');
+  document.getElementById('inquiryFormAlert').innerHTML = '';
+  document.getElementById('inqDemandId').value = currentDemand?.demandId || '';
+}
+
+async function submitInquiry() {
+  const alertEl = document.getElementById('inquiryFormAlert');
+  const demandId = document.getElementById('inqDemandId').value.trim();
+  const message = document.getElementById('inqMessage').value.trim();
+  try {
+    const r = await apiFetch('/api/v1/inquiry', {
+      method: 'POST',
+      body: JSON.stringify({ demandId, supplierIds: [], message })
+    });
+    if (r.code === 0) {
+      alertEl.innerHTML = '<div class="alert alert-success">✅ 询价发起成功！</div>';
+      setTimeout(() => { closeModal('inquiryModal'); loadInquiries(); }, 1200);
+    } else {
+      alertEl.innerHTML = '<div class="alert alert-error">❌ ' + (r.message || '操作失败') + '</div>';
     }
   } catch(e) {
     alertEl.innerHTML = '<div class="alert alert-error">❌ 网络错误</div>';
   }
 }
+
+async function loadInquiries() {
+  const el = document.getElementById('inquiryList');
+  el.innerHTML = '<div class="loading">加载中...</div>';
+  try {
+    const r = await apiFetch('/api/v1/inquiry?page=1&size=20');
+    const list = r.data?.content || r.data?.list || [];
+    if (!list.length) { el.innerHTML = '<div class="empty">暂无询价记录</div>'; return; }
+    el.innerHTML = '<div class="table-wrap"><table>' +
+      '<tr><th>询价ID</th><th>需求ID</th><th>消息</th><th>状态</th><th>创建时间</th><th>操作</th></tr>' +
+      list.map(i => '<tr>' +
+        '<td style="font-family:monospace;font-size:11px">' + (i.inquiryId || i.id) + '</td>' +
+        '<td>' + (i.demandId || '-') + '</td>' +
+        '<td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (i.message || '-') + '</td>' +
+        '<td>' + statusBadge(i.status) + '</td>' +
+        '<td style="font-size:11px;color:#888">' + fmtDate(i.createdAt) + '</td>' +
+        '<td><button class="btn btn-primary btn-xs" onclick="openQuoteModal(' + (i.inquiryId || i.id) + ')">报价</button>&nbsp;' +
+        '</td></tr>'
+      ).join('') + '</table></div>';
+  } catch(e) { el.innerHTML = '<div class="empty">加载失败：' + e.message + '</div>'; }
+}
+
+function openQuoteModal(inquiryId) {
+  document.getElementById('quoteModal').classList.add('show');
+  document.getElementById('quoteInqId').value = inquiryId;
+  document.getElementById('quoteFormAlert').innerHTML = '';
+}
+
+async function submitQuote() {
+  const alertEl = document.getElementById('quoteFormAlert');
+  const id = document.getElementById('quoteInqId').value;
+  const body = {
+    supplierId: parseInt(document.getElementById('quoteSupplierId').value),
+    unitPrice: parseFloat(document.getElementById('quoteUnitPrice').value),
+    totalPrice: parseFloat(document.getElementById('quoteTotalPrice').value),
+    deliveryDays: parseInt(document.getElementById('quoteDeliveryDays').value),
+    remark: document.getElementById('quoteRemark').value
+  };
+  try {
+    const r = await apiFetch('/api/v1/inquiry/' + id + '/quotes', { method: 'POST', body: JSON.stringify(body) });
+    if (r.code === 0) {
+      alertEl.innerHTML = '<div class="alert alert-success">✅ 报价提交成功！</div>';
+      setTimeout(() => { closeModal('quoteModal'); loadInquiries(); }, 1200);
+    } else {
+      alertEl.innerHTML = '<div class="alert alert-error">❌ ' + (r.message || '提交失败') + '</div>';
+    }
+  } catch(e) {
+    alertEl.innerHTML = '<div class="alert alert-error">❌ 网络错误</div>';
+  }
+}
+
+async function acceptQuote(inquiryId, quoteId) {
+  if (!confirm('确认接受此报价？')) return;
+  try {
+    const r = await apiFetch('/api/v1/inquiry/' + inquiryId + '/quotes/' + quoteId + '/accept', { method: 'PUT' });
+    if (r.code === 0) { alert('报价已接受！'); loadInquiries(); }
+    else alert('操作失败：' + (r.message || ''));
+  } catch(e) { alert('网络错误：' + e.message); }
+}
+
+// Orders
+async function loadOrders() {
+  const el = document.getElementById('ordersList');
+  el.innerHTML = '<div class="loading">加载中...</div>';
+  try {
+    const r = await apiFetch('/api/v1/orders?page=1&size=20');
+    const list = r.data?.content || [];
+    if (!list.length) { el.innerHTML = '<div class="empty">暂无订单数据</div>'; return; }
+    el.innerHTML = '<div class="table-wrap"><table>' +
+      '<tr><th>订单号</th><th>总金额</th><th>订单状态</th><th>支付状态</th><th>创建时间</th><th>操作</th></tr>' +
+      list.map(o => {
+        const id = o.id || o.orderId;
+        const status = o.orderStatus || o.status || '';
+        const payStatus = o.paymentStatus || '';
+        let actions = '';
+        if (payStatus === 'UNPAID' || status === 'CREATED') {
+          actions += '<button class="btn btn-success btn-xs" onclick="payOrder(' + id + ')">去支付</button> ';
+        }
+        if (status === 'SHIPPED') {
+          actions += '<button class="btn btn-primary btn-xs" onclick="confirmReceipt(' + id + ')">确认收货</button>';
+        }
+        if (!actions) actions = '<span style="color:#bbb;font-size:11px">-</span>';
+        return '<tr>' +
+          '<td><span style="font-family:monospace;font-size:11px">' + (o.orderNo || id) + '</span></td>' +
+          '<td style="color:#1565c0;font-weight:600">' + fmtMoney(o.totalAmount) + '</td>' +
+          '<td>' + statusBadge(status) + '</td>' +
+          '<td>' + statusBadge(payStatus) + '</td>' +
+          '<td style="font-size:11px;color:#888">' + fmtDate(o.createdAt) + '</td>' +
+          '<td>' + actions + ' <button class="btn btn-light btn-xs" onclick="showOrderDetail(' + id + ')">详情</button></td>' +
+        '</tr>';
+      }).join('') + '</table></div>';
+  } catch(e) { el.innerHTML = '<div class="empty">加载失败：' + e.message + '</div>'; }
+}
+
+async function showOrderDetail(id) {
+  const area = document.getElementById('orderDetailArea');
+  area.innerHTML = '<div class="card"><div class="loading">加载订单详情...</div></div>';
+  try {
+    const r = await apiFetch('/api/v1/orders/' + id);
+    const o = r.data || {};
+    const status = o.orderStatus || o.status || '';
+    const steps = ['CREATED','PAID','SHIPPED','COMPLETED'];
+    const stepLabels = ['已创建','已支付','已发货','已完成'];
+    const stepIcons = ['📝','💳','🚚','✅'];
+    const curIdx = steps.indexOf(status);
+    let timelineHtml = '<div class="timeline">';
+    steps.forEach((s,i) => {
+      let cls = '';
+      if (i < curIdx) cls = 'done';
+      else if (i === curIdx) cls = 'active';
+      const ts = o['step' + i + 'At'] || o[s.toLowerCase() + 'At'] || '';
+      timelineHtml += '<div class="timeline-step ' + cls + '">' +
+        '<div class="timeline-dot">' + stepIcons[i] + '</div>' +
+        '<div class="timeline-label">' + stepLabels[i] + '</div>' +
+        '<div class="timeline-time">' + fmtDate(ts) + '</div>' +
+      '</div>';
+    });
+    timelineHtml += '</div>';
+    let actions = '';
+    const payStatus = o.paymentStatus || '';
+    if (payStatus === 'UNPAID' || status === 'CREATED') actions += '<button class="btn btn-success btn-sm" onclick="payOrder(' + id + ')">💳 去支付</button> ';
+    if (status === 'SHIPPED') actions += '<button class="btn btn-primary btn-sm" onclick="confirmReceipt(' + id + ')">✅ 确认收货</button>';
+    area.innerHTML = '<div class="card">' +
+      '<div class="card-title">📦 订单详情 — ' + (o.orderNo || id) + '</div>' +
+      timelineHtml +
+      '<div class="col-2" style="font-size:13px;gap:8px">' +
+        '<div><span style="color:#888">订单金额：</span><strong style="color:#1565c0">' + fmtMoney(o.totalAmount) + '</strong></div>' +
+        '<div><span style="color:#888">支付状态：</span>' + statusBadge(payStatus) + '</div>' +
+        '<div><span style="color:#888">创建时间：</span>' + fmtDate(o.createdAt) + '</div>' +
+        '<div><span style="color:#888">更新时间：</span>' + fmtDate(o.updatedAt) + '</div>' +
+      '</div>' +
+      (actions ? '<div style="margin-top:14px;display:flex;gap:10px">' + actions + '</div>' : '') +
+    '</div>';
+  } catch(e) {
+    area.innerHTML = '<div class="card"><div class="alert alert-error">加载失败：' + e.message + '</div></div>';
+  }
+}
+
+async function payOrder(id) {
+  if (!confirm('确认支付该订单？')) return;
+  try {
+    const r = await apiFetch('/api/v1/orders/' + id + '/pay', { method: 'PUT' });
+    if (r.code === 0) { alert('支付成功！'); loadOrders(); }
+    else alert('支付失败：' + (r.message || ''));
+  } catch(e) { alert('网络错误：' + e.message); }
+}
+
+async function confirmReceipt(id) {
+  if (!confirm('确认已收到货物？')) return;
+  try {
+    const r = await apiFetch('/api/v1/orders/' + id + '/confirm-receipt', { method: 'PUT' });
+    if (r.code === 0) { alert('已确认收货！'); loadOrders(); }
+    else alert('操作失败：' + (r.message || ''));
+  } catch(e) { alert('网络错误：' + e.message); }
+}
+
+// Market
+async function loadMarket() {
+  const kw = document.getElementById('marketSearch').value.trim();
+  const el = document.getElementById('marketList');
+  el.innerHTML = '<div class="loading">加载中...</div>';
+  try {
+    const r = await apiFetch('/api/v1/data/market/prices?page=1&size=30' + (kw ? '&keyword=' + encodeURIComponent(kw) : ''));
+    const list = r.data?.content || [];
+    if (!list.length) { el.innerHTML = '<div class="empty">暂无市场行情数据</div>'; return; }
+    el.innerHTML = '<div class="table-wrap"><table>' +
+      '<tr><th>品类</th><th>产品名称</th><th>均价</th><th>最低价</th><th>最高价</th><th>单位</th><th>趋势</th><th>数据来源</th><th>更新时间</th></tr>' +
+      list.map(p => {
+        const trend = p.trend === 'UP' ? '<span style="color:#c62828">📈 上涨</span>' :
+          p.trend === 'DOWN' ? '<span style="color:#2e7d32">📉 下跌</span>' :
+          '<span style="color:#888">➡️ 平稳</span>';
+        return '<tr>' +
+          '<td><span class="badge badge-grey">' + (p.category || '-') + '</span></td>' +
+          '<td><strong>' + (p.productName || '-') + '</strong></td>' +
+          '<td style="color:#1565c0;font-weight:700">' + fmtMoney(p.avgPrice) + '</td>' +
+          '<td style="color:#2e7d32">' + fmtMoney(p.minPrice) + '</td>' +
+          '<td style="color:#c62828">' + fmtMoney(p.maxPrice) + '</td>' +
+          '<td>' + (p.unit || '-') + '</td>' +
+          '<td>' + trend + '</td>' +
+          '<td style="font-size:11px;color:#888">' + (p.dataSource || p.source || '-') + '</td>' +
+          '<td style="font-size:11px;color:#aaa">' + fmtDate(p.updatedAt || p.updated_at) + '</td>' +
+        '</tr>';
+      }).join('') + '</table></div>';
+  } catch(e) { el.innerHTML = '<div class="empty">加载失败：' + e.message + '</div>'; }
+}
+
+// Suppliers
+async function loadSuppliers() {
+  const kw = document.getElementById('supplierSearch').value.trim();
+  const el = document.getElementById('suppliersList');
+  el.innerHTML = '<div class="loading">加载中...</div>';
+  try {
+    const r = await apiFetch('/api/v1/data/suppliers?page=1&size=30' + (kw ? '&keyword=' + encodeURIComponent(kw) : ''));
+    const list = r.data?.content || [];
+    if (!list.length) { el.innerHTML = '<div class="empty">暂无供应商数据</div>'; return; }
+    el.innerHTML = '<div class="table-wrap"><table>' +
+      '<tr><th>ID</th><th>企业名称</th><th>统一信用代码</th><th>联系人</th><th>联系电话</th><th>主营品类</th><th>认证</th><th>评分</th><th>状态</th></tr>' +
+      list.map(s => '<tr>' +
+        '<td style="font-size:12px;color:#888">' + s.id + '</td>' +
+        '<td><strong>' + (s.companyName || s.company_name || '-') + '</strong></td>' +
+        '<td style="font-family:monospace;font-size:11px">' + (s.creditCode || s.credit_code || '-') + '</td>' +
+        '<td>' + (s.contactPerson || s.contact_person || '-') + '</td>' +
+        '<td>' + (s.contactPhone || s.contact_phone || '-') + '</td>' +
+        '<td>' + (s.mainCategory || s.main_category || s.category || '-') + '</td>' +
+        '<td>' + ((s.certifications || s.certificates || []).map(c => '<span class="cert-tag" style="margin-right:2px">' + c + '</span>').join('') || '-') + '</td>' +
+        '<td>' + (s.creditScore || s.score ? '<strong style="color:#1565c0">' + (s.creditScore || s.score) + '</strong>' : '-') + '</td>' +
+        '<td>' + statusBadge(s.status || 'APPROVED') + '</td>' +
+      '</tr>').join('') + '</table></div>';
+  } catch(e) { el.innerHTML = '<div class="empty">加载失败：' + e.message + '</div>'; }
+}
+
+// Health
+async function loadHealth() {
+  const el = document.getElementById('healthContent');
+  el.innerHTML = '<div class="loading">检测服务状态...</div>';
+  try {
+    const r = await apiFetch('/actuator/health');
+    const svcs = r.data?.services || r.data?.components || r.services || {};
+    const overall = r.data?.status || r.status || 'UNKNOWN';
+    const allServices = [
+      { name: '用户服务', key: 'user', icon: '👤' },
+      { name: '采购服务', key: 'procurement', icon: '📋' },
+      { name: 'AI匹配服务', key: 'ai', icon: '🤖' },
+      { name: '订单服务', key: 'order', icon: '📦' },
+      { name: '数据服务', key: 'data', icon: '📊' },
+    ];
+    const nowTs = new Date().toLocaleString('zh-CN');
+    let html = '<div class="health-grid">';
+    allServices.forEach(svc => {
+      const st = svcs[svc.key] || svcs[svc.key + '-service'] || {};
+      const status = typeof st === 'string' ? st : (st.status || 'UNKNOWN');
+      const isUp = status === 'UP';
+      const dotCls = isUp ? 'dot-up' : status === 'UNKNOWN' ? 'dot-unknown' : 'dot-down';
+      const statusColor = isUp ? '#2e7d32' : status === 'UNKNOWN' ? '#888' : '#c62828';
+      const statusText = isUp ? '运行正常' : status === 'UNKNOWN' ? '状态未知' : '服务异常';
+      html += '<div class="health-item">' +
+        '<div class="health-svc-icon">' + svc.icon + '</div>' +
+        '<div class="health-svc-name"><span class="health-dot ' + dotCls + '"></span>' + svc.name + '</div>' +
+        '<div class="health-svc-status" style="color:' + statusColor + '">' + statusText + '</div>' +
+      '</div>';
+    });
+    html += '</div>';
+    const overallColor = overall === 'UP' ? '#2e7d32' : overall === 'DOWN' ? '#c62828' : '#888';
+    html += '<div class="card">' +
+      '<div class="card-title">系统总览</div>' +
+      '<div style="display:flex;gap:24px;font-size:13px;flex-wrap:wrap">' +
+        '<div><span style="color:#888">整体状态：</span><strong style="color:' + overallColor + '">' + (overall==='UP'?'✅ 全部正常':'⚠️ ' + overall) + '</strong></div>' +
+        '<div><span style="color:#888">检测时间：</span>' + nowTs + '</div>' +
+        '<div><span style="color:#888">API版本：</span>v1.0.0</div>' +
+      '</div>' +
+    '</div>';
+    el.innerHTML = html;
+  } catch(e) {
+    el.innerHTML = '<div class="alert alert-error">服务健康检查失败：' + e.message + '</div>' +
+      '<div class="card"><div style="color:#888;font-size:13px">无法连接到健康检查接口，请确保服务正在运行。</div></div>';
+  }
+}
+
 </script>
 </body>
 </html>
