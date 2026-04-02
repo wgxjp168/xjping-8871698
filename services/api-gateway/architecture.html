@@ -1,0 +1,1527 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI智能采购决策系统 - 架构图</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.6.1/mermaid.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.6.1/mermaid.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+        }
+        
+        body {
+            background-color: #f8fafc;
+            color: #1e293b;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 100%;
+            padding: 0;
+        }
+        
+        /* 头部样式 */
+        header {
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            color: white;
+            padding: 20px 0;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        
+        .header-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .logo-icon {
+            font-size: 2rem;
+            color: #3b82f6;
+        }
+        
+        .logo-text h1 {
+            font-size: 1.8rem;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+        
+        .logo-text p {
+            font-size: 0.9rem;
+            opacity: 0.8;
+        }
+        
+        .nav-controls {
+            display: flex;
+            gap: 15px;
+        }
+        
+        .nav-btn {
+            background-color: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s ease;
+        }
+        
+        .nav-btn:hover {
+            background-color: rgba(59, 130, 246, 0.3);
+            transform: translateY(-2px);
+        }
+        
+        /* 主内容区 */
+        .main-content {
+            display: flex;
+            min-height: calc(100vh - 80px);
+        }
+        
+        /* 左侧面板 */
+        .side-panel {
+            width: 300px;
+            background-color: white;
+            border-right: 1px solid #e2e8f0;
+            padding: 25px 20px;
+            overflow-y: auto;
+            box-shadow: 2px 0 8px rgba(0, 0, 0, 0.05);
+        }
+        
+        .panel-section {
+            margin-bottom: 30px;
+        }
+        
+        .panel-section h3 {
+            font-size: 1.1rem;
+            color: #0f172a;
+            margin-bottom: 15px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #e2e8f0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .layer-list {
+            list-style: none;
+        }
+        
+        .layer-item {
+            padding: 12px 15px;
+            margin-bottom: 8px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border-left: 4px solid transparent;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .layer-item:hover {
+            background-color: #f1f5f9;
+        }
+        
+        .layer-item.active {
+            background-color: #eff6ff;
+            border-left-color: #3b82f6;
+            color: #1d4ed8;
+            font-weight: 600;
+        }
+        
+        .layer-icon {
+            width: 24px;
+            height: 24px;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+        }
+        
+        .layer-1 { background-color: #e3f2fd; }
+        .layer-2 { background-color: #f3e5f5; }
+        .layer-3 { background-color: #e8f5e8; }
+        .layer-4 { background-color: #fff3e0; }
+        .layer-5 { background-color: #fce4ec; }
+        .layer-6 { background-color: #e0f2f1; }
+        .layer-7 { background-color: #f5f5f5; }
+        
+        /* 服务状态 */
+        .service-status {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .status-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 12px;
+            background-color: #f8fafc;
+            border-radius: 6px;
+        }
+        
+        .status-name {
+            font-size: 0.9rem;
+        }
+        
+        .status-unknown {
+            background-color: #94a3b8;
+        }
+        
+        .status-checking {
+            background-color: #f59e0b;
+            animation: pulse 1s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+        
+        .status-up { background-color: #10b981; }
+        .status-down { background-color: #ef4444; }
+        .status-warning { background-color: #f59e0b; }
+        
+        /* 搜索和筛选 */
+        .search-box {
+            position: relative;
+            margin-bottom: 20px;
+        }
+        
+        .search-box input {
+            width: 100%;
+            padding: 12px 15px 12px 40px;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            font-size: 0.95rem;
+        }
+        
+        .search-box i {
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #64748b;
+        }
+        
+        /* 图例 */
+        .legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.85rem;
+        }
+        
+        .legend-color {
+            width: 16px;
+            height: 16px;
+            border-radius: 4px;
+        }
+        
+        /* 架构图展示区 */
+        .diagram-container {
+            flex: 1;
+            padding: 20px;
+            overflow: auto;
+            background-color: #f8fafc;
+        }
+        
+        .diagram-wrapper {
+            background-color: white;
+            border-radius: 12px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+            padding: 20px;
+            min-width: 2000px;
+            min-height: 1200px;
+            overflow: auto;
+        }
+        
+        .diagram-title {
+            text-align: center;
+            margin-bottom: 20px;
+            color: #0f172a;
+        }
+        
+        .diagram-title h2 {
+            font-size: 1.8rem;
+            margin-bottom: 5px;
+        }
+        
+        .diagram-title p {
+            color: #64748b;
+        }
+        
+        /* 架构图样式覆盖 */
+        .mermaid {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            width: 100%;
+            height: 100%;
+        }
+        
+        /* 响应式设计 */
+        @media (max-width: 1200px) {
+            .side-panel {
+                width: 260px;
+            }
+        }
+        
+        @media (max-width: 992px) {
+            .main-content {
+                flex-direction: column;
+            }
+            
+            .side-panel {
+                width: 100%;
+                border-right: none;
+                border-bottom: 1px solid #e2e8f0;
+                padding: 20px;
+            }
+            
+            .diagram-container {
+                min-height: 600px;
+            }
+        }
+        
+        /* 模态框 */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal-content {
+            background-color: white;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 800px;
+            max-height: 80vh;
+            overflow-y: auto;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        
+        .modal-header h3 {
+            font-size: 1.5rem;
+            color: #0f172a;
+        }
+        
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: #64748b;
+        }
+        
+        .service-details {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        
+        .detail-item {
+            margin-bottom: 15px;
+        }
+        
+        .detail-label {
+            font-weight: 600;
+            color: #475569;
+            margin-bottom: 5px;
+        }
+        
+        .detail-value {
+            color: #0f172a;
+        }
+        
+        /* 加载状态 */
+        .loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 300px;
+        }
+        
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid #e2e8f0;
+            border-top-color: #3b82f6;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        /* 工具提示 */
+        .tooltip {
+            position: absolute;
+            background-color: #1e293b;
+            color: white;
+            padding: 10px 15px;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            max-width: 300px;
+            z-index: 100;
+            display: none;
+        }
+        
+        /* 控制栏 */
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            justify-content: center;
+        }
+        
+        .control-btn {
+            background-color: white;
+            border: 1px solid #cbd5e1;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s ease;
+        }
+        
+        .control-btn:hover {
+            background-color: #f1f5f9;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="header-content">
+            <div class="logo">
+                <div class="logo-icon">
+                    <i class="fas fa-robot"></i>
+                </div>
+                <div class="logo-text">
+                    <h1>AI智能采购决策系统</h1>
+                    <p>企业级智能采购分析与决策平台</p>
+                </div>
+            </div>
+            <div class="nav-controls">
+                <button class="nav-btn" onclick="window.location.href='/'">
+                    <i class="fas fa-arrow-left"></i> 返回主系统
+                </button>
+                <button class="nav-btn" id="export-btn">
+                    <i class="fas fa-download"></i> 导出架构图
+                </button>
+                <button class="nav-btn" id="fullscreen-btn">
+                    <i class="fas fa-expand"></i> 全屏查看
+                </button>
+            </div>
+        </div>
+    </header>
+    
+    <div class="container">
+        <div class="main-content">
+            <!-- 左侧控制面板 -->
+            <div class="side-panel">
+                <div class="search-box">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="search-input" placeholder="搜索服务或组件...">
+                </div>
+                
+                <div class="panel-section">
+                    <h3><i class="fas fa-layer-group"></i> 架构层级</h3>
+                    <ul class="layer-list">
+                        <li class="layer-item active" data-layer="all">
+                            <div class="layer-icon" style="background-color: #3b82f6;">
+                                <i class="fas fa-sitemap"></i>
+                            </div>
+                            <span>全部层级</span>
+                        </li>
+                        <li class="layer-item" data-layer="1">
+                            <div class="layer-icon layer-1">
+                                <i class="fas fa-user"></i>
+                            </div>
+                            <span>用户层</span>
+                        </li>
+                        <li class="layer-item" data-layer="2">
+                            <div class="layer-icon layer-2">
+                                <i class="fas fa-door-open"></i>
+                            </div>
+                            <span>接入层</span>
+                        </li>
+                        <li class="layer-item" data-layer="3">
+                            <div class="layer-icon layer-3">
+                                <i class="fas fa-brain"></i>
+                            </div>
+                            <span>AI决策层</span>
+                        </li>
+                        <li class="layer-item" data-layer="4">
+                            <div class="layer-icon layer-4">
+                                <i class="fas fa-database"></i>
+                            </div>
+                            <span>数据层</span>
+                        </li>
+                        <li class="layer-item" data-layer="5">
+                            <div class="layer-icon layer-5">
+                                <i class="fas fa-cogs"></i>
+                            </div>
+                            <span>业务层</span>
+                        </li>
+                    </ul>
+                </div>
+                
+                <div class="panel-section">
+                    <h3><i class="fas fa-server"></i> 服务状态</h3>
+                    <div class="service-status" id="service-status-list">
+                        <div class="status-item">
+                            <span class="status-name">API网关服务</span>
+                            <div class="status-dot status-unknown" id="status-gateway"></div>
+                        </div>
+                        <div class="status-item">
+                            <span class="status-name">AI匹配服务</span>
+                            <div class="status-dot status-unknown" id="status-ai"></div>
+                        </div>
+                        <div class="status-item">
+                            <span class="status-name">采购服务</span>
+                            <div class="status-dot status-unknown" id="status-procurement"></div>
+                        </div>
+                        <div class="status-item">
+                            <span class="status-name">数据采集服务</span>
+                            <div class="status-dot status-unknown" id="status-data"></div>
+                        </div>
+                        <div class="status-item">
+                            <span class="status-name">用户服务</span>
+                            <div class="status-dot status-unknown" id="status-user"></div>
+                        </div>
+                        <div class="status-item">
+                            <span class="status-name">订单服务</span>
+                            <div class="status-dot status-unknown" id="status-order"></div>
+                        </div>
+                    </div>
+                    <div style="margin-top:8px;font-size:11px;color:#94a3b8;cursor:pointer;" onclick="fetchServiceHealth()">
+                        <i class="fas fa-sync-alt" id="health-refresh-icon"></i> 点击刷新状态
+                    </div>
+                </div>
+                
+                <div class="panel-section">
+                    <h3><i class="fas fa-key"></i> 图例说明</h3>
+                    <div class="legend">
+                        <div class="legend-item">
+                            <div class="legend-color" style="background-color: #e3f2fd;"></div>
+                            <span>用户层</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-color" style="background-color: #f3e5f5;"></div>
+                            <span>接入层</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-color" style="background-color: #e8f5e8;"></div>
+                            <span>AI层</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-color" style="background-color: #fff3e0;"></div>
+                            <span>业务层</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-color" style="background-color: #fce4ec;"></div>
+                            <span>数据层</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-color" style="background-color: #e0f2f1;"></div>
+                            <span>运维层</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 架构图展示区 -->
+            <div class="diagram-container">
+                <div class="controls">
+                    <button class="control-btn" id="zoom-in-btn">
+                        <i class="fas fa-search-plus"></i> 放大
+                    </button>
+                    <button class="control-btn" id="zoom-out-btn">
+                        <i class="fas fa-search-minus"></i> 缩小
+                    </button>
+                    <button class="control-btn" id="reset-view-btn">
+                        <i class="fas fa-sync-alt"></i> 重置视图
+                    </button>
+                    <button class="control-btn" id="toggle-details-btn">
+                        <i class="fas fa-info-circle"></i> 显示详情
+                    </button>
+                </div>
+                
+                <div class="diagram-wrapper">
+                    <div class="diagram-title">
+                        <h2>AI智能采购决策系统架构图</h2>
+                        <p>基于Mermaid的交互式架构图，点击节点查看详细信息</p>
+                    </div>
+                    
+                    <div class="loading" id="diagram-loading">
+                        <div class="spinner"></div>
+                    </div>
+                    
+                    <div id="mermaid-diagram"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 服务详情模态框 -->
+    <div class="modal" id="service-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modal-title">服务详情</h3>
+                <button class="close-btn" id="modal-close">&times;</button>
+            </div>
+            <div id="modal-body">
+                <!-- 内容将动态填充 -->
+            </div>
+        </div>
+    </div>
+    
+    <!-- 工具提示 -->
+    <div class="tooltip" id="node-tooltip"></div>
+
+    <script>
+        // 架构图数据
+        const mermaidCode = `graph TB
+            %%=========样式定义=========
+            classDef userLayer fill:#e3f2fd,stroke:#1565c0;
+            classDef gatewayLayer fill:#f3e5f5,stroke:#7b1fa2;
+            classDef aiLayer fill:#e8f5e8,stroke:#2e7d32;
+            classDef businessLayer fill:#fff3e0,stroke:#ef6c00;
+            classDef dataLayer fill:#fce4ec,stroke:#c2185b;
+            classDef infraLayer fill:#e0f2f1,stroke:#00695c;
+            classDef external fill:#f5f5f5,stroke:#9e9e9e,dashed;
+            classDef process fill:#f0f8ff,stroke:#4682b4,stroke-dasharray: 5 5;
+            
+            %%=========第一部分:多模态用户输入=========
+            subgraph LO[多模态用户输入]
+                U[终端用户<br/>B2B企业采购员/B2C消费者]
+                subgraph INPUT_MODES[输入方式]
+                    TEXT_IN[文本对话输入<br/>采购需求描述]
+                    IMG_IN[图片输入<br/>商品图片识别]
+                    LINK_IN[链接输入<br/>商品URL解析]
+                    VOICE_IN[语音输入<br/>语音转文本]
+                end
+                USER_PROFILE[用户画像<br/>历史偏好/预算/使用场景]
+            end
+            
+            U--> INPUT_MODES
+            U--> USER_PROFILE
+            
+            %%==========第二部分:接入层=========
+            subgraph L1[接入层-统一入口与网关]
+                API_GW[API网关服务<br/>Kong/Nginx]
+                AUTH_SVC[认证授权服务<br/>Spring Boot:8001<br/>JWT/OAuth2]
+                RATE_LIMIT[限流熔断<br/>B端:1000req/min C端:100req/min]
+                WS_SVC[WebSocket服务<br/>实时对话]
+            end
+            
+            INPUT_MODES--> API_GW
+            API_GW--> AUTH_SVC
+            API_GW--> RATE_LIMIT
+            TEXT_IN & VOICE_IN--> WS_SVC
+            
+            %%==========第三部分:AI决策中枢==========
+            subgraph L2[AI决策中枢-核心智能层]
+                DIALOG_SVC[对话管理服务<br/>Node.js:8013<br/>会话状态机/多轮对话]
+                
+                subgraph INTENT_PROCESSING[意图识别与需求解析]
+                    INTENT_SVC[意图识别服务<br/>Python/FastAPI:8010<br/>NLP+实体提取]
+                    BRAND_DETECT[品牌检测器<br/>检测"已定品牌"/"未定品牌"]
+                    PARAM_EXTRACT[参数提取器<br/>材质/尺寸/容量/功率等]
+                end
+                
+                subgraph DECISION_CORE[决策核心引擎]
+                    LLM_SVC[大模型调用服务<br/>Python/FastAPI:8011<br/>封装OpenAI/Claude/文心一言]
+                    DECISION_SVC[决策引擎服务<br/>Python/FastAPI:8012<br/>规则引擎(Drools)+ML模型]
+                    
+                    subgraph SCORING_MODELS[评分模型]
+                        B2B_MODEL[B2B评分模型<br/>供应商资质/店龄/信用等级/认证评价]
+                        B2C_BRAND_MODEL[B2C(已定品牌)模型<br/>原厂正品/销量/质量/服务/价/店龄]
+                        B2C_NOBRAND_MODEL[B2C(未定品牌)模型<br/>参数/质量/销量/服务/评价]
+                    end
+                end
+                
+                subgraph REPORT_GENERATION[报告生成引擎]
+                    TEMPLATE_ENGINE[报告模板引擎<br/>结构化报告生成]
+                    NLP_EXPLAIN[可解释性NLP引擎<br/>差异对比/风险说明生成]
+                end
+                
+                %% 数据处理流程
+                PROC_FLOW1[1.多模态输入解析<br/>文本/NLP,图片/CV,链接/解析]
+                PROC_FLOW2[2.意图分类与需求结构化<br/>B2B企业采购/B2C个人消费]
+                PROC_FLOW3[3.品牌与参数识别<br/>识别品牌偏好与关键参数]
+                PROC_FLOW4[4.采购标准生成<br/>生成结构化查询条件]
+                PROC_FLOW5[5.多平台数据采集<br/>7大平台API合规采集]
+                PROC_FLOW6[6.智能匹配与评分<br/>应用对应评分模型]
+                PROC_FLOW7[7.双档推荐生成<br/>品质款/性价比款]
+                PROC_FLOW8[8.报告生成与解释<br/>生成完整分析报告]
+            end
+            
+            %% 决策中枢内部流程
+            AUTH_SVC--> DIALOG_SVC
+            DIALOG_SVC--> INTENT_SVC
+            INTENT_SVC--> BRAND_DETECT
+            INTENT_SVC--> PARAM_EXTRACT
+            BRAND_DETECT--> LLM_SVC
+            PARAM_EXTRACT--> LLM_SVC
+            LLM_SVC--> DECISION_SVC
+            DECISION_SVC--> SCORING_MODELS
+            DECISION_SVC--> TEMPLATE_ENGINE
+            TEMPLATE_ENGINE--> NLP_EXPLAIN
+            
+            %% 流程标注
+            PROC_FLOW1--> PROC_FLOW2--> PROC_FLOW3--> PROC_FLOW4--> PROC_FLOW5--> PROC_FLOW6--> PROC_FLOW7--> PROC_FLOW8
+            
+            %%==========第四部分:数据采集与处理层=========
+            subgraph L3[数据采集与处理层]
+                %% 外部数据源
+                subgraph PLATFORM_APIS[7大电商平台API]
+                    TAOBAO_API[淘宝/天猫开放平台]
+                    TMALL_API[天猫官方旗舰店API]
+                    JD_API[京东宙斯API]
+                    PDD_API[拼多多开放平台]
+                    AU1688_API[1688开放平台]
+                    VIP_API[唯品会API]
+                    SUNING_API[苏宁易购API]
+                    DOUYIN_API[抖音电商API]
+                end
+                
+                %% 数据采集服务
+                subgraph DATA_COLLECTION[数据采集服务集群]
+                    CRAWLER_SVC[数据采集服务<br/>Python/Scrapy:8030<br/>定时/实时API调用]
+                    API_MANAGER[API调用管理器<br/>频率控制/错误重试]
+                    PROXY_MGR[代理IP管理<br/>防止被封禁]
+                end
+                
+                %% 数据处理管道
+                subgraph DATA_PIPELINE[数据处理管道]
+                    ETL_SVC[数据清洗服务<br/>Python:8031]
+                    QUALITY_CHECK[数据质量检查器]
+                    STANDARDIZER[数据标准化器]
+                    SCORE_CALCULATOR[评分计算器]
+                end
+                
+                %% 合规监控
+                COMPLIANCE_MONITOR[合规监控器<br/>遵守robots.txt/频率限制]
+            end
+            
+            %% 数据流
+            DECISION_SVC--> CRAWLER_SVC
+            CRAWLER_SVC--> API_MANAGER
+            API_MANAGER--> PROXY_MGR
+            PROXY_MGR--> PLATFORM_APIS
+            CRAWLER_SVC--> COMPLIANCE_MONITOR
+            CRAWLER_SVC--> ETL_SVC
+            ETL_SVC--> QUALITY_CHECK--> STANDARDIZER--> SCORE_CALCULATOR
+            
+            %%==========第五部分:数据存储层=========
+            subgraph L4[数据存储层]
+                subgraph OLTP_STORAGE[在线事务存储]
+                    MYSQL[(MySQL 8.0集群<br/>业务主库)]
+                    REDIS[(Redis 7.2集群<br/>缓存/会话)]
+                end
+                
+                subgraph OLAP_STORAGE[在线分析存储]
+                    ES[(Elasticsearch 8.11集群<br/>商品检索/分析)]
+                    CLICKHOUSE[(ClickHouse集群<br/>行为日志分析)]
+                end
+                
+                subgraph FILE_STORAGE[文件存储]
+                    MINIO[(MinIO对象存储<br/>报告/图片/合同)]
+                end
+                
+                subgraph SYNC_SERVICES[数据同步服务]
+                    CANAL[Canal<br/>MySQL->ES增量同步]
+                    RABBITMQ[RabbitMQ 3.12<br/>异步消息队列]
+                    FLINK[Flink流处理<br/>实时数据处理]
+                end
+            end
+            
+            %% 数据存储流
+            SCORE_CALCULATOR--> MYSQL
+            SCORE_CALCULATOR--> ES
+            DIALOG_SVC--> REDIS
+            USER_PROFILE--> MYSQL
+            NLP_EXPLAIN--> MINIO
+            MYSQL-->CANAL--> RABBITMQ-->ES
+            RABBITMQ--> FLINK--> CLICKHOUSE
+            
+            %%===========第六部分:业务逻辑层=========
+            subgraph L5[业务逻辑层]
+                USER_SVC[用户服务<br/>SpringBoot:8020<br/>注册/登录/画像管理]
+                PRODUCT_SVC[商品服务<br/>Go/Gin:8021<br/>商品聚合查询/推荐]
+                ORDER_SVC[订单服务<br/>Spring Boot:8022<br/>下单/履约追踪]
+                REPORT_SVC[报告服务<br/>Java:8024<br/>报告管理/分发]
+                CONFIG_SVC[配置服务<br/>Spring Boot:8023<br/>对接 Nacos动态配置]
+                NOTIFY_SVC[通知服务<br/>Node.js:8040<br/>短信/微信/Push]
+                FILE_SVC[文件服务<br/>Go:8041<br/>合同生成/文件管理]
+                
+                subgraph B2B_SERVICES[B2B特色服务]
+                    SUPPLIER_MGR[供应商管理<br/>资质审核/评级]
+                    CONTRACT_MGR[合同管理<br/>电子签章/模板]
+                    INVOICE_MGR[发票管理<br/>增专票/对账]
+                end
+                
+                subgraph B2C_SERVICES[B2C特色服务]
+                    RECOMMEND_MGR[个性化推荐<br/>基于用户画像]
+                    COMPARE_MGR[比价服务<br/>历史价格追踪]
+                    REVIEW_MGR[评价管理<br/>情感分析/汇总]
+                end
+            end
+            
+            %% 业务逻辑连接
+            NLP_EXPLAIN--> REPORT_SVC
+            REPORT_SVC--> USER_SVC
+            REPORT_SVC--> PRODUCT_SVC
+            REPORT_SVC--> NOTIFY_SVC
+            REPORT_SVC--> FILE_SVC
+            USER_SVC--> B2B_SERVICES
+            USER_SVC--> B2C_SERVICES
+            PRODUCT_SVC--> ORDER_SVC
+            ORDER_SVC--> SUPPLIER_MGR
+            ORDER_SVC--> CONTRACT_MGR
+            ORDER_SVC--> INVOICE_MGR
+            
+            %%==========第七部分:报告输出与呈现=========
+            subgraph L6[报告输出层]
+                subgraph REPORT_TYPES[报告类型生成器]
+                    B2B_REPORT[B2B商品分析报告生成器]
+                    B2C_BRAND_REPORT[B2C(已定品牌)报告生成器]
+                    B2C_NOBRAND_REPORT[B2C(未定品牌)报告生成器]
+                end
+                
+                subgraph OUTPUT_FORMATS[输出格式]
+                    HTML_REPORT[HTML交互式报告]
+                    PDF_REPORT[PDF可打印报告]
+                    EXCEL_REPORT[Excel数据报告]
+                    API_RESPONSE[API JSON响应]
+                end
+                
+                subgraph DELIVERY_CHANNELS[交付渠道]
+                    WEB_PORTAL[Web门户展示]
+                    MOBILE_APP[移动App推送]
+                    EMAIL_DELIVERY[邮件自动发送]
+                    WECHAT_MSG[微信公众号消息]
+                end
+            end
+            
+            %% 报告输出流
+            REPORT_SVC--> REPORT_TYPES
+            B2B_REPORT--> OUTPUT_FORMATS
+            B2C_BRAND_REPORT--> OUTPUT_FORMATS
+            B2C_NOBRAND_REPORT--> OUTPUT_FORMATS
+            OUTPUT_FORMATS--> DELIVERY_CHANNELS
+            
+            %%==========第八部分:商业变现层=========
+            subgraph L7[商业变现层]
+                C_MONETIZE[C端变现<br/>单次决策付费/会员订阅]
+                B_MONETIZE[B端解决方案<br/>SaaS年费/API调用费/定制]
+                DATA_MONETIZE[数据能力输出<br/>行业决策基础设施/报告]
+                PAYMENT_GW[支付网关集成<br/>微信/支付宝/银联]
+                BILLING_SVC[计费服务<br/>用量统计/账单生成]
+            end
+            
+            ORDER_SVC--> C_MONETIZE
+            ORDER_SVC--> B_MONETIZE
+            REPORT_SVC--> DATA_MONETIZE
+            C_MONETIZE & B_MONETIZE--> PAYMENT_GW
+            PAYMENT_GW--> BILLING_SVC
+            
+            %%==========第九部分:反馈与优化飞轮=========
+            subgraph L8[反馈与优化飞轮]
+                FEEDBACK[AI满意度回访<br/>NLP情感分析]
+                BEHAVIOR_TRACK[用户行为追踪<br/>点击/转化/满意度]
+                
+                subgraph MODEL_ITERATION[模型迭代]
+                    A_B_TEST[A/B测试框架]
+                    MODEL_TRAIN[模型训练服务]
+                    FEATURE_ENG[特征工程]
+                    MODEL_EVAL[模型评估]
+                end
+                
+                MODEL_DEPLOY[模型部署服务<br/>金丝雀/滚动发布]
+            end
+            
+            DELIVERY_CHANNELS--> FEEDBACK
+            DELIVERY_CHANNELS--> BEHAVIOR_TRACK
+            BEHAVIOR_TRACK--> CLICKHOUSE
+            FEEDBACK--> CLICKHOUSE
+            CLICKHOUSE--> FEATURE_ENG
+            FEATURE_ENG--> MODEL_TRAIN
+            MODEL_TRAIN--> MODEL_EVAL
+            MODEL_EVAL--> A_B_TEST
+            A_B_TEST--> MODEL_DEPLOY
+            MODEL_DEPLOY--> DECISION_SVC
+            
+            %%=========第十部分:支撑与运维层
+            subgraph L9[支撑与运维层]
+                subgraph OBSERVABILITY[可观测性]
+                    PROMETHEUS[Prometheus<br/>指标采集]
+                    GRAFANA[Grafana<br/>监控看板]
+                    ELK[ELK Stack<br/>日志聚合]
+                    JAEGER[Jaeger<br/>分布式追踪]
+                end
+                
+                subgraph ORCHESTRATION[编排与部署]
+                    K8S[Kubernetes 1.29<br/>容器编排]
+                    DOCKER[Docker 25+<br/>容器运行时]
+                    HARBOR[Harbor<br/>镜像仓库]
+                    ARGOCD[ArgoCD<br/>GitOps部署]
+                end
+                
+                subgraph CONFIG_MGMT[配置管理]
+                    NACOS[Nacos2.3<br/>服务发现+配置中心]
+                    VAULT[Vault<br/>密钥管理]
+                end
+                
+                subgraph CI_CD[持续集成/部署]
+                    JENKINS[Jenkins CI/CD]
+                    GITLAB_CI[GitLab CI]
+                    SONARQUBE[SonarQube<br/>代码质量]
+                end
+                
+                ALERT[AlertManager<br/>告警引擎]
+            end
+            
+            %% 运维支撑连接
+            K8S--> DOCKER
+            NACOS--> CONFIG_SVC
+            PROMETHEUS--> GRAFANA
+            PROMETHEUS--> ALERT
+            
+            %%==========样式应用==========
+            class U,INPUT_MODES,USER_PROFILE userLayer
+            class API_GW,AUTH_SVC,RATE_LIMIT,WS_SVC gatewayLayer
+            class DIALOG_SVC,INTENT_PROCESSING,DECISION_CORE,REPORT_GENERATION,SCORING_MODELS aiLayer
+            class PROC_FLOW1,PROC_FLOW2,PROC_FLOW3,PROC_FLOW4,PROC_FLOW5,PROC_FLOW6,PROC_FLOW7,PROC_FLOW8 process
+            class PLATFORM_APIS,DATA_COLLECTION,DATA_PIPELINE,COMPLIANCE_MONITOR dataLayer
+            class OLTP_STORAGE,OLAP_STORAGE,FILE_STORAGE,SYNC_SERVICES dataLayer
+            class USER_SVC,PRODUCT_SVC,ORDER_SVC,REPORT_SVC,CONFIG_SVC,NOTIFY_SVC,FILE_SVC,B2B_SERVICES,B2C_SERVICES businessLayer
+            class REPORT_TYPES,OUTPUT_FORMATS,DELIVERY_CHANNELS businessLayer
+            class C_MONETIZE,B_MONETIZE,DATA_MONETIZE,PAYMENT_GW,BILLING_SVC businessLayer
+            class FEEDBACK,BEHAVIOR_TRACK,MODEL_ITERATION,MODEL_DEPLOY businessLayer
+            class OBSERVABILITY,ORCHESTRATION,CONFIG_MGMT,CI_CD,ALERT infraLayer
+        `;
+        
+        // 服务详细信息
+        const serviceDetails = {
+            "API_GW": {
+                name: "API网关服务",
+                description: "作为系统统一入口，负责请求路由、负载均衡和API管理",
+                techStack: ["Kong", "Nginx", "Spring Cloud Gateway"],
+                port: "8000",
+                status: "运行中",
+                connections: ["AUTH_SVC", "RATE_LIMIT", "WS_SVC"],
+                dependencies: ["Nacos配置中心", "Prometheus监控"]
+            },
+            "AUTH_SVC": {
+                name: "认证授权服务",
+                description: "处理用户认证、授权和会话管理，支持JWT和OAuth2协议",
+                techStack: ["Spring Boot", "Spring Security", "JWT"],
+                port: "8001",
+                status: "运行中",
+                connections: ["DIALOG_SVC"],
+                dependencies: ["MySQL用户库", "Redis会话存储"]
+            },
+            "DIALOG_SVC": {
+                name: "对话管理服务",
+                description: "管理用户会话状态，支持多轮对话和上下文保持",
+                techStack: ["Node.js", "Express", "WebSocket"],
+                port: "8013",
+                status: "运行中",
+                connections: ["INTENT_SVC", "REDIS"],
+                dependencies: ["Redis会话存储", "NLP服务"]
+            },
+            "INTENT_SVC": {
+                name: "意图识别服务",
+                description: "识别用户采购意图，提取关键实体和参数",
+                techStack: ["Python", "FastAPI", "BERT", "spaCy"],
+                port: "8010",
+                status: "运行中",
+                connections: ["BRAND_DETECT", "PARAM_EXTRACT"],
+                dependencies: ["预训练NLP模型", "实体识别库"]
+            },
+            "LLM_SVC": {
+                name: "大模型调用服务",
+                description: "封装多个大模型API，提供统一的LLM调用接口",
+                techStack: ["Python", "FastAPI", "OpenAI API", "Claude API"],
+                port: "8011",
+                status: "警告",
+                connections: ["DECISION_SVC"],
+                dependencies: ["OpenAI", "Claude", "文心一言"]
+            },
+            "DECISION_SVC": {
+                name: "决策引擎服务",
+                description: "结合规则引擎和机器学习模型，生成采购决策",
+                techStack: ["Python", "FastAPI", "Drools", "scikit-learn"],
+                port: "8012",
+                status: "运行中",
+                connections: ["SCORING_MODELS", "TEMPLATE_ENGINE"],
+                dependencies: ["规则库", "ML模型文件", "特征数据库"]
+            },
+            "CRAWLER_SVC": {
+                name: "数据采集服务",
+                description: "从各大电商平台采集商品数据，支持定时和实时采集",
+                techStack: ["Python", "Scrapy", "Selenium", "Playwright"],
+                port: "8030",
+                status: "运行中",
+                connections: ["API_MANAGER", "ETL_SVC"],
+                dependencies: ["代理IP池", "反爬策略库"]
+            }
+        };
+        
+        // 初始化Mermaid
+        mermaid.initialize({
+            startOnLoad: false,
+            theme: 'base',
+            themeVariables: {
+                primaryColor: '#f8fafc',
+                primaryBorderColor: '#cbd5e1',
+                primaryTextColor: '#0f172a',
+                lineColor: '#64748b',
+                fontSize: '14px',
+            },
+            flowchart: {
+                useMaxWidth: false,
+                htmlLabels: true,
+                curve: 'basis',
+                padding: 20
+            },
+            securityLevel: 'loose'
+        });
+        
+        // 等待DOM加载
+        document.addEventListener('DOMContentLoaded', function() {
+            const diagramContainer = document.getElementById('mermaid-diagram');
+            const loadingElement = document.getElementById('diagram-loading');
+            const modal = document.getElementById('service-modal');
+            const modalClose = document.getElementById('modal-close');
+            const modalTitle = document.getElementById('modal-title');
+            const modalBody = document.getElementById('modal-body');
+            const searchInput = document.getElementById('search-input');
+            const layerItems = document.querySelectorAll('.layer-item');
+            const tooltip = document.getElementById('node-tooltip');
+            const zoomInBtn = document.getElementById('zoom-in-btn');
+            const zoomOutBtn = document.getElementById('zoom-out-btn');
+            const resetViewBtn = document.getElementById('reset-view-btn');
+            const toggleDetailsBtn = document.getElementById('toggle-details-btn');
+            const exportBtn = document.getElementById('export-btn');
+            const fullscreenBtn = document.getElementById('fullscreen-btn');
+            
+            let currentZoom = 1;
+            let showDetails = true;
+            
+            // 渲染架构图
+            function renderDiagram() {
+                loadingElement.style.display = 'flex';
+                
+                // 使用setTimeout确保DOM更新
+                setTimeout(() => {
+                    mermaid.render('mermaid-diagram', mermaidCode).then(({svg, bindFunctions}) => {
+                        diagramContainer.innerHTML = svg;
+                        
+                        // 添加交互功能
+                        if (bindFunctions) {
+                            bindFunctions(diagramContainer);
+                        }
+                        
+                        // 添加节点点击事件
+                        addNodeInteractivity();
+                        
+                        loadingElement.style.display = 'none';
+                    }).catch(err => {
+                        console.error('渲染架构图时出错:', err);
+                        diagramContainer.innerHTML = '<div style="color: #ef4444; padding: 40px; text-align: center;"><h3>渲染架构图时出错</h3><p>请检查浏览器控制台获取详细信息</p></div>';
+                        loadingElement.style.display = 'none';
+                    });
+                }, 100);
+            }
+            
+            // 添加节点交互功能
+            function addNodeInteractivity() {
+                const nodes = document.querySelectorAll('.node, .cluster');
+                
+                nodes.forEach(node => {
+                    // 添加鼠标悬停效果
+                    node.addEventListener('mouseenter', function(e) {
+                        const nodeId = this.id;
+                        if (nodeId && serviceDetails[nodeId]) {
+                            const service = serviceDetails[nodeId];
+                            tooltip.innerHTML = `
+                                <strong>${service.name}</strong><br/>
+                                <span>状态: ${service.status}</span><br/>
+                                <span>端口: ${service.port}</span>
+                            `;
+                            tooltip.style.display = 'block';
+                            tooltip.style.left = (e.pageX + 10) + 'px';
+                            tooltip.style.top = (e.pageY + 10) + 'px';
+                        } else if (this.classList.contains('cluster')) {
+                            const label = this.querySelector('.label')?.textContent || '集群';
+                            tooltip.innerHTML = `<strong>${label}</strong>`;
+                            tooltip.style.display = 'block';
+                            tooltip.style.left = (e.pageX + 10) + 'px';
+                            tooltip.style.top = (e.pageY + 10) + 'px';
+                        }
+                        
+                        // 高亮相关节点
+                        highlightRelatedNodes(this.id);
+                    });
+                    
+                    node.addEventListener('mousemove', function(e) {
+                        if (tooltip.style.display === 'block') {
+                            tooltip.style.left = (e.pageX + 10) + 'px';
+                            tooltip.style.top = (e.pageY + 10) + 'px';
+                        }
+                    });
+                    
+                    node.addEventListener('mouseleave', function() {
+                        tooltip.style.display = 'none';
+                        removeHighlights();
+                    });
+                    
+                    // 添加点击事件显示详细信息
+                    node.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        const nodeId = this.id;
+                        
+                        if (nodeId && serviceDetails[nodeId]) {
+                            showServiceDetails(nodeId);
+                        } else {
+                            const label = this.querySelector('.label')?.textContent || '未知组件';
+                            showGenericDetails(label, this.classList);
+                        }
+                    });
+                });
+                
+                // 点击空白处关闭模态框
+                document.addEventListener('click', function(e) {
+                    if (e.target === modal) {
+                        modal.style.display = 'none';
+                    }
+                });
+            }
+            
+            // 高亮相关节点
+            function highlightRelatedNodes(nodeId) {
+                if (!nodeId || !serviceDetails[nodeId]) return;
+                
+                const service = serviceDetails[nodeId];
+                const allNodes = document.querySelectorAll('.node, .cluster');
+                
+                // 首先重置所有节点
+                allNodes.forEach(node => {
+                    node.style.opacity = '0.4';
+                });
+                
+                // 高亮当前节点
+                const currentNode = document.getElementById(nodeId);
+                if (currentNode) {
+                    currentNode.style.opacity = '1';
+                    currentNode.style.filter = 'drop-shadow(0 0 8px rgba(59, 130, 246, 0.5))';
+                }
+                
+                // 高亮连接节点
+                if (service.connections) {
+                    service.connections.forEach(connId => {
+                        const connNode = document.getElementById(connId);
+                        if (connNode) {
+                            connNode.style.opacity = '1';
+                            connNode.style.filter = 'drop-shadow(0 0 5px rgba(34, 197, 94, 0.5))';
+                        }
+                    });
+                }
+            }
+            
+            // 移除高亮
+            function removeHighlights() {
+                const allNodes = document.querySelectorAll('.node, .cluster');
+                allNodes.forEach(node => {
+                    node.style.opacity = '1';
+                    node.style.filter = 'none';
+                });
+            }
+            
+            // 显示服务详情
+            // Map service node IDs to health check keys
+            const serviceHealthMap = {
+                'API_GW':    'gateway',
+                'AUTH_SVC':  'user',
+                'DIALOG_SVC':'ai',
+                'INTENT_SVC':'ai',
+                'LLM_SVC':   'ai',
+                'DECISION_SVC':'ai',
+                'CRAWLER_SVC':'data',
+            };
+            
+            function getLiveStatus(serviceId) {
+                const key = serviceHealthMap[serviceId];
+                if (!key) return 'warning';
+                if (key === 'gateway') return 'up';  // always up
+                const s = _liveStatuses[key];
+                if (!s) return 'unknown';
+                return s === 'UP' ? 'up' : 'down';
+            }
+            
+            function getLiveStatusText(serviceId) {
+                const key = serviceHealthMap[serviceId];
+                if (!key) return '未知';
+                if (key === 'gateway') return '运行中';
+                const s = _liveStatuses[key];
+                if (!s) return '未知';
+                return s === 'UP' ? '运行中' : '已停止';
+            }
+            
+            function showServiceDetails(serviceId) {
+                const service = serviceDetails[serviceId];
+                if (!service) return;
+                
+                modalTitle.textContent = service.name;
+                
+                modalBody.innerHTML = `
+                    <div class="service-details">
+                        <div>
+                            <div class="detail-item">
+                                <div class="detail-label">服务描述</div>
+                                <div class="detail-value">${service.description}</div>
+                            </div>
+                            <div class="detail-item">
+                                <div class="detail-label">技术栈</div>
+                                <div class="detail-value">${service.techStack.join(', ')}</div>
+                            </div>
+                            <div class="detail-item">
+                                <div class="detail-label">服务状态</div>
+                                <div class="detail-value">
+                                    <span style="display: inline-flex; align-items: center; gap: 5px;">
+                                        <span class="status-dot status-${getLiveStatus(serviceId)}"></span>
+                                        ${getLiveStatusText(serviceId)}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="detail-item">
+                                <div class="detail-label">服务端口</div>
+                                <div class="detail-value">${service.port}</div>
+                            </div>
+                            <div class="detail-item">
+                                <div class="detail-label">连接服务</div>
+                                <div class="detail-value">${service.connections ? service.connections.join(', ') : '无'}</div>
+                            </div>
+                            <div class="detail-item">
+                                <div class="detail-label">依赖服务</div>
+                                <div class="detail-value">${service.dependencies ? service.dependencies.join(', ') : '无'}</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                modal.style.display = 'flex';
+            }
+            
+            // 显示通用组件详情
+            function showGenericDetails(title, classList) {
+                modalTitle.textContent = title;
+                
+                let layerType = "未知层级";
+                if (classList.contains('userLayer')) layerType = "用户层";
+                else if (classList.contains('gatewayLayer')) layerType = "接入层";
+                else if (classList.contains('aiLayer')) layerType = "AI决策层";
+                else if (classList.contains('businessLayer')) layerType = "业务逻辑层";
+                else if (classList.contains('dataLayer')) layerType = "数据层";
+                else if (classList.contains('infraLayer')) layerType = "运维层";
+                
+                modalBody.innerHTML = `
+                    <div class="service-details">
+                        <div>
+                            <div class="detail-item">
+                                <div class="detail-label">组件名称</div>
+                                <div class="detail-value">${title}</div>
+                            </div>
+                            <div class="detail-item">
+                                <div class="detail-label">所属层级</div>
+                                <div class="detail-value">${layerType}</div>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="detail-item">
+                                <div class="detail-label">组件类型</div>
+                                <div class="detail-value">${classList.contains('cluster') ? '服务集群' : '独立服务'}</div>
+                            </div>
+                        </div>
+                    </div>
+                    <p style="margin-top: 20px; color: #64748b; font-style: italic;">
+                        点击具体服务节点查看更详细的技术信息
+                    </p>
+                `;
+                
+                modal.style.display = 'flex';
+            }
+            
+            // 搜索功能
+            searchInput.addEventListener('input', function() {
+                const searchTerm = this.value.toLowerCase().trim();
+                if (searchTerm === '') {
+                    removeHighlights();
+                    return;
+                }
+                
+                const allNodes = document.querySelectorAll('.node, .cluster');
+                allNodes.forEach(node => {
+                    const label = node.querySelector('.label')?.textContent || '';
+                    if (label.toLowerCase().includes(searchTerm)) {
+                        node.style.filter = 'drop-shadow(0 0 6px rgba(234, 179, 8, 0.7))';
+                    } else {
+                        node.style.filter = 'none';
+                    }
+                });
+            });
+            
+            // 层级筛选
+            layerItems.forEach(item => {
+                item.addEventListener('click', function() {
+                    // 移除所有active类
+                    layerItems.forEach(i => i.classList.remove('active'));
+                    // 添加当前active类
+                    this.classList.add('active');
+                    
+                    const layer = this.getAttribute('data-layer');
+                    filterByLayer(layer);
+                });
+            });
+            
+            // 按层级筛选
+            function filterByLayer(layer) {
+                const allNodes = document.querySelectorAll('.node, .cluster');
+                
+                if (layer === 'all') {
+                    allNodes.forEach(node => {
+                        node.style.opacity = '1';
+                        node.style.display = 'block';
+                    });
+                    return;
+                }
+                
+                allNodes.forEach(node => {
+                    let nodeLayer = '';
+                    
+                    if (node.classList.contains('userLayer')) nodeLayer = '1';
+                    else if (node.classList.contains('gatewayLayer')) nodeLayer = '2';
+                    else if (node.classList.contains('aiLayer')) nodeLayer = '3';
+                    else if (node.classList.contains('businessLayer')) nodeLayer = '5';
+                    else if (node.classList.contains('dataLayer')) nodeLayer = '4';
+                    else if (node.classList.contains('infraLayer')) nodeLayer = '6';
+                    
+                    if (nodeLayer === layer) {
+                        node.style.opacity = '1';
+                        node.style.display = 'block';
+                    } else {
+                        node.style.opacity = '0.3';
+                        node.style.display = 'block';
+                    }
+                });
+            }
+            
+            // 缩放控制
+            zoomInBtn.addEventListener('click', function() {
+                if (currentZoom < 2) {
+                    currentZoom += 0.1;
+                    updateZoom();
+                }
+            });
+            
+            zoomOutBtn.addEventListener('click', function() {
+                if (currentZoom > 0.5) {
+                    currentZoom -= 0.1;
+                    updateZoom();
+                }
+            });
+            
+            resetViewBtn.addEventListener('click', function() {
+                currentZoom = 1;
+                updateZoom();
+            });
+            
+            function updateZoom() {
+                const svg = diagramContainer.querySelector('svg');
+                if (svg) {
+                    svg.style.transform = `scale(${currentZoom})`;
+                    svg.style.transformOrigin = 'center';
+                }
+            }
+            
+            // 切换详情显示
+            toggleDetailsBtn.addEventListener('click', function() {
+                showDetails = !showDetails;
+                const labels = diagramContainer.querySelectorAll('.label');
+                labels.forEach(label => {
+                    label.style.display = showDetails ? 'block' : 'none';
+                });
+                
+                this.innerHTML = showDetails ? 
+                    '<i class="fas fa-eye-slash"></i> 隐藏详情' : 
+                    '<i class="fas fa-eye"></i> 显示详情';
+            });
+            
+            // 导出功能
+            exportBtn.addEventListener('click', function() {
+                const svg = diagramContainer.querySelector('svg');
+                if (svg) {
+                    const serializer = new XMLSerializer();
+                    const source = serializer.serializeToString(svg);
+                    const blob = new Blob([source], { type: 'image/svg+xml' });
+                    const url = URL.createObjectURL(blob);
+                    
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'ai采购决策系统架构图.svg';
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                } else {
+                    alert('无法导出架构图，请稍后再试');
+                }
+            });
+            
+            // 全屏功能
+            fullscreenBtn.addEventListener('click', function() {
+                const diagramWrapper = document.querySelector('.diagram-wrapper');
+                if (!document.fullscreenElement) {
+                    if (diagramWrapper.requestFullscreen) {
+                        diagramWrapper.requestFullscreen();
+                    } else if (diagramWrapper.webkitRequestFullscreen) {
+                        diagramWrapper.webkitRequestFullscreen();
+                    } else if (diagramWrapper.msRequestFullscreen) {
+                        diagramWrapper.msRequestFullscreen();
+                    }
+                } else {
+                    if (document.exitFullscreen) {
+                        document.exitFullscreen();
+                    } else if (document.webkitExitFullscreen) {
+                        document.webkitExitFullscreen();
+                    } else if (document.msExitFullscreen) {
+                        document.msExitFullscreen();
+                    }
+                }
+            });
+            
+            // 关闭模态框
+            modalClose.addEventListener('click', function() {
+                modal.style.display = 'none';
+            });
+            
+            // 实时服务健康状态
+            let _liveStatuses = {};
+            
+            async function fetchServiceHealth() {
+                const icon = document.getElementById('health-refresh-icon');
+                if (icon) icon.style.animation = 'spin 1s linear infinite';
+                
+                // Set all to checking state
+                ['gateway','ai','procurement','data','user','order'].forEach(s => {
+                    const dot = document.getElementById('status-' + s);
+                    if (dot) { dot.className = 'status-dot status-checking'; }
+                });
+                
+                try {
+                    const res = await fetch('/actuator/health');
+                    const json = await res.json();
+                    const services = (json.data || json).services || {};
+                    _liveStatuses = services;
+                    
+                    // Map service names to dot IDs
+                    const map = {
+                        'gateway': 'UP',  // gateway is always UP if we got here
+                        'ai':      services.ai || 'DOWN',
+                        'procurement': services.procurement || 'DOWN',
+                        'data':    services.data || 'DOWN',
+                        'user':    services.user || 'DOWN',
+                        'order':   services.order || 'DOWN',
+                    };
+                    
+                    Object.entries(map).forEach(([key, status]) => {
+                        const dot = document.getElementById('status-' + key);
+                        if (dot) {
+                            dot.className = 'status-dot ' + (status === 'UP' ? 'status-up' : 'status-down');
+                        }
+                    });
+                } catch(e) {
+                    ['gateway','ai','procurement','data','user','order'].forEach(s => {
+                        const dot = document.getElementById('status-' + s);
+                        if (dot) dot.className = 'status-dot status-down';
+                    });
+                }
+                
+                if (icon) icon.style.animation = '';
+            }
+            
+            // Add spin keyframe
+            const spinStyle = document.createElement('style');
+            spinStyle.textContent = '@keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }';
+            document.head.appendChild(spinStyle);
+            
+            // Fetch health on load and every 30s
+            fetchServiceHealth();
+            setInterval(fetchServiceHealth, 30000);
+            
+            // 初始化渲染
+            renderDiagram();
+        });
+    </script>
+</body>
+</html>

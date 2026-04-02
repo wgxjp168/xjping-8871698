@@ -157,6 +157,12 @@ def index():
     return send_file('index.html')
 
 
+@app.route('/architecture', methods=['GET'])
+@limiter.exempt
+def architecture():
+    return send_file('architecture.html')
+
+
 @app.route('/actuator/health', methods=['GET'])
 @limiter.exempt
 def health():
@@ -696,6 +702,57 @@ def data_market_price():
         d['sources'] = ['CRAWLER']
         d['trend'] = 'STABLE'
     return jsonify(resp_data), status
+
+
+# --- Admin: service details ---
+@app.route('/api/v1/admin/services', methods=['GET'])
+@limiter.exempt
+def admin_services():
+    services = {
+        'user':        USER_SERVICE_URL,
+        'procurement': PROCUREMENT_SERVICE_URL,
+        'ai':          AI_SERVICE_URL,
+        'order':       ORDER_SERVICE_URL,
+        'data':        DATA_SERVICE_URL,
+    }
+
+    def _check(item):
+        name, base_url = item
+        try:
+            r = req_lib.get(f"{base_url}/health", timeout=2)
+            body = {}
+            try:
+                body = r.json()
+            except Exception:
+                pass
+            return name, {
+                'status': 'UP' if r.status_code == 200 else 'DOWN',
+                'service': body.get('service', name),
+                'baseUrl': base_url,
+            }
+        except Exception as e:
+            return name, {'status': 'DOWN', 'service': name, 'baseUrl': base_url, 'error': str(e)}
+
+    with ThreadPoolExecutor(max_workers=5) as pool:
+        results = dict(pool.map(_check, services.items()))
+
+    # Add gateway itself
+    results['gateway'] = {
+        'status': 'UP',
+        'service': 'api-gateway',
+        'baseUrl': f'http://localhost:{GATEWAY_PORT}',
+    }
+
+    all_up = all(v['status'] == 'UP' for v in results.values())
+    return jsonify({
+        'code': 0,
+        'message': 'ok',
+        'data': {
+            'overall': 'UP' if all_up else 'DEGRADED',
+            'services': results,
+            'checkedAt': _now(),
+        },
+    })
 
 
 # --- Test route ---
