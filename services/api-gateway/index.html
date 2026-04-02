@@ -323,41 +323,87 @@ tr:hover td{background:#fafbff}
             </div>
             <!-- Voice Input Panel -->
             <div id="panel-voice" class="input-panel" style="display:none">
-              <div style="text-align:center;padding:16px 0">
-                <div id="voiceStatus" style="font-size:13px;color:#888;margin-bottom:12px">点击麦克风开始录音</div>
+              <div style="text-align:center;padding:12px 0">
+                <div id="voiceStatus" style="font-size:13px;color:#666;margin-bottom:10px">点击麦克风，说出您的采购需求</div>
                 <button id="voiceBtn" class="btn-voice" onclick="toggleVoice()">🎤</button>
-                <div id="voiceResult" style="margin-top:12px;font-size:13px;color:#555;min-height:30px;padding:8px;background:#f5f7ff;border-radius:6px;display:none"></div>
-                <div style="margin-top:10px;font-size:11px;color:#bbb">支持普通话 · 粤语 · 英语</div>
+                <div id="voiceResult" style="margin-top:10px;font-size:13px;color:#1a237e;min-height:28px;padding:8px 12px;background:#e8eaf6;border-radius:6px;display:none;text-align:left"></div>
+                <div style="margin-top:10px;font-size:11px;color:#bbb">仅支持 Chrome / Edge 浏览器 · 需麦克风权限</div>
+                <div style="margin-top:8px">
+                  <span style="font-size:11px;color:#aaa">示例说法：</span><br>
+                  <span style="font-size:12px;color:#888;font-style:italic">「我要采购一百台联想笔记本，预算八十万」</span>
+                </div>
               </div>
             </div>
             <!-- Image Input Panel -->
             <div id="panel-image" class="input-panel" style="display:none">
               <div id="imgDropZone" class="img-drop-zone" onclick="document.getElementById('imgFileInput').click()" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="handleImgDrop(event)">
                 <div style="font-size:36px;margin-bottom:8px">🖼️</div>
-                <div style="font-size:13px;color:#666">点击或拖拽图片到此处</div>
-                <div style="font-size:11px;color:#bbb;margin-top:4px">支持 JPG / PNG / WEBP，可上传产品图片或截图</div>
+                <div style="font-size:13px;color:#666">点击或拖拽产品图片到此处</div>
+                <div style="font-size:11px;color:#bbb;margin-top:4px">支持 JPG / PNG / WEBP</div>
               </div>
               <input type="file" id="imgFileInput" accept="image/*" style="display:none" onchange="handleImgSelect(event)">
-              <div id="imgPreviewArea" style="display:none;margin-top:10px">
-                <img id="imgPreview" style="max-width:100%;max-height:160px;border-radius:6px;border:1px solid #ddd">
-                <div style="margin-top:8px;display:flex;gap:8px">
-                  <button class="btn btn-primary btn-sm" onclick="analyzeImage()">🔍 AI识别商品</button>
-                  <button class="btn btn-light btn-sm" onclick="clearImage()">清除</button>
+              <!-- After upload: product info form -->
+              <div id="imgFormArea" style="display:none;margin-top:12px">
+                <div style="display:flex;gap:8px;margin-bottom:8px">
+                  <img id="imgPreview" style="width:80px;height:60px;object-fit:cover;border-radius:6px;border:1px solid #ddd;flex-shrink:0">
+                  <div style="flex:1">
+                    <div style="font-size:11px;color:#888;margin-bottom:4px">AI已识别商品类型，请确认或修改：</div>
+                    <select id="imgCategory" class="form-control" style="font-size:12px;padding:5px 8px" onchange="imgCategoryChange()">
+                      <option value="IT设备">IT设备（电脑/服务器/打印机）</option>
+                      <option value="办公用品">办公用品（桌椅/文具/耗材）</option>
+                      <option value="工业设备">工业设备（机床/电机/仪器）</option>
+                      <option value="原材料">原材料（钢材/铝材/塑料）</option>
+                      <option value="电子元件">电子元件（芯片/电路板/模块）</option>
+                      <option value="医疗物资">医疗物资（防护/消耗/试剂）</option>
+                      <option value="通用物资">其他通用物资</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="form-group" style="margin-bottom:6px">
+                  <label style="font-size:11px;color:#888">产品名称（可编辑）</label>
+                  <input type="text" id="imgProductName" class="form-control" style="font-size:13px;padding:7px 10px" placeholder="例如：联想ThinkPad笔记本电脑">
+                </div>
+                <div style="display:flex;gap:8px;margin-top:4px">
+                  <button class="btn btn-primary btn-sm" onclick="confirmImageProduct()">✅ 确认商品，进入对话</button>
+                  <button class="btn btn-light btn-sm" onclick="clearImage()">重新上传</button>
                 </div>
               </div>
             </div>
             <!-- Link Input Panel -->
             <div id="panel-link" class="input-panel" style="display:none">
-              <div style="font-size:12px;color:#888;margin-bottom:8px">支持淘宝、京东、1688、拼多多等电商链接</div>
+              <div style="font-size:12px;color:#888;margin-bottom:8px">粘贴商品链接，自动识别平台和商品</div>
               <div style="display:flex;gap:8px">
-                <input type="text" id="linkInput" class="form-control" placeholder="粘贴商品链接，例如：https://item.taobao.com/..." style="flex:1;font-size:13px">
+                <input type="text" id="linkInput" class="form-control" placeholder="https://item.taobao.com/... 或 https://item.jd.com/..." style="flex:1;font-size:12px">
                 <button class="btn btn-primary" onclick="parseLink()">解析</button>
               </div>
               <div class="example-btns" style="margin-top:8px">
-                <span style="font-size:11px;color:#bbb;margin-right:4px">链接示例：</span>
-                <button class="example-btn" onclick="setLinkExample('taobao','笔记本电脑')">淘宝笔记本</button>
-                <button class="example-btn" onclick="setLinkExample('jd','服务器')">京东服务器</button>
-                <button class="example-btn" onclick="setLinkExample('1688','打印机')">1688打印机</button>
+                <span style="font-size:11px;color:#bbb;margin-right:4px">点击示例：</span>
+                <button class="example-btn" onclick="setLinkExample('taobao','联想笔记本电脑')">淘宝笔记本</button>
+                <button class="example-btn" onclick="setLinkExample('jd','Dell服务器')">京东服务器</button>
+                <button class="example-btn" onclick="setLinkExample('1688','工业打印机')">1688打印机</button>
+                <button class="example-btn" onclick="setLinkExample('pdd','办公桌椅')">拼多多桌椅</button>
+              </div>
+              <!-- Link product confirm form (shown after parse) -->
+              <div id="linkConfirmArea" style="display:none;margin-top:10px;padding:10px;background:#e8f5e9;border-radius:6px;border:1px solid #a5d6a7">
+                <div style="font-size:12px;color:#2e7d32;font-weight:600;margin-bottom:6px">✅ 链接解析成功，请确认商品信息：</div>
+                <div style="display:flex;gap:8px;margin-bottom:6px">
+                  <div style="flex:1">
+                    <div style="font-size:11px;color:#888">产品名称</div>
+                    <input type="text" id="linkProductName" class="form-control" style="font-size:13px;padding:6px 8px">
+                  </div>
+                  <div style="width:130px">
+                    <div style="font-size:11px;color:#888">品类</div>
+                    <select id="linkCategory" class="form-control" style="font-size:12px;padding:6px 8px">
+                      <option value="IT设备">IT设备</option>
+                      <option value="办公用品">办公用品</option>
+                      <option value="工业设备">工业设备</option>
+                      <option value="原材料">原材料</option>
+                      <option value="电子元件">电子元件</option>
+                      <option value="通用物资">通用物资</option>
+                    </select>
+                  </div>
+                </div>
+                <button class="btn btn-success btn-sm" onclick="confirmLinkProduct()">进入采购对话 →</button>
               </div>
             </div>
           </div>
@@ -973,48 +1019,87 @@ function toggleVoice() {
   if (_isRecording) { _stopVoice(); return; }
   const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SpeechRec) {
-    document.getElementById('voiceStatus').textContent = '⚠️ 您的浏览器不支持语音识别，请使用Chrome';
+    document.getElementById('voiceStatus').innerHTML =
+      '⚠️ 当前浏览器不支持语音识别<br><small>请使用 Chrome 或 Edge 浏览器</small>';
+    document.getElementById('voiceResult').style.display = '';
+    document.getElementById('voiceResult').innerHTML =
+      '<div style="background:#fff3e0;padding:8px;border-radius:4px;color:#e65100;font-size:12px">' +
+      '💡 您也可以切换到「📝 文字」模式直接输入采购需求</div>';
     return;
   }
   _recognition = new SpeechRec();
   _recognition.lang = 'zh-CN';
   _recognition.continuous = false;
   _recognition.interimResults = true;
+  _recognition.maxAlternatives = 1;
+
   _recognition.onstart = () => {
     _isRecording = true;
     document.getElementById('voiceBtn').classList.add('recording');
-    document.getElementById('voiceStatus').textContent = '🔴 正在录音，请说话...';
+    document.getElementById('voiceStatus').textContent = '🔴 录音中... 请说出您的采购需求';
     document.getElementById('voiceResult').style.display = '';
-    document.getElementById('voiceResult').textContent = '...';
+    document.getElementById('voiceResult').innerHTML = '<span style="color:#aaa">正在聆听...</span>';
   };
   _recognition.onresult = (e) => {
-    let txt = '';
-    for (let i = e.resultIndex; i < e.results.length; i++) txt += e.results[i][0].transcript;
-    document.getElementById('voiceResult').textContent = txt;
-    if (e.results[e.results.length-1].isFinal) {
-      document.getElementById('aiInput').value = txt;
+    let interim = '', final = '';
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      if (e.results[i].isFinal) final += e.results[i][0].transcript;
+      else interim += e.results[i][0].transcript;
+    }
+    const display = final || interim;
+    document.getElementById('voiceResult').innerHTML =
+      '<strong>' + display + '</strong>' +
+      (interim ? ' <span style="color:#bbb;font-size:11px">识别中...</span>' : '');
+    if (final) {
+      document.getElementById('aiInput').value = final;
       _stopVoice();
       switchMode('text');
-      setTimeout(sendTextMsg, 300);
+      setTimeout(sendTextMsg, 400);
     }
   };
   _recognition.onerror = (e) => {
-    document.getElementById('voiceStatus').textContent = '录音出错：' + e.error + '，请重试';
+    const errMsg = {
+      'not-allowed': '麦克风权限被拒绝，请在浏览器地址栏允许麦克风访问',
+      'no-speech':   '未检测到语音，请靠近麦克风后重试',
+      'network':     '网络错误，语音识别需要联网',
+      'aborted':     '录音已取消',
+    };
+    document.getElementById('voiceStatus').innerHTML = '❌ ' + (errMsg[e.error] || '录音出错：' + e.error);
+    document.getElementById('voiceResult').style.display = 'none';
     _stopVoice();
   };
-  _recognition.onend = _stopVoice;
-  _recognition.start();
+  _recognition.onend = () => { if (_isRecording) _stopVoice(); };
+
+  try {
+    _recognition.start();
+  } catch(e) {
+    document.getElementById('voiceStatus').textContent = '启动失败：' + e.message;
+  }
 }
 
 function _stopVoice() {
   _isRecording = false;
   if (_recognition) { try { _recognition.stop(); } catch(e){} _recognition = null; }
   document.getElementById('voiceBtn').classList.remove('recording');
-  document.getElementById('voiceStatus').textContent = '点击麦克风开始录音';
+  const statusEl = document.getElementById('voiceStatus');
+  if (!statusEl.textContent.startsWith('❌') && !statusEl.innerHTML.includes('⚠️')) {
+    statusEl.textContent = '点击麦克风开始录音';
+  }
 }
 
 // ── Image Input ───────────────────────────────────────────────────────────────
 let _imgDataUrl = null;
+
+// Category → default product name suggestions
+const _IMG_CAT_PRODUCTS = {
+  'IT设备':   ['笔记本电脑', '台式机', '服务器', '打印机', '显示器', '网络交换机'],
+  '办公用品': ['办公桌椅', '文件柜', 'A4复印纸', '白板', '办公耗材'],
+  '工业设备': ['工业机床', '电动机', '水泵设备', '传感器', '压缩机'],
+  '原材料':   ['不锈钢材', '铝合金型材', '工程塑料', '橡胶密封件'],
+  '电子元件': ['集成芯片', '电路板PCB', '继电器模块', '电容电阻'],
+  '医疗物资': ['医用口罩', '防护手套', '消毒液', '医用耗材'],
+  '通用物资': ['通用物料', '包装材料', '劳保用品'],
+};
 
 function handleImgDrop(e) {
   e.preventDefault();
@@ -1032,90 +1117,154 @@ function _loadImageFile(file) {
   const reader = new FileReader();
   reader.onload = (ev) => {
     _imgDataUrl = ev.target.result;
+    // Show form
     document.getElementById('imgPreview').src = _imgDataUrl;
     document.getElementById('imgDropZone').style.display = 'none';
-    document.getElementById('imgPreviewArea').style.display = '';
+    document.getElementById('imgFormArea').style.display = '';
+    // Auto-detect category from filename
+    const name = file.name.toLowerCase();
+    let detectedCat = 'IT设备';
+    if (name.match(/桌|椅|文具|纸|柜/)) detectedCat = '办公用品';
+    else if (name.match(/机床|电机|泵|阀|仪器/)) detectedCat = '工业设备';
+    else if (name.match(/钢|铝|铜|塑料|橡胶/)) detectedCat = '原材料';
+    else if (name.match(/芯片|pcb|电路|元件/)) detectedCat = '电子元件';
+    else if (name.match(/医|护|消毒|口罩/)) detectedCat = '医疗物资';
+    document.getElementById('imgCategory').value = detectedCat;
+    imgCategoryChange();
   };
   reader.readAsDataURL(file);
+}
+
+function imgCategoryChange() {
+  const cat = document.getElementById('imgCategory').value;
+  const suggestions = _IMG_CAT_PRODUCTS[cat] || ['通用物料'];
+  document.getElementById('imgProductName').value = suggestions[0];
+  document.getElementById('imgProductName').placeholder = suggestions.join(' / ');
 }
 
 function clearImage() {
   _imgDataUrl = null;
   document.getElementById('imgFileInput').value = '';
   document.getElementById('imgDropZone').style.display = '';
-  document.getElementById('imgPreviewArea').style.display = 'none';
+  document.getElementById('imgFormArea').style.display = 'none';
 }
 
-async function analyzeImage() {
-  if (!_imgDataUrl) return;
-  addChatMsg('bot', '🔍 正在分析图片，识别商品信息...');
-  // Simulate AI image recognition based on file name or color analysis
-  await new Promise(r => setTimeout(r, 1200));
-  // Heuristic: check data url size for "complexity", return plausible product
-  const products = [
-    {productName:'笔记本电脑',category:'IT设备',quantity:10,budgetAmount:80000,procurementType:'B2B',description:'从图片识别：笔记本电脑'},
-    {productName:'台式机',category:'IT设备',quantity:20,budgetAmount:120000,procurementType:'B2B',description:'从图片识别：台式机'},
-    {productName:'打印机',category:'IT设备',quantity:5,budgetAmount:15000,procurementType:'B2B',description:'从图片识别：打印机'},
-    {productName:'办公桌椅',category:'办公用品',quantity:50,budgetAmount:50000,procurementType:'B2B',description:'从图片识别：办公桌椅'},
-  ];
-  const picked = products[Math.floor(_imgDataUrl.length / 1000) % products.length];
-  DS.parsed = picked; DS.state = 'confirming'; DS.missing = []; DS.step = 0;
-  addChatMsg('bot', '🖼️ 图片识别完成！识别到商品：<strong>' + picked.productName + '</strong><br>已为您预填采购信息，请确认或修改。',
-    ['✅ 确认创建需求', '✏️ 修改数量', '✏️ 修改预算', '❌ 重新输入']);
-  showParseResult(picked);
+function confirmImageProduct() {
+  const productName = document.getElementById('imgProductName').value.trim();
+  const category = document.getElementById('imgCategory').value;
+  if (!productName) { document.getElementById('imgProductName').focus(); return; }
+
+  addChatMsg('user', '🖼️ [上传图片] 商品：' + productName + '，品类：' + category);
+
+  // Feed into dialogue state machine with text parse
+  const fakeText = productName + '，品类' + category;
+  DS.parsed = { productName, category, quantity: 1, budgetAmount: 0, procurementType: 'B2B', description: '图片识别：' + productName };
+  DS.state = 'collecting';
+  DS.missing = ['quantity', 'budget'];
+  DS.step = 0;
   clearImage();
+  switchMode('text');
+  addChatMsg('bot', '已识别商品：<strong>' + productName + '</strong>（' + category + '）<br>接下来请告诉我采购数量和预算。');
+  _askNextMissing();
 }
 
 // ── Link Input ────────────────────────────────────────────────────────────────
+const _LINK_CAT_MAP = {
+  '笔记本': 'IT设备', '电脑': 'IT设备', '服务器': 'IT设备', '打印机': 'IT设备',
+  '显示器': 'IT设备', '路由': 'IT设备', '交换机': 'IT设备',
+  '桌': '办公用品', '椅': '办公用品', '文具': '办公用品', '复印纸': '办公用品',
+  '机床': '工业设备', '电机': '工业设备', '水泵': '工业设备',
+  '钢材': '原材料', '铝材': '原材料', '塑料': '原材料',
+  '芯片': '电子元件', 'PCB': '电子元件', '电路板': '电子元件',
+  '口罩': '医疗物资', '手套': '医疗物资', '消毒': '医疗物资',
+};
+
+function _detectLinkCategory(name) {
+  for (const [kw, cat] of Object.entries(_LINK_CAT_MAP)) {
+    if (name.includes(kw)) return cat;
+  }
+  return '通用物资';
+}
+
 function setLinkExample(platform, product) {
+  // Build URLs that actually contain the product name in params
+  const encoded = encodeURIComponent(product);
   const urls = {
-    taobao: 'https://item.taobao.com/item.htm?id=123456789&kw=' + encodeURIComponent(product),
-    jd:     'https://item.jd.com/987654321.html',
-    '1688': 'https://detail.1688.com/offer/123456789.html'
+    taobao: `https://s.taobao.com/search?q=${encoded}&source=tbsy`,
+    jd:     `https://search.jd.com/Search?keyword=${encoded}&enc=utf-8`,
+    '1688': `https://s.1688.com/selloffer/offerlist.htm?keywords=${encoded}`,
+    pdd:    `https://mobile.yangkeduo.com/search_result.html?search_key=${encoded}`,
   };
   document.getElementById('linkInput').value = urls[platform] || '';
 }
 
 async function parseLink() {
   const url = document.getElementById('linkInput').value.trim();
-  if (!url) { addChatMsg('bot', '请先输入商品链接。'); return; }
-  addChatMsg('user', '🔗 ' + url);
-  addChatMsg('bot', '🔍 正在解析链接，提取商品信息...');
+  if (!url) { document.getElementById('linkInput').focus(); return; }
+  addChatMsg('user', '🔗 ' + url.substring(0, 60) + (url.length > 60 ? '...' : ''));
 
-  // Platform detection + product name extraction
-  let platform = '电商平台', productName = '';
-  if (url.includes('taobao.com')) { platform = '淘宝'; }
-  else if (url.includes('jd.com')) { platform = '京东'; }
-  else if (url.includes('1688.com')) { platform = '阿里巴巴1688'; }
-  else if (url.includes('pinduoduo.com') || url.includes('pdd')) { platform = '拼多多'; }
+  // Platform detection
+  let platform = '电商平台';
+  if (url.includes('taobao.com') || url.includes('tmall.com')) platform = '淘宝/天猫';
+  else if (url.includes('jd.com')) platform = '京东';
+  else if (url.includes('1688.com')) platform = '阿里巴巴1688';
+  else if (url.includes('pinduoduo.com') || url.includes('yangkeduo.com')) platform = '拼多多';
+  else if (url.includes('suning.com')) platform = '苏宁易购';
+  else if (url.includes('amazon')) platform = '亚马逊';
 
-  // Extract kw param or path segment as product name
+  // Extract product name from URL params (kw / keyword / q / search_key / keywords)
+  let productName = '';
   try {
-    const u = new URL(url);
-    productName = decodeURIComponent(u.searchParams.get('kw') || u.searchParams.get('q') || u.searchParams.get('keyword') || '');
+    const u = new URL(url.startsWith('http') ? url : 'https://' + url);
+    for (const p of ['keyword', 'keywords', 'kw', 'q', 'search_key', 'searchWords', 'key']) {
+      const v = u.searchParams.get(p);
+      if (v) { productName = decodeURIComponent(v); break; }
+    }
   } catch(e) {}
+
+  // Fallback: match ?keyword=xxx or /xxx.html path
   if (!productName) {
-    // Try to extract from path
-    const m = url.match(/[?&](?:kw|q|keyword|title)=([^&]+)/i);
+    const m = url.match(/[?&](?:keyword|keywords|kw|q|search_key)=([^&]+)/i);
     if (m) productName = decodeURIComponent(m[1]);
   }
-  if (!productName) productName = platform + '商品';
 
-  await new Promise(r => setTimeout(r, 800));
+  await new Promise(r => setTimeout(r, 600));
 
-  // Detect category from product name
-  let category = '通用物资';
-  const catMap = {'笔记本':'IT设备','电脑':'IT设备','服务器':'IT设备','打印机':'IT设备','桌':'办公用品','椅':'办公用品','钢':'工业设备','机床':'工业设备'};
-  for (const [kw, cat] of Object.entries(catMap)) {
-    if (productName.includes(kw)) { category = cat; break; }
+  const category = productName ? _detectLinkCategory(productName) : '通用物资';
+
+  // Show confirm form with detected info (user can edit)
+  document.getElementById('linkProductName').value = productName || '';
+  document.getElementById('linkProductName').placeholder = productName ? '' : '请输入商品名称（如：联想笔记本电脑）';
+  document.getElementById('linkCategory').value = category;
+  document.getElementById('linkConfirmArea').style.display = '';
+
+  if (productName) {
+    addChatMsg('bot', '✅ 链接解析完成！<br>平台：<strong>' + platform + '</strong><br>识别商品：<strong>' + productName + '</strong><br>品类：' + category + '<br><em>请确认信息后点击"进入采购对话"</em>');
+  } else {
+    addChatMsg('bot', '🔗 链接来自：<strong>' + platform + '</strong><br>未能自动提取商品名，请在下方手动填写商品名称后继续。');
   }
+}
 
-  const parsed = {productName, category, quantity: 1, budgetAmount: 0, procurementType: 'B2B', description: '来自' + platform + '链接：' + productName};
-  DS.parsed = parsed; DS.state = 'collecting'; DS.missing = ['quantity','budget']; DS.step = 0;
-
-  addChatMsg('bot', '✅ 链接解析成功！<br>平台：<strong>' + platform + '</strong><br>商品：<strong>' + productName + '</strong><br>品类：' + category);
-  _askNextMissing();
+function confirmLinkProduct() {
+  const productName = document.getElementById('linkProductName').value.trim();
+  const category = document.getElementById('linkCategory').value;
+  if (!productName) {
+    document.getElementById('linkProductName').style.borderColor = '#c62828';
+    document.getElementById('linkProductName').focus();
+    return;
+  }
+  document.getElementById('linkProductName').style.borderColor = '';
+  document.getElementById('linkConfirmArea').style.display = 'none';
   document.getElementById('linkInput').value = '';
+
+  addChatMsg('user', '确认商品：' + productName);
+  DS.parsed = { productName, category, quantity: 1, budgetAmount: 0, procurementType: 'B2B', description: '链接采购：' + productName };
+  DS.state = 'collecting';
+  DS.missing = ['quantity', 'budget'];
+  DS.step = 0;
+  switchMode('text');
+  addChatMsg('bot', '好的！商品 <strong>' + productName + '</strong> 已确认。接下来请告诉我采购数量和预算。');
+  _askNextMissing();
 }
 
 function prefillDemandForm(d) {

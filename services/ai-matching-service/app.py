@@ -106,26 +106,43 @@ def parse_intent():
         if '万' in bm.group(2):
             budget *= 10000
 
-    # Detect category and product
-    category, product_name = '通用物资', (text[:15].strip() if len(text) > 15 else text.strip())
+    # Detect brand first
+    detected_brand = next((b for b in BRANDS if b.lower() in text.lower()), None)
+    brand_required = detected_brand is not None
+
+    # Detect category and matched keyword
+    category, matched_kw = '通用物资', None
     for cat, keywords in PRODUCT_MAP.items():
         for kw in keywords:
             if kw in text:
-                category, product_name = cat, kw
+                category, matched_kw = cat, kw
                 break
         else:
             continue
         break
 
-    # Detect brand
-    detected_brand = next((b for b in BRANDS if b.lower() in text.lower()), None)
-    brand_required = detected_brand is not None
+    # Build a meaningful product name
+    if matched_kw:
+        if detected_brand:
+            # e.g. "联想" + "笔记本" → "联想笔记本"
+            product_name = detected_brand + matched_kw
+        else:
+            # Try to expand: grab up to 2 chars before the keyword for adjectives
+            idx = text.find(matched_kw)
+            prefix = re.sub(r'[\d，。、！？\s]', '', text[max(0, idx-4):idx])[-2:]
+            product_name = prefix + matched_kw if prefix else matched_kw
+    else:
+        # No keyword match: strip stop-words and return core noun phrase
+        clean = re.sub(r'采购|需要|购买|想买|要买|帮我|请问|我们?需要', '', text)
+        clean = re.sub(r'\d+\s*(?:台|个|件|套|只|箱|包|吨|千克|公斤|kg|升|L|米)', '', clean)
+        clean = re.sub(r'(?:预算|约|不超过|控制在)\s*\d+\s*(?:万元|万|千元|元)', '', clean)
+        clean = re.sub(r'用于\S{1,6}', '', clean).strip('，。、 ')
+        product_name = (detected_brand + clean[:8] if detected_brand else clean[:12]) or text[:12]
 
-    # Determine B2B/B2C
     demand_type = 'B2B' if (quantity >= 10 or budget >= 50000) else 'B2C'
 
     return resp(0, "success", {
-        "productName":    product_name,
+        "productName":    product_name.strip(),
         "category":       category,
         "quantity":       quantity,
         "budgetAmount":   budget,
@@ -133,7 +150,7 @@ def parse_intent():
         "brandRequired":  brand_required,
         "detectedBrand":  detected_brand,
         "description":    text,
-        "confidence":     0.88,
+        "confidence":     0.92,
     })
 
 
