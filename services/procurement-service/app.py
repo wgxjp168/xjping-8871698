@@ -55,6 +55,25 @@ def init_db():
             created_at TEXT
         );
     """)
+    # Seed demo demands — INSERT OR REPLACE ensures data survives every restart
+    ts = now()
+    demo_demands = [
+        (1, 1, '联想ThinkPad笔记本电脑',   'IT设备',    100, '台',  800000.0, 'B2B批量采购，用于企业办公'),
+        (2, 1, 'Dell PowerEdge服务器',      'IT设备',     50, '台', 2000000.0, '数据中心扩容，含3年维保'),
+        (3, 1, '办公桌椅套装',              '办公用品',   80, '套',   64000.0, '新办公室配置，人体工学椅'),
+        (4, 1, 'A4复印纸（500张/包）',      '办公用品',  500, '箱',   19000.0, '年度办公耗材集中采购'),
+        (5, 1, '工业激光打印机',            'IT设备',     20, '台',   60000.0, '彩色激光，需原厂售后3年'),
+        (6, 1, '不锈钢板材（304# 2mm）',   '原材料',   2000, 'kg',   70000.0, '生产线原材料补货'),
+        (7, 1, '压力传感器（工业级）',      '工业设备',   50, '个',   25000.0, '自动化生产线改造项目'),
+        (8, 1, '集成电路芯片（ARM 32位）', '电子元件',  200, '片',   40000.0, '研发部门备货，Q2交付'),
+    ]
+    for d in demo_demands:
+        conn.execute(
+            "INSERT OR REPLACE INTO t_demand "
+            "(id, user_id, title, category, quantity, unit, budget, description, status, created_at, updated_at) "
+            "VALUES (?,?,?,?,?,?,?,?,'PENDING',?,?)",
+            d + (ts, ts),
+        )
     conn.commit()
     conn.close()
 

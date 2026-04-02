@@ -44,6 +44,40 @@ def init_db():
             updated_at TEXT
         )
     """)
+    # Seed demo orders — INSERT OR REPLACE ensures data survives every restart
+    demo_orders = [
+        (1, 'ILB20260401DEMO0001', 1, 1, 1, 1001, '华信科技供应链', '联想ThinkPad笔记本电脑',
+         100, 7500.0, 750000.0, 7, 'BANK_TRANSFER', 'PAID',   'COMPLETED',
+         '2026-04-01T09:00:00Z', '2026-04-01T10:00:00Z', None, '2026-04-03T10:00:00Z'),
+        (2, 'ILB20260401DEMO0002', 2, 2, 1, 1002, '价优商贸集团', 'Dell PowerEdge服务器',
+         50, 36000.0, 1800000.0, 7, 'BANK_TRANSFER', 'PAID',   'SHIPPED',
+         '2026-04-01T11:00:00Z', '2026-04-02T09:00:00Z', '2026-04-05T09:00:00Z', None),
+        (3, 'ILB20260401DEMO0003', 3, 3, 1, 1003, '精诚专业供应商', '办公桌椅套装',
+         80, 720.0, 57600.0, 10, 'BANK_TRANSFER', 'UNPAID', 'CREATED',
+         None, None, None, None),
+        (4, 'ILB20260401DEMO0004', 4, 4, 1, 1004, '速达物流科技', 'A4复印纸（500张/包）',
+         500, 36.0, 18000.0, 3, 'ONLINE_PAY', 'PAID', 'COMPLETED',
+         '2026-03-28T14:00:00Z', '2026-03-28T15:00:00Z', None, '2026-03-31T10:00:00Z'),
+        (5, 'ILB20260401DEMO0005', 5, 5, 1, 1005, '信诚品质联盟', '工业激光打印机',
+         20, 2800.0, 56000.0, 14, 'BANK_TRANSFER', 'PAID', 'SHIPPED',
+         '2026-04-02T09:00:00Z', '2026-04-02T14:00:00Z', '2026-04-10T09:00:00Z', None),
+    ]
+    ts = now_str()
+    for o in demo_orders:
+        (oid, order_no, demand_id, quote_id, buyer_id, supplier_id, supplier_name,
+         product_name, qty, unit_price, total, days, pay_method, pay_status,
+         order_status, paid_at, shipped_at, delivered_at, completed_at) = o
+        conn.execute(
+            "INSERT OR REPLACE INTO t_order "
+            "(id, order_no, demand_id, quote_id, buyer_id, supplier_id, supplier_name, "
+            "product_name, quantity, unit_price, total_amount, delivery_days, payment_method, "
+            "payment_status, order_status, paid_at, shipped_at, delivered_at, completed_at, "
+            "created_at, updated_at) "
+            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            (oid, order_no, demand_id, quote_id, buyer_id, supplier_id, supplier_name,
+             product_name, qty, unit_price, total, days, pay_method, pay_status,
+             order_status, paid_at, shipped_at, delivered_at, completed_at, ts, ts),
+        )
     conn.commit()
     conn.close()
 
