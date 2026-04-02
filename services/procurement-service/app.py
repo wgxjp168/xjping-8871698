@@ -110,9 +110,9 @@ def create_demand():
 def list_demands():
     user_id = request.args.get("userId")
     status = request.args.get("status")
-    page = int(request.args.get("page", 0))
-    size = int(request.args.get("size", 10))
-    offset = page * size
+    page = max(int(request.args.get("page", 1)), 1)   # 1-based
+    size = max(int(request.args.get("size", 10)), 1)
+    offset = (page - 1) * size
 
     where, params = [], []
     if user_id:

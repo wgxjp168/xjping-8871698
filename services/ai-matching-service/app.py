@@ -59,6 +59,22 @@ def init_db():
             rank_order INTEGER
         )
     """)
+    # Migrate: add columns that may be missing from older DB schema
+    for tbl, col, definition in [
+        ("t_match_task",   "demand_type",         "TEXT DEFAULT 'B2B'"),
+        ("t_match_result", "score_qualification",  "INTEGER DEFAULT 0"),
+        ("t_match_result", "score_credit",         "INTEGER DEFAULT 0"),
+        ("t_match_result", "score_price",          "INTEGER DEFAULT 0"),
+        ("t_match_result", "score_delivery",       "INTEGER DEFAULT 0"),
+        ("t_match_result", "score_service",        "INTEGER DEFAULT 0"),
+        ("t_match_result", "rating",               "REAL DEFAULT 4.5"),
+        ("t_match_result", "certifications",       "TEXT DEFAULT ''"),
+        ("t_match_result", "established",          "TEXT DEFAULT ''"),
+    ]:
+        try:
+            conn.execute(f"ALTER TABLE {tbl} ADD COLUMN {col} {definition}")
+        except Exception:
+            pass  # column already exists
     conn.commit()
     conn.close()
 
@@ -210,28 +226,29 @@ def create_match():
     )[:3]
 
     conn = get_db()
-    conn.execute(
-        "INSERT INTO t_match_task (id, demand_id, user_id, keyword, category, budget, demand_type, status, progress, created_at) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, 'COMPLETED', 100, ?)",
-        (task_id, demand_id, user_id, keyword, category, budget, demand_type, created_at),
-    )
-    for rank, item in enumerate(scored, 1):
-        s = item["sup"]
-        est_price = (budget / 1 if budget > 0 else 10000) * s["factor"] / max(1, int(body.get("quantity") or 1))
+    try:
         conn.execute(
-            "INSERT INTO t_match_result (task_id, supplier_id, supplier_name, match_score, "
-            "score_qualification, score_credit, score_price, score_delivery, score_service, "
-            "estimated_price, delivery_days, rating, certifications, established, reason, rank_order) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            (task_id, s["id"], s["name"], item["score"],
-             s["sq"], s["sc"], s["sp"], s["sd"], s["ss"],
-             est_price, s["days"], s["rating"], s["certs"], s["est"], s["reason"], rank),
+            "INSERT INTO t_match_task (id, demand_id, user_id, keyword, category, budget, demand_type, status, progress, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, 'COMPLETED', 100, ?)",
+            (task_id, demand_id, user_id, keyword, category, budget, demand_type, created_at),
         )
-
-    completed_at = now_str()
-    conn.execute("UPDATE t_match_task SET completed_at=? WHERE id=?", (completed_at, task_id))
-    conn.commit()
-    conn.close()
+        for rank, item in enumerate(scored, 1):
+            s = item["sup"]
+            est_price = (budget / 1 if budget > 0 else 10000) * s["factor"] / max(1, int(body.get("quantity") or 1))
+            conn.execute(
+                "INSERT INTO t_match_result (task_id, supplier_id, supplier_name, match_score, "
+                "score_qualification, score_credit, score_price, score_delivery, score_service, "
+                "estimated_price, delivery_days, rating, certifications, established, reason, rank_order) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (task_id, s["id"], s["name"], item["score"],
+                 s["sq"], s["sc"], s["sp"], s["sd"], s["ss"],
+                 est_price, s["days"], s["rating"], s["certs"], s["est"], s["reason"], rank),
+            )
+        completed_at = now_str()
+        conn.execute("UPDATE t_match_task SET completed_at=? WHERE id=?", (completed_at, task_id))
+        conn.commit()
+    finally:
+        conn.close()
 
     try:
         requests.put(
