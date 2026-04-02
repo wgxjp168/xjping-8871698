@@ -80,15 +80,15 @@ def init_db():
         )
     ''')
     seed_users = [
-        ('buyer01',           'Buyer@123456',    'BUYER'),
-        ('supplier01',        'Supplier@123456', 'SUPPLIER'),
-        ('admin01',           'Admin@123456',    'ADMIN'),
+        ('buyer01',           'Test@123456',     'BUYER'),
+        ('supplier01',        'Test@123456',     'SUPPLIER'),
+        ('admin01',           'Test@123456',     'ADMIN'),
         ('test_buyer_001',    'Test@123456',     'BUYER'),
         ('test_supplier_001', 'Test@123456',     'SUPPLIER'),
     ]
     for username, password, role in seed_users:
         conn.execute(
-            'INSERT OR IGNORE INTO t_user (username, password_hash, role, status, created_at) VALUES (?, ?, ?, ?, ?)',
+            'INSERT OR REPLACE INTO t_user (username, password_hash, role, status, created_at) VALUES (?, ?, ?, ?, ?)',
             (username, hash_password(password), role, 'ACTIVE', time.strftime('%Y-%m-%dT%H:%M:%S'))
         )
     conn.commit()
