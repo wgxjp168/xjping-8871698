@@ -720,6 +720,16 @@ def data_products():
     return jsonify(resp_data), status
 
 
+@app.route('/api/v1/data/products/<product_id>', methods=['GET'])
+@require_auth
+def data_product_detail(product_id):
+    resp_data, status = proxy_json(
+        f"{DATA_SERVICE_URL}/internal/products/{product_id}",
+        extra_headers=auth_headers(),
+    )
+    return jsonify(resp_data), status
+
+
 # --- Admin: service details ---
 @app.route('/api/v1/admin/services', methods=['GET'])
 @limiter.exempt
