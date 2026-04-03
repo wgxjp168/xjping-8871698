@@ -704,6 +704,22 @@ def data_market_price():
     return jsonify(resp_data), status
 
 
+
+@app.route('/api/v1/data/products', methods=['GET'])
+@require_auth
+def data_products():
+    params = {k: v for k, v in request.args.items()}
+    resp_data, status = proxy_json(
+        f"{DATA_SERVICE_URL}/internal/products",
+        extra_headers=auth_headers(), params=params,
+    )
+    if resp_data.get('code') == 0 and resp_data.get('data'):
+        d = resp_data['data']
+        if 'items' in d and 'content' not in d:
+            d['content'] = d['items']
+    return jsonify(resp_data), status
+
+
 # --- Admin: service details ---
 @app.route('/api/v1/admin/services', methods=['GET'])
 @limiter.exempt
