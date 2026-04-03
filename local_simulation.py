@@ -55,6 +55,83 @@ LOCAL_PRODUCTS: list[dict] = [
     {'$schema': 'https://ecommerce-product-schema.com/v2.0', 'version': '2.0', 'platform': '1688', 'id': 'ALI_V2_001', 'title': '304不锈钢板 冷轧2mm*1220mm*2440mm 零切定制', 'price': 28.5, 'originalPrice': 0.0, 'discount': 1.0, 'stock': 50000, 'sales': 2300, 'image': 'https://img.1688.com/ali_v2_001_main.jpg', 'category': '金属材料', 'brand': '宝钢', 'shopName': '宝钢钢材官方专营店', 'platformName': '阿里巴巴1688', 'basicInfo': {'product_id': 'ALI_V2_001', 'platform_product_id': '1688_ALI_V2_001', 'spu_id': 'SPU_ALI_V2_001', 'title': '304不锈钢板 冷轧2mm*1220mm*2440mm 零切定制', 'subtitle': '宝钢原料 Ra≤0.8 增值税发票', 'description': '宝钢304不锈钢冷轧板2mm，GB/T3280标准，可零切定制加工。', 'category': {'main_category': '金属材料', 'sub_category': '不锈钢', 'third_category': '不锈钢板'}, 'brand': {'id': 'B_BS', 'name': '宝钢', 'logo_url': 'https://img.ilbuy.com/brand/B_BS.png'}, 'origin': {'country': '中国', 'region': '上海宝山', 'is_imported': False}, 'labels': ['工厂直供', '量大优惠', '开增值税票'], 'certifications': ['GB/T3280-2015'], 'status': 'on_sale'}, 'priceInfo': {'current_price': 28.5, 'original_price': 0.0, 'discount': 1.0, 'discount_text': '10.0折', 'price_range': {'min': 28.5, 'max': 34.0}, 'currency': 'CNY', 'vat_included': True, 'platform_promotion': {'type': 'coupon', 'discount_amount': -28.5, 'discount_rule': '限时优惠'}, 'merchant_promotion': {'type': 'gift', 'details': '购买赠礼品'}}, 'inventory': {'stock_quantity': 50000, 'available_quantity': 49995, 'sold_quantity': 2300, 'sku_stock_info': {'SKU_304_2MM': {'stock': 50000, 'available': 49998}, 'SKU_304_3MM': {'stock': 30000, 'available': 29998}}, 'warehouse_info': {'location': '上海仓', 'ship_from': '上海'}}, 'merchant': {'shop_id': 'SHOP_BS_ALI', 'shop_name': '宝钢钢材官方专营店', 'shop_logo': 'https://img.ilbuy.com/shop/SHOP_BS_ALI.png', 'shop_rating': 4.78, 'shop_level': '金牌供应商', 'follower_count': 445000, 'is_official': True, 'is_verified': True, 'location': '上海'}, 'ratingSummary': {'averageScore': 4.65, 'totalReviews': 8900, 'positiveRate': 0.956}, 'salesMetrics': {'monthly_sales': 380, 'total_sales': 2300, 'sales_volume': 65550.0, 'conversion_rate': 0.065, 'view_count': 34500, 'favorite_count': 766, 'cart_addition_count': 1150}},
     {'$schema': 'https://ecommerce-product-schema.com/v2.0', 'version': '2.0', 'platform': '1688', 'id': 'ALI_V2_002', 'title': '欧姆龙OMRON MY2N-J DC24V 小型继电器 8脚插座式 原装正品', 'price': 12.8, 'originalPrice': 0.0, 'discount': 1.0, 'stock': 100000, 'sales': 68000, 'image': 'https://img.1688.com/ali_v2_002_main.jpg', 'category': '电子元件', 'brand': '欧姆龙', 'shopName': '欧姆龙电气授权店', 'platformName': '阿里巴巴1688', 'basicInfo': {'product_id': 'ALI_V2_002', 'platform_product_id': '1688_ALI_V2_002', 'spu_id': 'SPU_ALI_V2_002', 'title': '欧姆龙OMRON MY2N-J DC24V 小型继电器 8脚插座式 原装正品', 'subtitle': '寿命≥1000万次 触点5A 工厂直供', 'description': '欧姆龙MY2N-J小型继电器，DC24V，5A触点，1000万次寿命，适合工控自动化。', 'category': {'main_category': '电子元件', 'sub_category': '继电器', 'third_category': '小型继电器'}, 'brand': {'id': 'B_OR', 'name': '欧姆龙', 'logo_url': 'https://img.ilbuy.com/brand/B_OR.png'}, 'origin': {'country': '中国', 'region': '广东深圳', 'is_imported': False}, 'labels': ['原装正品', '量大从优', '企业采购'], 'certifications': ['UL认证', 'CE认证', 'CCC认证'], 'status': 'on_sale'}, 'priceInfo': {'current_price': 12.8, 'original_price': 0.0, 'discount': 1.0, 'discount_text': '10.0折', 'price_range': {'min': 12.8, 'max': 13.5}, 'currency': 'CNY', 'vat_included': True, 'platform_promotion': {'type': 'coupon', 'discount_amount': -12.8, 'discount_rule': '限时优惠'}, 'merchant_promotion': {'type': 'gift', 'details': '购买赠礼品'}}, 'inventory': {'stock_quantity': 100000, 'available_quantity': 99995, 'sold_quantity': 68000, 'sku_stock_info': {'SKU_MY2N_24V': {'stock': 100000, 'available': 99998}, 'SKU_MY2N_220V': {'stock': 80000, 'available': 79998}}, 'warehouse_info': {'location': '广东省仓', 'ship_from': '广东省'}}, 'merchant': {'shop_id': 'SHOP_OR_ALI', 'shop_name': '欧姆龙电气授权店', 'shop_logo': 'https://img.ilbuy.com/shop/SHOP_OR_ALI.png', 'shop_rating': 4.88, 'shop_level': '金牌供应商', 'follower_count': 1400000, 'is_official': True, 'is_verified': True, 'location': '广东省'}, 'ratingSummary': {'averageScore': 4.82, 'totalReviews': 28000, 'positiveRate': 0.978}, 'salesMetrics': {'monthly_sales': 5600, 'total_sales': 68000, 'sales_volume': 870400.0, 'conversion_rate': 0.065, 'view_count': 1020000, 'favorite_count': 22666, 'cart_addition_count': 34000}},
 ]
+
+# Inject platform_specific into LOCAL_PRODUCTS so matched_products expose these fields
+_PLATFORM_SPECIFIC_LOCAL: dict[str, dict] = {
+    "taobao": {
+        "platform": "taobao",
+        "taobao_score": 4.9,
+        "support_huabei": True,
+        "support_baitiao": False,
+        "supports_7day_return": True,
+        "service_fee_rate": 0.005,
+        "淘金币": 50,
+    },
+    "tmall": {
+        "platform": "tmall",
+        "tmall_score": 4.9,
+        "annual_fee_cny": 60000,
+        "is_super_brand": False,
+        "supports_installment": True,
+        "supports_7day_return": True,
+        "tmall_genie_compatible": False,
+    },
+    "jd": {
+        "platform": "jd",
+        "jd_score": 4.8,
+        "plus_price": None,
+        "jd_logistics": True,
+        "self_operated": True,
+        "supports_30day_return": True,
+        "jd_finance_installment": True,
+    },
+    "pinduoduo": {
+        "platform": "pinduoduo",
+        "百亿补贴": True,
+        "秒杀": False,
+        "supports_refund_only": True,
+        "group_buy_price": None,
+        "新人价": None,
+        "credit_score": 4.85,
+    },
+    "douyin": {
+        "platform": "douyin",
+        "live_price": None,
+        "supports_1h_delivery": False,
+        "creator_commission_rate": 0.1,
+        "video_commerce": True,
+        "douyin_score": 4.7,
+        "cart_link": None,
+    },
+    "vip": {
+        "platform": "vip",
+        "brand_sale": True,
+        "authentic_guarantee": True,
+        "vip_exclusive": True,
+        "sale_discount": 0.7,
+        "vip_score": 4.75,
+        "supports_7day_return": True,
+    },
+    "1688": {
+        "platform": "1688",
+        "moq": 10,
+        "price_tiers": [
+            {"min_quantity": 10,  "price": 28.5},
+            {"min_quantity": 100, "price": 26.0},
+            {"min_quantity": 500, "price": 24.0},
+        ],
+        "is_manufacturer": True,
+        "trade_assurance": True,
+        "credit_score": 4.88,
+        "supports_customization": True,
+        "vat_invoice": True,
+    },
+}
+
+for _p in LOCAL_PRODUCTS:
+    if "platform_specific" not in _p:
+        _p["platform_specific"] = _PLATFORM_SPECIFIC_LOCAL.get(_p.get("platform", ""), {})
+
 LOCAL_MARKET_PRICES: list[dict] = [
     {"id": 1, "category": "IT设备", "productName": "商务笔记本电脑（i7/16G/512G）", "avgPrice": 6800.0, "minPrice": 4500.0, "maxPrice": 9800.0, "unit": "台"},
     {"id": 3, "category": "IT设备", "productName": "企业级服务器（Dell PowerEdge）", "avgPrice": 38000.0, "minPrice": 28000.0, "maxPrice": 65000.0, "unit": "台"},
@@ -462,6 +539,7 @@ _PLATFORM_DOMAINS: dict[str, str] = {
     "tmall.com": "tmall",
     "jd.com": "jd",
     "pinduoduo.com": "pinduoduo",
+    "yangkeduo.com": "pinduoduo",
     "douyin.com": "douyin",
     "vip.com": "weipinhui",
     "1688.com": "1688",
