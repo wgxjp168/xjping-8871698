@@ -3,3 +3,8 @@ __pycache__/
 *.pyo
 .env
 dump.rdb
+
+# SQLite databases generated at runtime
+*.db
+*.db-shm
+*.db-wal
