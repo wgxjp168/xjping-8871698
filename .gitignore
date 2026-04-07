@@ -8,3 +8,7 @@ dump.rdb
 *.db
 *.db-shm
 *.db-wal
+
+# Runtime storage directories
+file_service_data/
+file_service_temp/
