@@ -22,7 +22,8 @@ USER_SERVICE_URL = os.getenv('USER_SERVICE_URL', 'http://localhost:8001')
 PROCUREMENT_SERVICE_URL = os.getenv('PROCUREMENT_SERVICE_URL', 'http://localhost:8002')
 AI_SERVICE_URL = os.getenv('AI_SERVICE_URL', 'http://localhost:8003')
 ORDER_SERVICE_URL = os.getenv('ORDER_SERVICE_URL', 'http://localhost:8004')
-DATA_SERVICE_URL = os.getenv('DATA_SERVICE_URL', 'http://localhost:8005')
+DATA_SERVICE_URL    = os.getenv('DATA_SERVICE_URL', 'http://localhost:8005')
+PRODUCT_SERVICE_URL = os.getenv('PRODUCT_SERVICE_URL', 'http://localhost:8006')
 
 
 def _now():
@@ -730,6 +731,132 @@ def data_product_detail(product_id):
     return jsonify(resp_data), status
 
 
+# ── Product Service Routes ────────────────────────────────────────────────────
+
+@app.route('/api/v1/products', methods=['GET'])
+@require_auth
+def products_list():
+    params = {k: v for k, v in request.args.items()}
+    resp_data, status = proxy_json(
+        f"{PRODUCT_SERVICE_URL}/internal/products",
+        extra_headers=auth_headers(), params=params,
+    )
+    return jsonify(resp_data), status
+
+
+@app.route('/api/v1/products/popular', methods=['GET'])
+@require_auth
+def products_popular():
+    params = {k: v for k, v in request.args.items()}
+    resp_data, status = proxy_json(
+        f"{PRODUCT_SERVICE_URL}/internal/products/popular",
+        extra_headers=auth_headers(), params=params,
+    )
+    return jsonify(resp_data), status
+
+
+@app.route('/api/v1/products/compare', methods=['POST'])
+@require_auth
+def products_compare():
+    resp_data, status = proxy_json(
+        f"{PRODUCT_SERVICE_URL}/internal/products/compare",
+        method='POST', body_json=request.get_json(force=True, silent=True) or {},
+        extra_headers=auth_headers(),
+    )
+    return jsonify(resp_data), status
+
+
+@app.route('/api/v1/products/<product_id>', methods=['GET'])
+@require_auth
+def product_detail(product_id):
+    resp_data, status = proxy_json(
+        f"{PRODUCT_SERVICE_URL}/internal/products/{product_id}",
+        extra_headers=auth_headers(),
+    )
+    return jsonify(resp_data), status
+
+
+@app.route('/api/v1/products/<product_id>/skus', methods=['GET'])
+@require_auth
+def product_skus(product_id):
+    resp_data, status = proxy_json(
+        f"{PRODUCT_SERVICE_URL}/internal/products/{product_id}/skus",
+        extra_headers=auth_headers(),
+    )
+    return jsonify(resp_data), status
+
+
+@app.route('/api/v1/products/<product_id>/price-history', methods=['GET'])
+@require_auth
+def product_price_history(product_id):
+    params = {k: v for k, v in request.args.items()}
+    resp_data, status = proxy_json(
+        f"{PRODUCT_SERVICE_URL}/internal/products/{product_id}/price-history",
+        extra_headers=auth_headers(), params=params,
+    )
+    return jsonify(resp_data), status
+
+
+@app.route('/api/v1/products/<product_id>/recommendations', methods=['GET'])
+@require_auth
+def product_recommendations(product_id):
+    params = {k: v for k, v in request.args.items()}
+    resp_data, status = proxy_json(
+        f"{PRODUCT_SERVICE_URL}/internal/products/{product_id}/recommendations",
+        extra_headers=auth_headers(), params=params,
+    )
+    return jsonify(resp_data), status
+
+
+@app.route('/api/v1/products/<product_id>/view', methods=['POST'])
+@require_auth
+def product_record_view(product_id):
+    resp_data, status = proxy_json(
+        f"{PRODUCT_SERVICE_URL}/internal/products/{product_id}/view",
+        method='POST', body_json=request.get_json(force=True, silent=True) or {},
+        extra_headers=auth_headers(),
+    )
+    return jsonify(resp_data), status
+
+
+@app.route('/api/v1/categories', methods=['GET'])
+@require_auth
+def product_categories():
+    resp_data, status = proxy_json(
+        f"{PRODUCT_SERVICE_URL}/internal/categories",
+        extra_headers=auth_headers(),
+    )
+    return jsonify(resp_data), status
+
+
+@app.route('/api/v1/price-alerts', methods=['GET', 'POST'])
+@require_auth
+def price_alerts():
+    if request.method == 'POST':
+        resp_data, status = proxy_json(
+            f"{PRODUCT_SERVICE_URL}/internal/price-alerts",
+            method='POST', body_json=request.get_json(force=True, silent=True) or {},
+            extra_headers=auth_headers(),
+        )
+    else:
+        params = {k: v for k, v in request.args.items()}
+        resp_data, status = proxy_json(
+            f"{PRODUCT_SERVICE_URL}/internal/price-alerts",
+            extra_headers=auth_headers(), params=params,
+        )
+    return jsonify(resp_data), status
+
+
+@app.route('/api/v1/price-alerts/<int:alert_id>/cancel', methods=['PUT'])
+@require_auth
+def cancel_price_alert(alert_id):
+    resp_data, status = proxy_json(
+        f"{PRODUCT_SERVICE_URL}/internal/price-alerts/{alert_id}/cancel",
+        method='PUT', body_json={}, extra_headers=auth_headers(),
+    )
+    return jsonify(resp_data), status
+
+
 # --- Admin: service details ---
 @app.route('/api/v1/admin/services', methods=['GET'])
 @limiter.exempt
@@ -740,6 +867,7 @@ def admin_services():
         'ai':          AI_SERVICE_URL,
         'order':       ORDER_SERVICE_URL,
         'data':        DATA_SERVICE_URL,
+        'product':     PRODUCT_SERVICE_URL,
     }
 
     def _check(item):

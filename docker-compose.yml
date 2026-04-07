@@ -147,6 +147,27 @@ services:
     networks:
       - ilbuy-net
 
+  product-service:
+    build:
+      context: ./services/product-service
+      dockerfile: Dockerfile
+    container_name: ilbuy-product-service
+    restart: unless-stopped
+    ports:
+      - "8006:8000"
+    environment:
+      - PRODUCT_SERVICE_PORT=8000
+      - DB_PATH=/data/ilbuy_product.db
+    volumes:
+      - sqlite-data:/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ilbuy-net
+
   # ─────────────────────────────────────────
   # API 网关（最后启动，依赖所有服务）
   # ─────────────────────────────────────────
@@ -169,6 +190,7 @@ services:
       - AI_SERVICE_URL=http://ai-matching-service:8000
       - ORDER_SERVICE_URL=http://order-service:8000
       - DATA_SERVICE_URL=http://data-collector-service:8000
+      - PRODUCT_SERVICE_URL=http://product-service:8000
     depends_on:
       redis:
         condition: service_healthy
@@ -181,6 +203,8 @@ services:
       order-service:
         condition: service_healthy
       data-collector-service:
+        condition: service_healthy
+      product-service:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/actuator/health')"]
