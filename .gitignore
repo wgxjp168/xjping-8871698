@@ -14,3 +14,5 @@ file_service_data/
 file_service_temp/
 report_storage/
 report_output.db
+monetization.db
+monetization_storage/
