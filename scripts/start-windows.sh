@@ -49,7 +49,7 @@ stop_old() {
         sleep 2
     fi
     # 释放端口（强制）
-    for port in 8001 8002 8003 8004 8005 8080; do
+    for port in 8001 8002 8003 8004 8005 8006 8080; do
         pid=$(netstat -ano 2>/dev/null | grep ":${port} " | grep LISTEN | awk '{print $NF}' | head -1)
         if [ -n "$pid" ] && [ "$pid" != "0" ]; then
             taskkill //F //PID "$pid" 2>/dev/null || true
@@ -72,6 +72,7 @@ start_service() {
     export AI_SERVICE_URL="http://localhost:8003"
     export ORDER_SERVICE_URL="http://localhost:8004"
     export DATA_SERVICE_URL="http://localhost:8005"
+    export PRODUCT_SERVICE_URL="http://localhost:8006"
     # 使用内存限流（无需 Redis）
     export RATELIMIT_STORAGE_URI="memory://"
 
@@ -124,6 +125,9 @@ main() {
     start_service "data-collector-service" 8005 "$REPO_ROOT/services/data-collector-service"
     wait_healthy   "http://localhost:8005/health" "data-collector-service"
 
+    start_service "product-service"        8006 "$REPO_ROOT/services/product-service"
+    wait_healthy   "http://localhost:8006/health" "product-service"
+
     start_service "api-gateway"            8080 "$REPO_ROOT/services/api-gateway"
     wait_healthy   "http://localhost:8080/actuator/health" "api-gateway" 30
 
@@ -136,14 +140,13 @@ main() {
     echo "  AI匹配服务:     http://localhost:8003/health"
     echo "  订单服务:       http://localhost:8004/health"
     echo "  数据采集服务:   http://localhost:8005/health"
+    echo "  商品服务:       http://localhost:8006/health"
     echo ""
     echo "  日志目录:       $LOG_DIR"
     echo "  停止所有:       bash scripts/stop-local.sh"
     echo ""
-    echo "  运行测试:"
-    echo "    bash scripts/e2e-scenario-test.sh http://localhost:8080"
-    echo "    bash validation/run_api_tests.sh"
-    echo "    $PYTHON validation/run_ratelimit_perf_tests.py"
+    echo "  运行集成测试:"
+    echo "    PYTHONIOENCODING=utf-8 $PYTHON tests/integration_test.py"
     echo ""
 }
 

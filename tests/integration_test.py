@@ -1,9 +1,21 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
 ILBuy 全流程集成测试
 测试覆盖: 微服务健康 / 用户认证 / 采购需求 / AI匹配 / 商品浏览 / 询价报价 / 订单管理 / 市场行情 / 价格预警
 """
 import sys
+import io
+
+# Windows: force UTF-8 so that ✓/✗ don't crash with GBK codec
+if sys.platform == 'win32':
+    try:
+        sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+        sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+    except AttributeError:
+        sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+        sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
+
 import time
 import random
 import string
@@ -58,6 +70,32 @@ def post_with_retry(url, headers, json_data, retries=3, delay=1.0):
 
 
 # ─── 【1】微服务健康检查 ─────────────────────────────────────────────────────
+
+# ─── Windows: detect zombie gateway (multiple PIDs on port 8080) ────────────
+if sys.platform == 'win32':
+    import subprocess
+    try:
+        out = subprocess.check_output(
+            'netstat -ano', shell=True, text=True, stderr=subprocess.DEVNULL
+        )
+        pids_8080 = set()
+        for line in out.splitlines():
+            parts = line.split()
+            if len(parts) >= 5 and ':8080' in parts[1] and parts[3] in ('LISTENING', 'ESTABLISHED'):
+                pid = parts[4]
+                if pid.isdigit() and pid != '0':
+                    pids_8080.add(pid)
+        if len(pids_8080) > 1:
+            print(f"[WARNING] Multiple PIDs on port 8080: {pids_8080}")
+            print("[WARNING] Zombie gateway detected. Stop all services and run:")
+            print("  python scripts/kill_port.py 8080")
+            print("  Then restart services and run the test again.")
+        elif len(pids_8080) == 1:
+            _gw_pid = list(pids_8080)[0]
+            print(f"[gateway] Single process on port 8080: PID {_gw_pid} (good)")
+    except Exception:
+        pass
+
 
 # ─── 【0】诊断：产品服务直连 + 网关路由表 + 网关无认证探测 ────────────────────
 print("\n【0 诊断】")
