@@ -96,6 +96,18 @@ if not _HAS_LIMITER:
     limiter = _StubLimiter()
 
 
+# --- Request logger (helps diagnose Windows routing issues) ---
+import os as _os
+_GW_PID = _os.getpid()
+
+
+@app.before_request
+def _log_request():
+    # Only log product/category/price-alert/debug routes to avoid noise
+    if any(k in request.path for k in ('/product', '/categor', '/price-alert', '/debug')):
+        print(f"[gateway pid={_GW_PID}] {request.method} {request.path}", flush=True)
+
+
 # --- Auth middleware ---
 def require_auth(f):
     @wraps(f)
@@ -976,6 +988,10 @@ def internal_error(e):
 
 
 if __name__ == '__main__':
-    _n = len(list(app.url_map.iter_rules()))
+    _rules = list(app.url_map.iter_rules())
+    _n = len(_rules)
     print(f"[gateway] {_n} routes registered — starting on port {GATEWAY_PORT}")
-    app.run(host='0.0.0.0', port=GATEWAY_PORT)
+    # Print product/category/price-alert routes specifically so Windows can verify
+    _key = [str(r) for r in _rules if any(k in str(r) for k in ('product', 'categor', 'price-alert', 'debug'))]
+    print(f"[gateway] product/category/price-alert/debug routes ({len(_key)}): {_key}")
+    app.run(host='0.0.0.0', port=GATEWAY_PORT, use_reloader=False)
