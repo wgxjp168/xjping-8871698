@@ -976,4 +976,6 @@ def internal_error(e):
 
 
 if __name__ == '__main__':
+    _n = len(list(app.url_map.iter_rules()))
+    print(f"[gateway] {_n} routes registered — starting on port {GATEWAY_PORT}")
     app.run(host='0.0.0.0', port=GATEWAY_PORT)
