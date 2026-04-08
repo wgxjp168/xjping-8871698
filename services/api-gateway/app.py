@@ -7,8 +7,15 @@ from functools import wraps
 
 import requests as req_lib
 from flask import Flask, Response, g, jsonify, request, send_file
-from flask_limiter import Limiter
-from flask_limiter.util import get_remote_address
+
+# flask-limiter is optional — falls back to a no-op stub when unavailable
+# (e.g. Windows dev environment without Redis)
+try:
+    from flask_limiter import Limiter
+    from flask_limiter.util import get_remote_address
+    _HAS_LIMITER = True
+except ImportError:
+    _HAS_LIMITER = False
 
 app = Flask(__name__)
 
@@ -58,16 +65,35 @@ _inquiries = {      # pre-seeded demo inquiries
 }
 
 # --- Rate limiter ---
-_redis_uri = f"redis://:{REDIS_PASSWORD}@{REDIS_HOST}:{REDIS_PORT}/1"
-_storage_uri = os.getenv('RATELIMIT_STORAGE_URI', _redis_uri)
+# Use in-memory storage by default for portability (no Redis required locally).
+# Set RATELIMIT_STORAGE_URI env var to point to Redis in production.
+_redis_uri    = f"redis://:{REDIS_PASSWORD}@{REDIS_HOST}:{REDIS_PORT}/1"
+_storage_uri  = os.getenv('RATELIMIT_STORAGE_URI', 'memory://')
 
-limiter = Limiter(
-    app=app,
-    key_func=get_remote_address,
-    default_limits=["200 per minute"],
-    storage_uri=_storage_uri,
-    headers_enabled=True,
-)
+if _HAS_LIMITER:
+    def get_remote_address():  # noqa: F811 – redefine only when limiter available
+        from flask_limiter.util import get_remote_address as _gra
+        return _gra()
+
+    try:
+        limiter = Limiter(
+            app=app,
+            key_func=get_remote_address,
+            default_limits=["200 per minute"],
+            storage_uri=_storage_uri,
+            headers_enabled=True,
+        )
+    except Exception:
+        _HAS_LIMITER = False
+
+if not _HAS_LIMITER:
+    # Stub limiter: all decorators are no-ops
+    class _StubLimiter:
+        def limit(self, *a, **kw):
+            return lambda f: f
+        def exempt(self, f):
+            return f
+    limiter = _StubLimiter()
 
 
 # --- Auth middleware ---
