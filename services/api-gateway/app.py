@@ -177,6 +177,18 @@ def auth_headers():
     return {'X-User-Id': g.user_id, 'X-User-Role': g.user_role}
 
 
+# --- Debug: list all registered routes (no auth) ---
+@app.route('/debug/routes', methods=['GET'])
+@limiter.exempt
+def debug_routes():
+    rules = sorted(
+        [{'rule': str(r), 'methods': sorted(r.methods - {'HEAD', 'OPTIONS'}), 'endpoint': r.endpoint}
+         for r in app.url_map.iter_rules()],
+        key=lambda x: x['rule']
+    )
+    return jsonify({'total': len(rules), 'routes': rules})
+
+
 # --- Health check ---
 @app.route('/', methods=['GET'])
 @limiter.exempt

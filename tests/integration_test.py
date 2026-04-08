@@ -59,16 +59,43 @@ def post_with_retry(url, headers, json_data, retries=3, delay=1.0):
 
 # ─── 【1】微服务健康检查 ─────────────────────────────────────────────────────
 
-# ─── 【0】产品服务直连诊断 ────────────────────────────────────────────────────
-print("\n【0 产品服务直连诊断】")
+# ─── 【0】诊断：产品服务直连 + 网关路由表 + 网关无认证探测 ────────────────────
+print("\n【0 诊断】")
+
+# 0-a 产品服务直连（port 8006）
+print("  [product-service 直连]")
 for path in ["/health", "/internal/products", "/internal/products/popular",
              "/internal/categories", "/internal/price-alerts"]:
     try:
         r = requests.get(f"{PRODUCT_BASE}{path}", timeout=TIMEOUT)
         d = safe_json(r)
-        print(f"  GET {path} → HTTP {r.status_code}  code={d.get('code')}  msg={d.get('message','')[:40]}")
+        print(f"    GET {path} → HTTP {r.status_code}  code={d.get('code')}  msg={d.get('message','')[:40]}")
     except Exception as e:
-        print(f"  GET {path} → ERROR: {e}")
+        print(f"    GET {path} → ERROR: {e}")
+
+# 0-b 网关路由表（需先 pull 最新代码）
+print("  [gateway /debug/routes]")
+try:
+    r = requests.get(f"{BASE}/debug/routes", timeout=TIMEOUT)
+    d = safe_json(r)
+    routes = d.get("routes", [])
+    product_routes = [x for x in routes if "product" in x.get("rule","") or "price-alert" in x.get("rule","") or "categor" in x.get("rule","")]
+    print(f"    Total registered routes: {d.get('total', '?')}")
+    print(f"    Product/alert/category routes found: {len(product_routes)}")
+    for x in product_routes:
+        print(f"      {x['methods']} {x['rule']}")
+except Exception as e:
+    print(f"    ERROR (route debug unavailable — pull latest code): {e}")
+
+# 0-c 网关无认证探测（401=路由存在,404=路由未注册）
+print("  [gateway 无认证探测]")
+for path in ["/api/v1/products", "/api/v1/products/popular", "/api/v1/categories", "/api/v1/price-alerts"]:
+    try:
+        r = requests.get(f"{BASE}{path}", timeout=TIMEOUT)
+        d = safe_json(r)
+        print(f"    GET {path} → HTTP {r.status_code}  code={d.get('code')}  msg={d.get('message','')[:30]}")
+    except Exception as e:
+        print(f"    GET {path} → ERROR: {e}")
 
 
 section("1 微服务健康检查")
