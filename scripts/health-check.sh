@@ -32,6 +32,7 @@ check "procurement-service"       "http://localhost:8002/health" "status" "UP"
 check "ai-matching-service"       "http://localhost:8003/health" "status" "UP"
 check "order-service"             "http://localhost:8004/health" "status" "UP"
 check "data-collector-service"    "http://localhost:8005/health" "status" "UP"
+check "product-service"           "http://localhost:8006/health" "status" "UP"
 
 echo ""
 echo "【Redis】"

@@ -124,6 +124,9 @@ main() {
     start_service "data-collector-service"  8005 "$REPO_ROOT/services/data-collector-service"
     wait_healthy "http://localhost:8005/health" "data-collector-service"
 
+    start_service "product-service"         8006 "$REPO_ROOT/services/product-service"
+    wait_healthy "http://localhost:8006/health" "product-service"
+
     start_service "api-gateway"             8080 "$REPO_ROOT/services/api-gateway"
     wait_healthy "http://localhost:8080/actuator/health" "api-gateway" 40
 
@@ -136,6 +139,7 @@ main() {
     echo "  AI匹配服务:           http://localhost:8003"
     echo "  订单服务:             http://localhost:8004"
     echo "  数据采集服务:          http://localhost:8005"
+    echo "  商品服务:             http://localhost:8006"
     echo ""
     echo "  日志目录:  $LOG_DIR"
     echo "  停止所有:  $REPO_ROOT/scripts/stop-local.sh"
