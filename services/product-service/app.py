@@ -22,7 +22,10 @@ PORT = int(os.environ.get('PRODUCT_SERVICE_PORT', 8006))
 def get_db():
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA journal_mode=WAL")
+    try:
+        conn.execute("PRAGMA journal_mode=WAL")
+    except Exception:
+        pass  # WAL unavailable on some Windows filesystems — fall back to default
     conn.execute("PRAGMA foreign_keys=ON")
     return conn
 
@@ -67,6 +70,7 @@ def _check_price_alerts(conn, product_id, new_price):
 # ── DB Init ───────────────────────────────────────────────────────────────────
 
 def init_db():
+    import sys as _sys
     conn = get_db()
     conn.executescript("""
         CREATE TABLE IF NOT EXISTS t_product (
@@ -247,10 +251,9 @@ def init_db():
     ]
     for (pid, sid, code, specs, price, stock, isdef) in skus:
         conn.execute(
-            """INSERT OR REPLACE INTO t_product_sku
+            """INSERT OR IGNORE INTO t_product_sku
                (product_id, sku_id, sku_code, specs, price, stock, is_default, created_at)
-               VALUES (?,?,?,?,?,?,?,?)
-               ON CONFLICT(id) DO NOTHING""",
+               VALUES (?,?,?,?,?,?,?,?)""",
             (pid, sid, code, specs, price, stock, isdef, ts)
         )
 
@@ -263,7 +266,11 @@ def init_db():
             (pid, cprice, oprice, ts)
         )
 
-    conn.commit()
+    try:
+        conn.commit()
+    except Exception as _e:
+        print(f"[product-service] init_db commit error: {_e}", file=_sys.stderr)
+        conn.rollback()
     conn.close()
 
 

@@ -9,7 +9,8 @@ import random
 import string
 import requests
 
-BASE    = "http://localhost:8080"
+BASE         = "http://localhost:8080"
+PRODUCT_BASE = "http://localhost:8006"   # direct product service
 TIMEOUT = 8
 
 passed  = 0
@@ -57,6 +58,18 @@ def post_with_retry(url, headers, json_data, retries=3, delay=1.0):
 
 
 # ─── 【1】微服务健康检查 ─────────────────────────────────────────────────────
+
+# ─── 【0】产品服务直连诊断 ────────────────────────────────────────────────────
+print("\n【0 产品服务直连诊断】")
+for path in ["/health", "/internal/products", "/internal/products/popular",
+             "/internal/categories", "/internal/price-alerts"]:
+    try:
+        r = requests.get(f"{PRODUCT_BASE}{path}", timeout=TIMEOUT)
+        d = safe_json(r)
+        print(f"  GET {path} → HTTP {r.status_code}  code={d.get('code')}  msg={d.get('message','')[:40]}")
+    except Exception as e:
+        print(f"  GET {path} → ERROR: {e}")
+
 
 section("1 微服务健康检查")
 services = [
