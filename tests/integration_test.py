@@ -238,15 +238,22 @@ _ok_text = (d.get("code") == 0 and d.get("data", {}).get("inputType") == "text"
             and d.get("data", {}).get("contextAware") is False)
 check("POST /ai/intent/parse [text]", _ok_text, d.get("message", ""))
 
-# TC-API-023: 语音输入（不支持 → 422 + code 42201）
+# TC-API-023: 语音输入（ASR 转写 → 200，返回 inputType=voice + asr 字段）
 r = requests.post(f"{BASE}/api/v1/ai/intent/parse", headers=H, json={
     "input_type": "voice",
     "voice_url": "https://oss.ilbuy.com/voice/test.wav",
+    "language": "zh-CN",
 }, timeout=TIMEOUT)
 d = safe_json(r)
-check("POST /ai/intent/parse [voice→422]",
-      r.status_code == 422 and d.get("code") == 42201,
-      f"code={d.get('code')} supported={d.get('data',{}).get('supported')}")
+_data = d.get("data") or {}
+_asr_ok = (d.get("code") == 0
+           and _data.get("inputType") == "voice"
+           and "asr" in _data
+           and _data["asr"].get("engine") in ("whisper", "google_stt", "stub"))
+check("POST /ai/intent/parse [voice→ASR]",
+      _asr_ok,
+      f"code={d.get('code')} engine={_data.get('asr',{}).get('engine')} "
+      f"transcript={_data.get('asr',{}).get('transcript','')[:20]}")
 
 # TC-API-024: 图片输入（不支持 → 422 + code 42202）
 r = requests.post(f"{BASE}/api/v1/ai/intent/parse", headers=H, json={

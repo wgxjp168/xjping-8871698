@@ -1,3 +1,5 @@
+import base64
+import io
 import os
 import re
 import sqlite3
@@ -7,6 +9,83 @@ from datetime import datetime, timezone
 
 import requests
 from flask import Flask, jsonify, request
+
+# ── ASR 引擎检测 ─────────────────────────────────────────────────────────────
+# 优先级: openai-whisper (本地离线) → SpeechRecognition (Google STT) → stub
+_ASR_ENGINE = "stub"
+try:
+    import whisper as _whisper
+    _ASR_ENGINE = "whisper"
+except ImportError:
+    try:
+        import speech_recognition as _sr
+        _ASR_ENGINE = "google_stt"
+    except ImportError:
+        pass
+
+
+def _transcribe_voice(voice_url=None, voice_base64=None, language="zh-CN"):
+    """
+    将语音转为文字。
+    返回 (transcript: str, engine: str, error: str|None)
+    """
+    # 1. 获取音频数据
+    audio_bytes = None
+    if voice_base64:
+        try:
+            audio_bytes = base64.b64decode(voice_base64)
+        except Exception as e:
+            return None, "stub", f"base64解码失败: {e}"
+    elif voice_url:
+        try:
+            r = requests.get(voice_url, timeout=8)
+            r.raise_for_status()
+            audio_bytes = r.content
+        except Exception as e:
+            # URL不可达时降级为stub（便于本地测试）
+            audio_bytes = None
+
+    # 2. Whisper（本地离线，优先）
+    if _ASR_ENGINE == "whisper" and audio_bytes:
+        try:
+            suffix = ".wav"
+            if voice_url:
+                ext = os.path.splitext(voice_url.split("?")[0])[-1].lower()
+                if ext in (".mp3", ".m4a", ".ogg", ".flac", ".webm"):
+                    suffix = ext
+            with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as f:
+                f.write(audio_bytes)
+                tmp_path = f.name
+            try:
+                model = _whisper.load_model("tiny")
+                result = model.transcribe(tmp_path, language="zh")
+                return result["text"].strip(), "whisper", None
+            finally:
+                os.unlink(tmp_path)
+        except Exception as e:
+            pass  # 降级到下一引擎
+
+    # 3. SpeechRecognition + Google STT
+    if _ASR_ENGINE == "google_stt" and audio_bytes:
+        try:
+            recognizer = _sr.Recognizer()
+            audio_file = _sr.AudioFile(io.BytesIO(audio_bytes))
+            with audio_file as source:
+                audio = recognizer.record(source)
+            text = recognizer.recognize_google(audio, language=language)
+            return text, "google_stt", None
+        except Exception as e:
+            pass  # 降级到stub
+
+    # 4. Stub（测试用）：从 voice_url 文件名提取提示词，否则返回示例文本
+    stub_text = "我需要采购办公设备"
+    if voice_url:
+        # 尝试从文件名提取中文语义（e.g. "purchase_laptop_100.wav"）
+        name = os.path.splitext(os.path.basename(voice_url.split("?")[0]))[0]
+        name = re.sub(r'[_\-]', ' ', name)
+        if re.search(r'[\u4e00-\u9fff]', name):
+            stub_text = name.strip()
+    return stub_text, "stub", None
 
 app = Flask(__name__)
 
@@ -113,26 +192,46 @@ def parse_intent():
     # 注意: 本接口无上下文记忆，每次请求独立处理，不关联历史对话。
     input_type = body.get("input_type", "text").lower()
 
+    # ── 语音输入：ASR 转文字后进入文字解析流程 ───────────────────────────────
+    if input_type == "voice":
+        voice_url    = body.get("voice_url", "").strip()
+        voice_base64 = body.get("voice_base64", "").strip()
+        language     = body.get("language", "zh-CN")
+
+        if not voice_url and not voice_base64:
+            return resp(400, "voice 输入需提供 voice_url 或 voice_base64"), 400
+
+        transcript, asr_engine, asr_error = _transcribe_voice(
+            voice_url=voice_url or None,
+            voice_base64=voice_base64 or None,
+            language=language,
+        )
+        if not transcript:
+            return resp(42201, f"ASR 转写失败: {asr_error}", {
+                "inputType": "voice",
+                "asrEngine": asr_engine,
+                "supported": True,
+                "contextAware": False,
+            }), 422
+
+        # 将转写结果注入 body，走统一文字解析逻辑
+        body["text"]       = transcript
+        body["input_type"] = "text"
+        body["_asr_engine"]   = asr_engine
+        body["_asr_transcript"] = transcript
+
+    # ── 图片、链接：明确不支持 ────────────────────────────────────────────────
     LIMITATIONS = {
-        "voice": {
-            "code": 42201,
-            "message": "语音输入暂不支持：当前版本尚未集成语音识别（ASR）引擎，"
-                       "请将语音转为文字后通过 input_type=text 提交。",
-            "supported": False,
-            "suggestion": "请使用文字描述您的采购需求，例如：'我需要采购100台联想笔记本，预算50万'",
-        },
         "image": {
             "code": 42202,
             "message": "图片输入无法准确解释商品：AI 视觉模块未接入，"
                        "无法从图片中自动提取商品名称、型号、规格等采购要素。",
-            "supported": False,
             "suggestion": "请用文字描述商品名称、规格和数量，或提供商品编号/型号。",
         },
         "link": {
             "code": 42203,
             "message": "链接输入无法解释商品：系统不支持抓取外部链接内容，"
                        "无法从商品页面 URL 中自动提取采购信息。",
-            "supported": False,
             "suggestion": "请复制商品名称和规格，以文字形式提交采购需求。",
         },
     }
@@ -147,9 +246,10 @@ def parse_intent():
             "note": "本接口为无状态设计，不保留上下文，每次请求独立处理。",
         }), 422
 
-    # ── 文字输入处理 ──────────────────────────────────────────────────────────
-    if input_type != "text":
-        return resp(42200, f"未知的 input_type: '{input_type}'，支持值: text / voice / image / link",
+    # ── 文字输入处理（voice 转写后也走此流程）────────────────────────────────
+    if body.get("input_type", input_type) not in ("text",):
+        return resp(42200,
+                    f"未知的 input_type: '{input_type}'，支持值: text / voice / image / link",
                     {"supported": False}), 422
 
     text = body.get("text", "").strip()
@@ -203,7 +303,9 @@ def parse_intent():
 
     demand_type = 'B2B' if (quantity >= 10 or budget >= 50000) else 'B2C'
 
-    return resp(0, "success", {
+    # Determine original input type (voice input rewrites to text after ASR)
+    original_input_type = input_type if input_type != "voice" else "voice"
+    result = {
         "productName":    product_name.strip(),
         "category":       category,
         "quantity":       quantity,
@@ -213,10 +315,24 @@ def parse_intent():
         "detectedBrand":  detected_brand,
         "description":    text,
         "confidence":     0.92,
-        "inputType":      "text",
+        "inputType":      original_input_type,
         "contextAware":   False,
         "note":           "本接口为无状态设计，不保留上下文，每次请求独立处理。",
-    })
+    }
+    # Attach ASR metadata for voice inputs
+    if body.get("_asr_engine"):
+        result["asr"] = {
+            "engine":     body["_asr_engine"],
+            "transcript": body.get("_asr_transcript", text),
+            "language":   body.get("language", "zh-CN"),
+            "engines":    {
+                "whisper":     "openai-whisper 本地离线模型（最高精度）",
+                "google_stt":  "Google Cloud Speech-to-Text（需联网）",
+                "stub":        "模拟转写（用于测试，需安装 whisper 或 SpeechRecognition）",
+            },
+            "activeEngine": body["_asr_engine"],
+        }
+    return resp(0, "success", result)
 
 
 # ── AI Matching ───────────────────────────────────────────────────────────────

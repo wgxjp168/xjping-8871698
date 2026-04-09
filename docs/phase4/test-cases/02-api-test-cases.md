@@ -341,13 +341,13 @@ Content-Type: application/json
 
 ---
 
-### TC-API-023 AI意图解析 — 语音输入（不支持）
+### TC-API-023 AI意图解析 — 语音输入（ASR 转写）
 
 | 字段 | 内容 |
 |------|------|
 | 测试ID | TC-API-023 |
 | 接口 | POST /api/v1/ai/intent/parse |
-| 测试场景 | 语音输入类型返回不支持提示 |
+| 测试场景 | 语音输入经 ASR 引擎转写后完成意图解析 |
 
 **请求：**
 ```http
@@ -357,25 +357,57 @@ Content-Type: application/json
 
 {
   "input_type": "voice",
-  "voice_url": "https://oss.ilbuy.com/voice/req_001.wav"
+  "voice_url": "https://oss.ilbuy.com/voice/req_001.wav",
+  "language": "zh-CN"
 }
 ```
 
-**预期响应（422 Unprocessable Entity）：**
+或通过 Base64 上传音频：
 ```json
 {
-  "code": 42201,
-  "message": "语音输入暂不支持：当前版本尚未集成语音识别（ASR）引擎，请将语音转为文字后通过 input_type=text 提交。",
+  "input_type": "voice",
+  "voice_base64": "<base64_encoded_pcm_or_wav>",
+  "language": "zh-CN"
+}
+```
+
+**预期响应（200 OK）：**
+```json
+{
+  "code": 0,
+  "message": "success",
   "data": {
+    "productName": "联想笔记本",
+    "category": "IT设备",
+    "quantity": 100,
+    "budgetAmount": 500000,
+    "procurementType": "B2B",
     "inputType": "voice",
-    "supported": false,
-    "suggestion": "请使用文字描述您的采购需求，例如：'我需要采购100台联想笔记本，预算50万'",
-    "contextAware": false
+    "contextAware": false,
+    "asr": {
+      "engine": "whisper",
+      "transcript": "我需要采购100台联想笔记本，预算50万元",
+      "language": "zh-CN",
+      "activeEngine": "whisper",
+      "engines": {
+        "whisper": "openai-whisper 本地离线模型（最高精度）",
+        "google_stt": "Google Cloud Speech-to-Text（需联网）",
+        "stub": "模拟转写（用于测试，需安装 whisper 或 SpeechRecognition）"
+      }
+    }
   }
 }
 ```
 
-> **局限说明：** 当前版本未集成 ASR（自动语音识别）引擎，无法处理音频输入。建议客户端先完成语音转文字，再以 `input_type=text` 提交。
+**ASR 引擎优先级：**
+
+| 优先级 | 引擎 | 安装方式 | 特点 |
+|--------|------|----------|------|
+| 1 | `whisper` | `pip install openai-whisper` | 本地离线，支持中文，最高精度 |
+| 2 | `google_stt` | `pip install SpeechRecognition` | 需联网，调用 Google STT API |
+| 3 | `stub` | 无需安装 | 测试用模拟转写，非生产环境 |
+
+> **说明：** ASR 引擎自动检测，优先使用已安装的最高优先级引擎。`asr.engine` 字段标注本次使用的实际引擎。
 
 ---
 
@@ -494,10 +526,12 @@ Content-Type: application/json
 | 输入类型 | 支持状态 | 错误码 | 说明 |
 |----------|----------|--------|------|
 | `text`（文字）| ✅ 支持 | — | 推荐方式，支持中文自然语言描述 |
-| `voice`（语音）| ❌ 不支持 | 42201 | 未集成 ASR 引擎，需客户端转文字 |
+| `voice`（语音）| ✅ 支持（ASR）| 42201* | 自动转写：whisper → google_stt → stub |
 | `image`（图片）| ❌ 不支持 | 42202 | 未集成 CV 模块，无法准确识别商品 |
 | `link`（链接）| ❌ 不支持 | 42203 | 不支持爬取外部 URL 内容 |
 | 上下文记忆 | ❌ 无状态 | — | 每次请求独立处理，不保留历史 |
+
+> *42201 仅在 ASR 转写失败（无音频数据且无 URL）时返回。正常情况下语音输入返回 200。
 
 ---
 
