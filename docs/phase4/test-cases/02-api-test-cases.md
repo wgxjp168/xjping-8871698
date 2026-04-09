@@ -299,6 +299,208 @@ Authorization: Bearer {{access_token}}
 
 ---
 
+### TC-API-022 AI意图解析 — 文字输入（正常）
+
+| 字段 | 内容 |
+|------|------|
+| 测试ID | TC-API-022 |
+| 接口 | POST /api/v1/ai/intent/parse |
+| 测试场景 | 文字输入正常解析采购意图 |
+
+**请求：**
+```http
+POST /api/v1/ai/intent/parse
+Authorization: Bearer {{access_token}}
+Content-Type: application/json
+
+{
+  "input_type": "text",
+  "text": "我需要采购100台联想笔记本，预算50万元"
+}
+```
+
+**预期响应（200 OK）：**
+```json
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "productName": "联想笔记本",
+    "category": "电子设备",
+    "quantity": 100,
+    "budgetAmount": 500000,
+    "procurementType": "B2B",
+    "inputType": "text",
+    "contextAware": false,
+    "note": "本接口为无状态设计，不保留上下文，每次请求独立处理。"
+  }
+}
+```
+
+> **说明：** `input_type` 默认为 `text`，可省略。每次请求独立处理，不保留历史上下文。
+
+---
+
+### TC-API-023 AI意图解析 — 语音输入（不支持）
+
+| 字段 | 内容 |
+|------|------|
+| 测试ID | TC-API-023 |
+| 接口 | POST /api/v1/ai/intent/parse |
+| 测试场景 | 语音输入类型返回不支持提示 |
+
+**请求：**
+```http
+POST /api/v1/ai/intent/parse
+Authorization: Bearer {{access_token}}
+Content-Type: application/json
+
+{
+  "input_type": "voice",
+  "voice_url": "https://oss.ilbuy.com/voice/req_001.wav"
+}
+```
+
+**预期响应（422 Unprocessable Entity）：**
+```json
+{
+  "code": 42201,
+  "message": "语音输入暂不支持：当前版本尚未集成语音识别（ASR）引擎，请将语音转为文字后通过 input_type=text 提交。",
+  "data": {
+    "inputType": "voice",
+    "supported": false,
+    "suggestion": "请使用文字描述您的采购需求，例如：'我需要采购100台联想笔记本，预算50万'",
+    "contextAware": false
+  }
+}
+```
+
+> **局限说明：** 当前版本未集成 ASR（自动语音识别）引擎，无法处理音频输入。建议客户端先完成语音转文字，再以 `input_type=text` 提交。
+
+---
+
+### TC-API-024 AI意图解析 — 图片输入（无法准确解释商品）
+
+| 字段 | 内容 |
+|------|------|
+| 测试ID | TC-API-024 |
+| 接口 | POST /api/v1/ai/intent/parse |
+| 测试场景 | 上传图片无法准确提取商品采购要素 |
+
+**请求：**
+```http
+POST /api/v1/ai/intent/parse
+Authorization: Bearer {{access_token}}
+Content-Type: application/json
+
+{
+  "input_type": "image",
+  "image_url": "https://oss.ilbuy.com/images/product_photo_001.jpg"
+}
+```
+
+**预期响应（422 Unprocessable Entity）：**
+```json
+{
+  "code": 42202,
+  "message": "图片输入无法准确解释商品：AI 视觉模块未接入，无法从图片中自动提取商品名称、型号、规格等采购要素。",
+  "data": {
+    "inputType": "image",
+    "supported": false,
+    "suggestion": "请用文字描述商品名称、规格和数量，或提供商品编号/型号。",
+    "contextAware": false
+  }
+}
+```
+
+> **局限说明：** 当前 AI 服务不具备图像识别（CV）能力。即使上传清晰的商品图片，系统也无法自动识别商品名称、品牌、规格参数等采购关键要素。请以文字形式补充描述。
+
+---
+
+### TC-API-025 AI意图解析 — 链接输入（无法解释商品）
+
+| 字段 | 内容 |
+|------|------|
+| 测试ID | TC-API-025 |
+| 接口 | POST /api/v1/ai/intent/parse |
+| 测试场景 | 提供商品链接无法自动提取采购信息 |
+
+**请求：**
+```http
+POST /api/v1/ai/intent/parse
+Authorization: Bearer {{access_token}}
+Content-Type: application/json
+
+{
+  "input_type": "link",
+  "url": "https://item.jd.com/100012043978.html"
+}
+```
+
+**预期响应（422 Unprocessable Entity）：**
+```json
+{
+  "code": 42203,
+  "message": "链接输入无法解释商品：系统不支持抓取外部链接内容，无法从商品页面 URL 中自动提取采购信息。",
+  "data": {
+    "inputType": "link",
+    "supported": false,
+    "suggestion": "请复制商品名称和规格，以文字形式提交采购需求。",
+    "contextAware": false
+  }
+}
+```
+
+> **局限说明：** 系统不具备网页内容抓取（爬虫）能力，无法解析京东、淘宝、1688 等电商平台的商品链接。请手动复制商品名称、型号和规格后以文字提交。
+
+---
+
+### TC-API-026 AI意图解析 — 无上下文理解（验证无状态）
+
+| 字段 | 内容 |
+|------|------|
+| 测试ID | TC-API-026 |
+| 接口 | POST /api/v1/ai/intent/parse |
+| 测试场景 | 验证系统不保留对话上下文 |
+
+**第一次请求：**
+```http
+POST /api/v1/ai/intent/parse
+Authorization: Bearer {{access_token}}
+Content-Type: application/json
+
+{ "input_type": "text", "text": "我要买联想笔记本" }
+```
+
+**第二次请求（省略商品名，期望系统记住）：**
+```http
+POST /api/v1/ai/intent/parse
+Authorization: Bearer {{access_token}}
+Content-Type: application/json
+
+{ "input_type": "text", "text": "再来100台，预算加到80万" }
+```
+
+**预期结果：**
+- 第二次请求将"再来100台"解析为独立需求，无法关联第一次的"联想笔记本"
+- 响应中 `contextAware: false` 明确标注无上下文
+
+> **局限说明：** 本接口为无状态（Stateless）设计，每次调用独立处理，不维护会话历史。如需多轮对话式采购引导，需由客户端拼接上下文后一次性提交完整描述。
+
+---
+
+## 多模态输入能力矩阵
+
+| 输入类型 | 支持状态 | 错误码 | 说明 |
+|----------|----------|--------|------|
+| `text`（文字）| ✅ 支持 | — | 推荐方式，支持中文自然语言描述 |
+| `voice`（语音）| ❌ 不支持 | 42201 | 未集成 ASR 引擎，需客户端转文字 |
+| `image`（图片）| ❌ 不支持 | 42202 | 未集成 CV 模块，无法准确识别商品 |
+| `link`（链接）| ❌ 不支持 | 42203 | 不支持爬取外部 URL 内容 |
+| 上下文记忆 | ❌ 无状态 | — | 每次请求独立处理，不保留历史 |
+
+---
+
 ## 四、询价报价接口（Inquiry API）
 
 ### TC-API-030 发起询价

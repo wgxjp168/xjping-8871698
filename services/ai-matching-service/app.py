@@ -106,6 +106,52 @@ BRANDS = ['华为', 'HUAWEI', '联想', 'Lenovo', '苹果', 'Apple', '小米', '
 @app.route("/internal/intent/parse", methods=["POST"])
 def parse_intent():
     body = request.get_json(force=True) or {}
+
+    # ── 多模态输入类型路由 ─────────────────────────────────────────────────────
+    # 支持: text（默认）| voice | image | link
+    # 局限: 当前仅 text 可完整解析；其余类型返回明确的不支持说明。
+    # 注意: 本接口无上下文记忆，每次请求独立处理，不关联历史对话。
+    input_type = body.get("input_type", "text").lower()
+
+    LIMITATIONS = {
+        "voice": {
+            "code": 42201,
+            "message": "语音输入暂不支持：当前版本尚未集成语音识别（ASR）引擎，"
+                       "请将语音转为文字后通过 input_type=text 提交。",
+            "supported": False,
+            "suggestion": "请使用文字描述您的采购需求，例如：'我需要采购100台联想笔记本，预算50万'",
+        },
+        "image": {
+            "code": 42202,
+            "message": "图片输入无法准确解释商品：AI 视觉模块未接入，"
+                       "无法从图片中自动提取商品名称、型号、规格等采购要素。",
+            "supported": False,
+            "suggestion": "请用文字描述商品名称、规格和数量，或提供商品编号/型号。",
+        },
+        "link": {
+            "code": 42203,
+            "message": "链接输入无法解释商品：系统不支持抓取外部链接内容，"
+                       "无法从商品页面 URL 中自动提取采购信息。",
+            "supported": False,
+            "suggestion": "请复制商品名称和规格，以文字形式提交采购需求。",
+        },
+    }
+
+    if input_type in LIMITATIONS:
+        lim = LIMITATIONS[input_type]
+        return resp(lim["code"], lim["message"], {
+            "inputType":   input_type,
+            "supported":   False,
+            "suggestion":  lim["suggestion"],
+            "contextAware": False,
+            "note": "本接口为无状态设计，不保留上下文，每次请求独立处理。",
+        }), 422
+
+    # ── 文字输入处理 ──────────────────────────────────────────────────────────
+    if input_type != "text":
+        return resp(42200, f"未知的 input_type: '{input_type}'，支持值: text / voice / image / link",
+                    {"supported": False}), 422
+
     text = body.get("text", "").strip()
     if not text:
         return resp(400, "text is required"), 400
@@ -167,6 +213,9 @@ def parse_intent():
         "detectedBrand":  detected_brand,
         "description":    text,
         "confidence":     0.92,
+        "inputType":      "text",
+        "contextAware":   False,
+        "note":           "本接口为无状态设计，不保留上下文，每次请求独立处理。",
     })
 
 

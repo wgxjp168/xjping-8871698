@@ -228,12 +228,55 @@ quote_id = (d.get("data") or {}).get("id") or (d.get("data") or {}).get("quoteId
 
 section("4 AI 智能匹配")
 
-# Actual route: POST /api/v1/ai/intent/parse — field is "text" not "query"
+# TC-API-022: 文字输入（正常解析）
 r = requests.post(f"{BASE}/api/v1/ai/intent/parse", headers=H, json={
+    "input_type": "text",
     "text": "需要采购500台i7处理器企业笔记本，预算300万",
 }, timeout=TIMEOUT)
 d = safe_json(r)
-check("POST /ai/intent/parse", d.get("code") == 0, d.get("message", ""))
+_ok_text = (d.get("code") == 0 and d.get("data", {}).get("inputType") == "text"
+            and d.get("data", {}).get("contextAware") is False)
+check("POST /ai/intent/parse [text]", _ok_text, d.get("message", ""))
+
+# TC-API-023: 语音输入（不支持 → 422 + code 42201）
+r = requests.post(f"{BASE}/api/v1/ai/intent/parse", headers=H, json={
+    "input_type": "voice",
+    "voice_url": "https://oss.ilbuy.com/voice/test.wav",
+}, timeout=TIMEOUT)
+d = safe_json(r)
+check("POST /ai/intent/parse [voice→422]",
+      r.status_code == 422 and d.get("code") == 42201,
+      f"code={d.get('code')} supported={d.get('data',{}).get('supported')}")
+
+# TC-API-024: 图片输入（不支持 → 422 + code 42202）
+r = requests.post(f"{BASE}/api/v1/ai/intent/parse", headers=H, json={
+    "input_type": "image",
+    "image_url": "https://oss.ilbuy.com/images/product.jpg",
+}, timeout=TIMEOUT)
+d = safe_json(r)
+check("POST /ai/intent/parse [image→422]",
+      r.status_code == 422 and d.get("code") == 42202,
+      f"code={d.get('code')} supported={d.get('data',{}).get('supported')}")
+
+# TC-API-025: 链接输入（不支持 → 422 + code 42203）
+r = requests.post(f"{BASE}/api/v1/ai/intent/parse", headers=H, json={
+    "input_type": "link",
+    "url": "https://item.jd.com/100012043978.html",
+}, timeout=TIMEOUT)
+d = safe_json(r)
+check("POST /ai/intent/parse [link→422]",
+      r.status_code == 422 and d.get("code") == 42203,
+      f"code={d.get('code')} supported={d.get('data',{}).get('supported')}")
+
+# TC-API-026: 无上下文（contextAware=false 验证）
+r2 = requests.post(f"{BASE}/api/v1/ai/intent/parse", headers=H, json={
+    "input_type": "text",
+    "text": "再来100台，预算加到80万",   # 故意省略商品名，验证无上下文关联
+}, timeout=TIMEOUT)
+d2 = safe_json(r2)
+check("POST /ai/intent/parse [无上下文]",
+      d2.get("code") == 0 and d2.get("data", {}).get("contextAware") is False,
+      f"contextAware={d2.get('data',{}).get('contextAware')}")
 
 # Actual route: POST /api/v1/ai/match
 r = requests.post(f"{BASE}/api/v1/ai/match", headers=H, json={
