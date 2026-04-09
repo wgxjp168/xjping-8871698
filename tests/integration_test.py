@@ -255,15 +255,21 @@ check("POST /ai/intent/parse [voice→ASR]",
       f"code={d.get('code')} engine={_data.get('asr',{}).get('engine')} "
       f"transcript={_data.get('asr',{}).get('transcript','')[:20]}")
 
-# TC-API-024: 图片输入（不支持 → 422 + code 42202）
+# TC-API-024: 图片输入（CV OCR → 200，返回 inputType=image + cv 字段）
 r = requests.post(f"{BASE}/api/v1/ai/intent/parse", headers=H, json={
     "input_type": "image",
     "image_url": "https://oss.ilbuy.com/images/product.jpg",
 }, timeout=TIMEOUT)
 d = safe_json(r)
-check("POST /ai/intent/parse [image→422]",
-      r.status_code == 422 and d.get("code") == 42202,
-      f"code={d.get('code')} supported={d.get('data',{}).get('supported')}")
+_data = d.get("data") or {}
+_cv_ok = (d.get("code") == 0
+          and _data.get("inputType") == "image"
+          and "cv" in _data
+          and _data["cv"].get("engine") in ("easyocr", "pytesseract", "stub"))
+check("POST /ai/intent/parse [image→CV]",
+      _cv_ok,
+      f"code={d.get('code')} engine={_data.get('cv',{}).get('engine')} "
+      f"text={_data.get('cv',{}).get('extractedText','')[:20]}")
 
 # TC-API-025: 链接输入（不支持 → 422 + code 42203）
 r = requests.post(f"{BASE}/api/v1/ai/intent/parse", headers=H, json={

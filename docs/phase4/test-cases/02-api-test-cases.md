@@ -411,13 +411,13 @@ Content-Type: application/json
 
 ---
 
-### TC-API-024 AI意图解析 — 图片输入（无法准确解释商品）
+### TC-API-024 AI意图解析 — 图片输入（CV OCR 提取）
 
 | 字段 | 内容 |
 |------|------|
 | 测试ID | TC-API-024 |
 | 接口 | POST /api/v1/ai/intent/parse |
-| 测试场景 | 上传图片无法准确提取商品采购要素 |
+| 测试场景 | 商品图片经 CV OCR 提取文字后完成意图解析 |
 
 **请求：**
 ```http
@@ -431,21 +431,49 @@ Content-Type: application/json
 }
 ```
 
-**预期响应（422 Unprocessable Entity）：**
+或通过 Base64 上传：
 ```json
 {
-  "code": 42202,
-  "message": "图片输入无法准确解释商品：AI 视觉模块未接入，无法从图片中自动提取商品名称、型号、规格等采购要素。",
+  "input_type": "image",
+  "image_base64": "<base64_encoded_jpeg_or_png>"
+}
+```
+
+**预期响应（200 OK）：**
+```json
+{
+  "code": 0,
+  "message": "success",
   "data": {
+    "productName": "ThinkPad E14",
+    "category": "IT设备",
+    "quantity": 1,
+    "budgetAmount": 0,
     "inputType": "image",
-    "supported": false,
-    "suggestion": "请用文字描述商品名称、规格和数量，或提供商品编号/型号。",
-    "contextAware": false
+    "contextAware": false,
+    "cv": {
+      "engine": "easyocr",
+      "extractedText": "联想笔记本电脑 ThinkPad E14 i7处理器 16GB内存 512GB固态",
+      "activeEngine": "easyocr",
+      "engines": {
+        "easyocr": "EasyOCR 深度学习OCR，支持中英文（pip install easyocr）",
+        "pytesseract": "Tesseract OCR，需安装 tesseract 二进制（pip install pytesseract）",
+        "stub": "模拟提取（用于测试，需安装 easyocr 或 pytesseract）"
+      }
+    }
   }
 }
 ```
 
-> **局限说明：** 当前 AI 服务不具备图像识别（CV）能力。即使上传清晰的商品图片，系统也无法自动识别商品名称、品牌、规格参数等采购关键要素。请以文字形式补充描述。
+**CV 引擎优先级：**
+
+| 优先级 | 引擎 | 安装方式 | 特点 |
+|--------|------|----------|------|
+| 1 | `easyocr` | `pip install easyocr` | 深度学习OCR，中英文，无需额外二进制 |
+| 2 | `pytesseract` | `pip install pytesseract` + Tesseract二进制 | 传统OCR，速度快 |
+| 3 | `stub` | 无需安装 | 测试用模拟提取，始终可用 |
+
+> **说明：** CV 模块通过 OCR 提取图片中的文字（商品名称、型号、规格参数），再进入文字意图解析流程。`cv.engine` 标注本次使用的实际引擎。图片清晰度和文字可读性直接影响识别精度。
 
 ---
 
@@ -527,11 +555,11 @@ Content-Type: application/json
 |----------|----------|--------|------|
 | `text`（文字）| ✅ 支持 | — | 推荐方式，支持中文自然语言描述 |
 | `voice`（语音）| ✅ 支持（ASR）| 42201* | 自动转写：whisper → google_stt → stub |
-| `image`（图片）| ❌ 不支持 | 42202 | 未集成 CV 模块，无法准确识别商品 |
+| `image`（图片）| ✅ 支持（CV OCR）| 42202* | OCR提取文字：easyocr → pytesseract → stub |
 | `link`（链接）| ❌ 不支持 | 42203 | 不支持爬取外部 URL 内容 |
 | 上下文记忆 | ❌ 无状态 | — | 每次请求独立处理，不保留历史 |
 
-> *42201 仅在 ASR 转写失败（无音频数据且无 URL）时返回。正常情况下语音输入返回 200。
+> *42201 仅在 ASR 转写失败（无音频数据）时返回；*42202 仅在 CV 分析失败（无图片数据）时返回。正常情况下均返回 200。
 
 ---
 

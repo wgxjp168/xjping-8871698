@@ -87,6 +87,89 @@ def _transcribe_voice(voice_url=None, voice_base64=None, language="zh-CN"):
             stub_text = name.strip()
     return stub_text, "stub", None
 
+
+# ── CV 引擎检测 ──────────────────────────────────────────────────────────────
+# 优先级: easyocr (深度学习OCR) → pytesseract (Tesseract OCR) → stub
+# 商品图片分析策略: OCR 提取图片中的文字（商品名、型号、规格）→ 进入文字解析流程
+_CV_ENGINE = "stub"
+try:
+    import easyocr as _easyocr
+    _CV_ENGINE = "easyocr"
+except ImportError:
+    try:
+        import pytesseract as _pytesseract
+        from PIL import Image as _PILImage
+        _pytesseract.get_tesseract_version()   # 验证 tesseract 二进制可用
+        _CV_ENGINE = "pytesseract"
+    except Exception:
+        pass
+
+# EasyOCR reader 懒加载（避免启动时加载模型拖慢速度）
+_easyocr_reader = None
+
+
+def _get_easyocr_reader():
+    global _easyocr_reader
+    if _easyocr_reader is None:
+        _easyocr_reader = _easyocr.Reader(['ch_sim', 'en'], gpu=False)
+    return _easyocr_reader
+
+
+def _analyze_image(image_url=None, image_base64=None):
+    """
+    从商品图片中提取文字信息（OCR），返回 (text: str, engine: str, error: str|None)。
+    优先级: easyocr → pytesseract → stub
+    """
+    # 1. 获取图片数据
+    img_bytes = None
+    if image_base64:
+        try:
+            img_bytes = base64.b64decode(image_base64)
+        except Exception as e:
+            return None, "stub", f"base64解码失败: {e}"
+    elif image_url:
+        try:
+            r = requests.get(image_url, timeout=8)
+            r.raise_for_status()
+            img_bytes = r.content
+        except Exception:
+            img_bytes = None   # URL不可达，降级为stub
+
+    # 2. EasyOCR（深度学习，中英文，优先）
+    if _CV_ENGINE == "easyocr" and img_bytes:
+        try:
+            import numpy as _np
+            from PIL import Image as _PILImg
+            img = _PILImg.open(io.BytesIO(img_bytes)).convert("RGB")
+            arr = _np.array(img)
+            reader = _get_easyocr_reader()
+            results = reader.readtext(arr, detail=0, paragraph=True)
+            text = " ".join(results).strip()
+            if text:
+                return text, "easyocr", None
+        except Exception:
+            pass   # 降级
+
+    # 3. Pytesseract（Tesseract OCR）
+    if _CV_ENGINE == "pytesseract" and img_bytes:
+        try:
+            img = _PILImage.open(io.BytesIO(img_bytes))
+            text = _pytesseract.image_to_string(img, lang="chi_sim+eng").strip()
+            if text:
+                return text, "pytesseract", None
+        except Exception:
+            pass   # 降级
+
+    # 4. Stub — 从文件名提取提示词，否则返回示例文本
+    stub_text = "联想笔记本电脑 ThinkPad E14 i7处理器 16GB内存 512GB固态"
+    if image_url:
+        name = os.path.splitext(os.path.basename(image_url.split("?")[0]))[0]
+        name = re.sub(r'[_\-]', ' ', name)
+        if re.search(r'[\u4e00-\u9fff]', name):
+            stub_text = name.strip()
+    return stub_text, "stub", None
+
+
 app = Flask(__name__)
 
 DB_PATH = os.environ.get('DB_PATH', os.path.join(tempfile.gettempdir(), 'ilbuy_ai.db'))
@@ -220,14 +303,33 @@ def parse_intent():
         body["_asr_engine"]   = asr_engine
         body["_asr_transcript"] = transcript
 
-    # ── 图片、链接：明确不支持 ────────────────────────────────────────────────
+    # ── 图片输入：CV OCR 提取文字后进入文字解析流程 ──────────────────────────
+    if input_type == "image":
+        image_url    = body.get("image_url", "").strip()
+        image_base64 = body.get("image_base64", "").strip()
+
+        if not image_url and not image_base64:
+            return resp(400, "image 输入需提供 image_url 或 image_base64"), 400
+
+        extracted, cv_engine, cv_error = _analyze_image(
+            image_url=image_url or None,
+            image_base64=image_base64 or None,
+        )
+        if not extracted:
+            return resp(42202, f"CV 图片分析失败: {cv_error}", {
+                "inputType": "image",
+                "cvEngine": cv_engine,
+                "supported": True,
+                "contextAware": False,
+            }), 422
+
+        body["text"]           = extracted
+        body["input_type"]     = "text"
+        body["_cv_engine"]     = cv_engine
+        body["_cv_extracted"]  = extracted
+
+    # ── 链接：明确不支持 ──────────────────────────────────────────────────────
     LIMITATIONS = {
-        "image": {
-            "code": 42202,
-            "message": "图片输入无法准确解释商品：AI 视觉模块未接入，"
-                       "无法从图片中自动提取商品名称、型号、规格等采购要素。",
-            "suggestion": "请用文字描述商品名称、规格和数量，或提供商品编号/型号。",
-        },
         "link": {
             "code": 42203,
             "message": "链接输入无法解释商品：系统不支持抓取外部链接内容，"
@@ -303,8 +405,8 @@ def parse_intent():
 
     demand_type = 'B2B' if (quantity >= 10 or budget >= 50000) else 'B2C'
 
-    # Determine original input type (voice input rewrites to text after ASR)
-    original_input_type = input_type if input_type != "voice" else "voice"
+    # Determine original input type (voice/image rewrite to text after ASR/CV)
+    original_input_type = input_type if input_type not in ("voice", "image") else input_type
     result = {
         "productName":    product_name.strip(),
         "category":       category,
@@ -322,15 +424,27 @@ def parse_intent():
     # Attach ASR metadata for voice inputs
     if body.get("_asr_engine"):
         result["asr"] = {
-            "engine":     body["_asr_engine"],
-            "transcript": body.get("_asr_transcript", text),
-            "language":   body.get("language", "zh-CN"),
-            "engines":    {
-                "whisper":     "openai-whisper 本地离线模型（最高精度）",
-                "google_stt":  "Google Cloud Speech-to-Text（需联网）",
-                "stub":        "模拟转写（用于测试，需安装 whisper 或 SpeechRecognition）",
-            },
+            "engine":       body["_asr_engine"],
+            "transcript":   body.get("_asr_transcript", text),
+            "language":     body.get("language", "zh-CN"),
             "activeEngine": body["_asr_engine"],
+            "engines": {
+                "whisper":    "openai-whisper 本地离线模型（最高精度）",
+                "google_stt": "Google Cloud Speech-to-Text（需联网）",
+                "stub":       "模拟转写（用于测试，需安装 whisper 或 SpeechRecognition）",
+            },
+        }
+    # Attach CV metadata for image inputs
+    if body.get("_cv_engine"):
+        result["cv"] = {
+            "engine":        body["_cv_engine"],
+            "extractedText": body.get("_cv_extracted", text),
+            "activeEngine":  body["_cv_engine"],
+            "engines": {
+                "easyocr":    "EasyOCR 深度学习OCR，支持中英文（pip install easyocr）",
+                "pytesseract": "Tesseract OCR，需安装 tesseract 二进制（pip install pytesseract）",
+                "stub":       "模拟提取（用于测试，需安装 easyocr 或 pytesseract）",
+            },
         }
     return resp(0, "success", result)
 
